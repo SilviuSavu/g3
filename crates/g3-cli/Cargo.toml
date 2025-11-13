@@ -10,6 +10,7 @@ g3-config = { path = "../g3-config" }
 g3-planner = { path = "../g3-planner" }
 g3-providers = { path = "../g3-providers" }
 clap = { workspace = true }
+g3-ensembles = { path = "../g3-ensembles" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
