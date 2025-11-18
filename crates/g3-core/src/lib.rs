@@ -1004,9 +1004,9 @@ impl<W: UiWriter> Agent<W> {
     /// Convert cache config string to CacheControl enum
     fn parse_cache_control(cache_config: &str) -> Option<CacheControl> {
         match cache_config {
-            "ephemeral" => Some(CacheControl::Ephemeral),
-            "5minute" => Some(CacheControl::FiveMinute),
-            "1hour" => Some(CacheControl::OneHour),
+            "ephemeral" => Some(CacheControl::ephemeral()),
+            "5minute" => Some(CacheControl::five_minute()),
+            "1hour" => Some(CacheControl::one_hour()),
             _ => {
                 warn!("Invalid cache_config value: '{}'. Valid values are: ephemeral, 5minute, 1hour", cache_config);
                 None

@@ -172,15 +172,9 @@ impl AnthropicProvider {
         builder
     }
 
-    fn convert_cache_control(cache_control: &crate::CacheControl) -> AnthropicCacheControl {
-        let cache_type = match cache_control {
-            crate::CacheControl::Ephemeral => "ephemeral",
-            crate::CacheControl::FiveMinute => "5minute", 
-            crate::CacheControl::OneHour => "1hour",
-        };
-        AnthropicCacheControl {
-            cache_type: cache_type.to_string(),
-        }
+    fn convert_cache_control(cache_control: &crate::CacheControl) -> crate::CacheControl {
+        // Anthropic uses the same format, so just clone it
+        cache_control.clone()
     }
 
     fn convert_tools(&self, tools: &[Tool]) -> Vec<AnthropicTool> {
@@ -724,19 +718,13 @@ struct AnthropicMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct AnthropicCacheControl {
-    #[serde(rename = "type")]
-    cache_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 enum AnthropicContent {
     #[serde(rename = "text")]
     Text { 
         text: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        cache_control: Option<AnthropicCacheControl>,
+        cache_control: Option<crate::CacheControl>,
     },
     #[serde(rename = "tool_use")]
     ToolUse {
@@ -916,7 +904,7 @@ mod tests {
         let messages_with = vec![Message::with_cache_control(
             MessageRole::User,
             "Hello".to_string(),
-            crate::CacheControl::Ephemeral,
+            crate::CacheControl::ephemeral(),
         )];
         let (_, anthropic_messages_with) = provider.convert_messages(&messages_with).unwrap();
         let json_with = serde_json::to_string(&anthropic_messages_with).unwrap();

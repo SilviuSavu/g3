@@ -38,13 +38,31 @@ pub struct CompletionRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheControl {
+    #[serde(rename = "type")]
+    pub cache_type: CacheType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
-pub enum CacheControl {
+pub enum CacheType {
     Ephemeral,
-    #[serde(rename = "5minute")]
-    FiveMinute,
-    #[serde(rename = "1hour")]
-    OneHour,
+}
+
+impl CacheControl {
+    pub fn ephemeral() -> Self {
+        Self { cache_type: CacheType::Ephemeral, ttl: None }
+    }
+    
+    pub fn five_minute() -> Self {
+        Self { cache_type: CacheType::Ephemeral, ttl: Some("5m".to_string()) }
+    }
+    
+    pub fn one_hour() -> Self {
+        Self { cache_type: CacheType::Ephemeral, ttl: Some("1h".to_string()) }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -220,7 +238,7 @@ mod tests {
         let msg = Message::with_cache_control(
             MessageRole::User,
             "Hello".to_string(),
-            CacheControl::Ephemeral,
+            CacheControl::ephemeral(),
         );
         let json = serde_json::to_string(&msg).unwrap();
         
@@ -229,7 +247,39 @@ mod tests {
                 "JSON should contain 'cache_control' field when configured");
         assert!(json.contains("ephemeral"), 
                 "JSON should contain 'ephemeral' value");
+        assert!(json.contains("\"type\":"), 
+                "JSON should contain 'type' field in cache_control");
         assert!(!json.contains("null"), 
                 "JSON should not contain null values");
+    }
+
+    #[test]
+    fn test_cache_control_five_minute_serialization() {
+        let msg = Message::with_cache_control(
+            MessageRole::User,
+            "Hello".to_string(),
+            CacheControl::five_minute(),
+        );
+        let json = serde_json::to_string(&msg).unwrap();
+        
+        println!("Message JSON with 5-minute cache_control: {}", json);
+        assert!(json.contains("cache_control"), "JSON should contain 'cache_control' field");
+        assert!(json.contains("ephemeral"), "JSON should contain 'ephemeral' type");
+        assert!(json.contains("\"ttl\":\"5m\""), "JSON should contain ttl field with 5m value");
+    }
+
+    #[test]
+    fn test_cache_control_one_hour_serialization() {
+        let msg = Message::with_cache_control(
+            MessageRole::User,
+            "Hello".to_string(),
+            CacheControl::one_hour(),
+        );
+        let json = serde_json::to_string(&msg).unwrap();
+        
+        println!("Message JSON with 1-hour cache_control: {}", json);
+        assert!(json.contains("cache_control"), "JSON should contain 'cache_control' field");
+        assert!(json.contains("ephemeral"), "JSON should contain 'ephemeral' type");
+        assert!(json.contains("\"ttl\":\"1h\""), "JSON should contain ttl field with 1h value");
     }
 }

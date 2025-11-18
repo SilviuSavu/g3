@@ -238,13 +238,9 @@ impl DatabricksProvider {
             .collect()
     }
 
-    fn convert_cache_control(cache_control: &crate::CacheControl) -> DatabricksCacheControl {
-        let cache_type = match cache_control {
-            crate::CacheControl::Ephemeral => "ephemeral",
-            crate::CacheControl::FiveMinute => "5minute",
-            crate::CacheControl::OneHour => "1hour",
-        };
-        DatabricksCacheControl { cache_type: cache_type.to_string() }
+    fn convert_cache_control(cache_control: &crate::CacheControl) -> crate::CacheControl {
+        // Databricks uses the same format, so just clone it
+        cache_control.clone()
     }
 
     fn convert_messages(&self, messages: &[Message]) -> Result<Vec<DatabricksMessage>> {
@@ -1105,12 +1101,6 @@ struct DatabricksFunction {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct DatabricksCacheControl {
-    #[serde(rename = "type")]
-    cache_type: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 enum DatabricksContent {
     Text {
@@ -1118,7 +1108,7 @@ enum DatabricksContent {
         content_type: String,
         text: String,
         #[serde(skip_serializing_if = "Option::is_none")]
-        cache_control: Option<DatabricksCacheControl>,
+        cache_control: Option<crate::CacheControl>,
     },
 }
 
@@ -1345,7 +1335,7 @@ mod tests {
         let messages_with = vec![Message::with_cache_control(
             MessageRole::User,
             "Hello".to_string(),
-            crate::CacheControl::Ephemeral,
+            crate::CacheControl::ephemeral(),
         )];
         let databricks_messages_with = provider.convert_messages(&messages_with).unwrap();
         let json_with = serde_json::to_string(&databricks_messages_with).unwrap();
