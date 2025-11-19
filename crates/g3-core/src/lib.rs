@@ -27,10 +27,14 @@ use g3_computer_control::WebDriverController;
 use g3_config::Config;
 use g3_execution::CodeExecutor;
 use g3_providers::{CacheControl, CompletionRequest, Message, MessageRole, ProviderRegistry, Tool};
+use chrono::Local;
 #[allow(unused_imports)]
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -1212,6 +1216,63 @@ impl<W: UiWriter> Agent<W> {
         );
 
         Ok(context_length)
+    }
+
+    fn tool_log_handle() -> Option<&'static Mutex<std::fs::File>> {
+        static TOOL_LOG: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
+
+        TOOL_LOG
+            .get_or_init(|| {
+                if let Err(e) = std::fs::create_dir_all("logs") {
+                    error!("Failed to create logs directory for tool log: {}", e);
+                    return None;
+                }
+
+                let ts = Local::now().format("%Y%m%d_%H%M%S").to_string();
+                let path = format!("logs/tool_calls_{}.log", ts);
+
+                match OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)
+                {
+                    Ok(file) => Some(Mutex::new(file)),
+                    Err(e) => {
+                        error!("Failed to open tool log file {}: {}", path, e);
+                        None
+                    }
+                }
+            })
+            .as_ref()
+    }
+
+    fn log_tool_call(&self, tool_call: &ToolCall, response: &str) {
+        if let Some(handle) = Self::tool_log_handle() {
+            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let args_str = serde_json::to_string(&tool_call.args)
+                .unwrap_or_else(|_| "<unserializable>".to_string());
+
+            fn sanitize(s: &str) -> String {
+                s.replace('\n', "\\n")
+            }
+            fn truncate(s: &str, limit: usize) -> String {
+                s.chars().take(limit).collect()
+            }
+
+            let args_snippet = truncate(&sanitize(&args_str), 80);
+            let response_snippet = truncate(&sanitize(response), 80);
+
+            let tool_field = format!("{:<15}", tool_call.tool);
+            let line = format!(
+                "{}  {}  {} 🟩 {}\n",
+                timestamp, tool_field, args_snippet, response_snippet
+            );
+
+            if let Ok(mut file) = handle.lock() {
+                let _ = file.write_all(line.as_bytes());
+                let _ = file.flush();
+            }
+        }
     }
 
     pub fn get_provider_info(&self) -> Result<(String, String)> {
@@ -3503,7 +3564,17 @@ impl<W: UiWriter> Agent<W> {
     pub async fn execute_tool(&mut self, tool_call: &ToolCall) -> Result<String> {
         // Increment tool call count
         self.tool_call_count += 1;
-        
+
+        let result = self.execute_tool_inner(tool_call).await;
+        let log_str = match &result {
+            Ok(s) => s.clone(),
+            Err(e) => format!("ERROR: {}", e),
+        };
+        self.log_tool_call(tool_call, &log_str);
+        result
+    }
+
+    async fn execute_tool_inner(&mut self, tool_call: &ToolCall) -> Result<String> {
         debug!("=== EXECUTING TOOL ===");
         debug!("Tool name: {}", tool_call.tool);
         debug!("Tool args (raw): {:?}", tool_call.args);
