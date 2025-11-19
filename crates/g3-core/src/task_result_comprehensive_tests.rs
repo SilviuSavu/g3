@@ -6,14 +6,10 @@ use std::sync::Arc;
 fn test_task_result_basic_functionality() {
     // Create a context window with some messages
     let mut context = ContextWindow::new(10000);
-    context.add_message(Message {
-        role: MessageRole::User,
-        content: "Test message 1".to_string(),
-    });
-    context.add_message(Message {
-        role: MessageRole::Assistant,
-        content: "Response 1".to_string(),
-    });
+    context.add_message(Message::new(MessageRole::User, "Test message 1".to_string())
+    );
+    context.add_message(Message::new(MessageRole::Assistant, "Response 1".to_string())
+    );
     
     // Create a TaskResult
     let response = "This is the response\n\nFinal output block".to_string();
@@ -100,10 +96,7 @@ fn test_context_window_preservation() {
     
     // Add some messages
     for i in 0..5 {
-        context.add_message(Message {
-            role: if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant },
-            content: format!("Message {}", i),
-        });
+        context.add_message(Message::new(if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant }, format!("Message {}", i)));
     }
     
     // Create TaskResult

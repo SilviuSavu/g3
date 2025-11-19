@@ -39,10 +39,7 @@
 //!     // Create a completion request
 //!     let request = CompletionRequest {
 //!         messages: vec![
-//!             Message {
-//!                 role: MessageRole::User,
-//!                 content: "Hello! How are you?".to_string(),
-//!             },
+//!             Message::new(MessageRole::User, "Hello! How are you?".to_string()),
 //!         ],
 //!         max_tokens: Some(1000),
 //!         temperature: Some(0.7),
@@ -251,9 +248,12 @@ impl DatabricksProvider {
                 MessageRole::Assistant => "assistant",
             };
 
+            // Always use simple string format (Databricks doesn't support cache_control)
+            let content = serde_json::Value::String(message.content.clone());
+
             databricks_messages.push(DatabricksMessage {
                 role: role.to_string(),
-                content: Some(message.content.clone()),
+                content: Some(content),
                 tool_calls: None, // Only used in responses, not requests
             });
         }
@@ -864,8 +864,22 @@ impl LLMProvider for DatabricksProvider {
         let content = databricks_response
             .choices
             .first()
-            .and_then(|choice| choice.message.content.as_ref())
-            .cloned()
+            .and_then(|choice| {
+                choice.message.content.as_ref().map(|c| {
+                    // Handle both string and array formats
+                    if let Some(s) = c.as_str() {
+                        s.to_string()
+                    } else if let Some(arr) = c.as_array() {
+                        // Extract text from content blocks
+                        arr.iter()
+                            .filter_map(|block| block.get("text").and_then(|t| t.as_str()))
+                            .collect::<Vec<_>>()
+                            .join("")
+                    } else {
+                        String::new()
+                    }
+                })
+            })
             .unwrap_or_default();
 
         // Check if there are tool calls in the response
@@ -1037,6 +1051,10 @@ impl LLMProvider for DatabricksProvider {
         // This includes Claude, Llama, DBRX, and most other models on the platform
         true
     }
+    
+    fn supports_cache_control(&self) -> bool {
+        false
+    }
 }
 
 // Databricks API request/response structures
@@ -1067,7 +1085,8 @@ struct DatabricksFunction {
 #[derive(Debug, Serialize, Deserialize)]
 struct DatabricksMessage {
     role: String,
-    content: Option<String>, // Make content optional since tool calls might not have content
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<serde_json::Value>, // Can be string or array of content blocks
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_calls: Option<Vec<DatabricksToolCall>>, // Add tool_calls field for responses
 }
@@ -1154,18 +1173,9 @@ mod tests {
         .unwrap();
 
         let messages = vec![
-            Message {
-                role: MessageRole::System,
-                content: "You are a helpful assistant.".to_string(),
-            },
-            Message {
-                role: MessageRole::User,
-                content: "Hello!".to_string(),
-            },
-            Message {
-                role: MessageRole::Assistant,
-                content: "Hi there!".to_string(),
-            },
+            Message::new(MessageRole::System, "You are a helpful assistant.".to_string()),
+            Message::new(MessageRole::User, "Hello!".to_string()),
+            Message::new(MessageRole::Assistant, "Hi there!".to_string()),
         ];
 
         let databricks_messages = provider.convert_messages(&messages).unwrap();
@@ -1187,10 +1197,7 @@ mod tests {
         )
         .unwrap();
 
-        let messages = vec![Message {
-            role: MessageRole::User,
-            content: "Test message".to_string(),
-        }];
+        let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
 
         let request_body = provider
             .create_request_body(&messages, None, false, 1000, 0.5)
@@ -1272,5 +1279,63 @@ mod tests {
         assert!(claude_provider.has_native_tool_calling());
         assert!(llama_provider.has_native_tool_calling());
         assert!(dbrx_provider.has_native_tool_calling());
+    }
+
+    #[test]
+    fn test_cache_control_serialization() {
+        let provider = DatabricksProvider::from_token(
+            "https://test.databricks.com".to_string(),
+            "test-token".to_string(),
+            "databricks-claude-sonnet-4".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        // Test message WITHOUT cache_control
+        let messages_without = vec![Message::new(MessageRole::User, "Hello".to_string())];
+        let databricks_messages_without = provider.convert_messages(&messages_without).unwrap();
+        let json_without = serde_json::to_string(&databricks_messages_without).unwrap();
+        
+        println!("JSON without cache_control: {}", json_without);
+        assert!(!json_without.contains("cache_control"), 
+                "JSON should not contain 'cache_control' field when not configured");
+
+        // Test message WITH cache_control - should still NOT include it (Databricks doesn't support it)
+        let messages_with = vec![Message::with_cache_control(
+            MessageRole::User,
+            "Hello".to_string(),
+            crate::CacheControl::ephemeral(),
+        )];
+        let databricks_messages_with = provider.convert_messages(&messages_with).unwrap();
+        let json_with = serde_json::to_string(&databricks_messages_with).unwrap();
+        
+        println!("JSON with cache_control: {}", json_with);
+        assert!(!json_with.contains("cache_control"), 
+                "JSON should NOT contain 'cache_control' field - Databricks doesn't support it");
+    }
+
+    #[test]
+    fn test_databricks_does_not_support_cache_control() {
+        let claude_provider = DatabricksProvider::from_token(
+            "https://test.databricks.com".to_string(),
+            "test-token".to_string(),
+            "databricks-claude-sonnet-4".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let llama_provider = DatabricksProvider::from_token(
+            "https://test.databricks.com".to_string(),
+            "test-token".to_string(),
+            "databricks-meta-llama-3-3-70b-instruct".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(!claude_provider.supports_cache_control(), "Databricks should not support cache_control even for Claude models");
+        assert!(!llama_provider.supports_cache_control(), "Databricks should not support cache_control for Llama models");
     }
 }
