@@ -238,11 +238,6 @@ impl DatabricksProvider {
             .collect()
     }
 
-    fn convert_cache_control(cache_control: &crate::CacheControl) -> crate::CacheControl {
-        // Databricks uses the same format, so just clone it
-        cache_control.clone()
-    }
-
     fn convert_messages(&self, messages: &[Message]) -> Result<Vec<DatabricksMessage>> {
         let mut databricks_messages = Vec::new();
 
@@ -253,20 +248,8 @@ impl DatabricksProvider {
                 MessageRole::Assistant => "assistant",
             };
 
-            // If message has cache_control, use content array format
-            let content = if message.cache_control.is_some() {
-                // Use array format with cache_control
-                let content_block = DatabricksContent::Text {
-                    content_type: "text".to_string(),
-                    text: message.content.clone(),
-                    cache_control: message.cache_control.as_ref()
-                        .map(Self::convert_cache_control),
-                };
-                serde_json::to_value(vec![content_block])?
-            } else {
-                // Use simple string format
-                serde_json::Value::String(message.content.clone())
-            };
+            // Always use simple string format (Databricks doesn't support cache_control)
+            let content = serde_json::Value::String(message.content.clone());
 
             databricks_messages.push(DatabricksMessage {
                 role: role.to_string(),
@@ -1070,8 +1053,7 @@ impl LLMProvider for DatabricksProvider {
     }
     
     fn supports_cache_control(&self) -> bool {
-        // Databricks supports cache control when using Anthropic models
-        self.model.contains("claude")
+        false
     }
 }
 
@@ -1098,18 +1080,6 @@ struct DatabricksFunction {
     name: String,
     description: String,
     parameters: serde_json::Value,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-enum DatabricksContent {
-    Text {
-        #[serde(rename = "type")]
-        content_type: String,
-        text: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        cache_control: Option<crate::CacheControl>,
-    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1322,7 +1292,7 @@ mod tests {
         )
         .unwrap();
 
-        // Test message WITHOUT cache_control - should use string format
+        // Test message WITHOUT cache_control
         let messages_without = vec![Message::new(MessageRole::User, "Hello".to_string())];
         let databricks_messages_without = provider.convert_messages(&messages_without).unwrap();
         let json_without = serde_json::to_string(&databricks_messages_without).unwrap();
@@ -1331,7 +1301,7 @@ mod tests {
         assert!(!json_without.contains("cache_control"), 
                 "JSON should not contain 'cache_control' field when not configured");
 
-        // Test message WITH cache_control - should use array format
+        // Test message WITH cache_control - should still NOT include it (Databricks doesn't support it)
         let messages_with = vec![Message::with_cache_control(
             MessageRole::User,
             "Hello".to_string(),
@@ -1341,22 +1311,31 @@ mod tests {
         let json_with = serde_json::to_string(&databricks_messages_with).unwrap();
         
         println!("JSON with cache_control: {}", json_with);
-        assert!(json_with.contains("cache_control"), 
-                "JSON should contain 'cache_control' field when configured");
-        assert!(json_with.contains("ephemeral"), 
-                "JSON should contain 'ephemeral' type");
-        assert!(!json_with.contains("null"), 
-                "JSON should not contain null values");
+        assert!(!json_with.contains("cache_control"), 
+                "JSON should NOT contain 'cache_control' field - Databricks doesn't support it");
+    }
 
-        // Verify the structure is correct
-        let msg_with = &databricks_messages_with[0];
-        if let Some(content) = &msg_with.content {
-            if let Some(arr) = content.as_array() {
-                assert_eq!(arr.len(), 1, "Content array should have one element");
-                assert!(arr[0].get("cache_control").is_some(), "Content should have cache_control");
-            } else {
-                panic!("Content should be an array when cache_control is present");
-            }
-        }
+    #[test]
+    fn test_databricks_does_not_support_cache_control() {
+        let claude_provider = DatabricksProvider::from_token(
+            "https://test.databricks.com".to_string(),
+            "test-token".to_string(),
+            "databricks-claude-sonnet-4".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let llama_provider = DatabricksProvider::from_token(
+            "https://test.databricks.com".to_string(),
+            "test-token".to_string(),
+            "databricks-meta-llama-3-3-70b-instruct".to_string(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert!(!claude_provider.supports_cache_control(), "Databricks should not support cache_control even for Claude models");
+        assert!(!llama_provider.supports_cache_control(), "Databricks should not support cache_control for Llama models");
     }
 }

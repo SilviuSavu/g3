@@ -1513,15 +1513,6 @@ If you can complete it with 1-2 tool calls, skip TODO.
                     "anthropic" => self.config.providers.anthropic.as_ref()
                         .and_then(|c| c.cache_config.as_ref())
                         .and_then(|config| Self::parse_cache_control(config)),
-                    "databricks" => self.config.providers.databricks.as_ref()
-                        .and_then(|c| {
-                            if c.model.contains("claude") {
-                                c.cache_config.as_ref()
-                                    .and_then(|config| Self::parse_cache_control(config))
-                            } else {
-                                None
-                            }
-                        }),
                     _ => None,
                 } {
                     let provider = self.providers.get(None)?;
@@ -1621,15 +1612,6 @@ If you can complete it with 1-2 tool calls, skip TODO.
                         "anthropic" => self.config.providers.anthropic.as_ref()
                             .and_then(|c| c.cache_config.as_ref())
                             .and_then(|config| Self::parse_cache_control(config)),
-                        "databricks" => self.config.providers.databricks.as_ref()
-                            .and_then(|c| {
-                                if c.model.contains("claude") {
-                                    c.cache_config.as_ref()
-                                        .and_then(|config| Self::parse_cache_control(config))
-                                } else {
-                                    None
-                                }
-                            }),
                         _ => None,
                     } {
                         Message::with_cache_control_validated(MessageRole::Assistant, response_content.clone(), cache_config, provider)
@@ -3680,15 +3662,6 @@ If you can complete it with 1-2 tool calls, skip TODO.
                                     "anthropic" => self.config.providers.anthropic.as_ref()
                                         .and_then(|c| c.cache_config.as_ref())
                                         .and_then(|config| Self::parse_cache_control(config)),
-                                    "databricks" => self.config.providers.databricks.as_ref()
-                                        .and_then(|c| {
-                                            if c.model.contains("claude") {
-                                                c.cache_config.as_ref()
-                                                    .and_then(|config| Self::parse_cache_control(config))
-                                            } else {
-                                                None
-                                            }
-                                        }),
                                     _ => None,
                                 } {
                                     Message::with_cache_control_validated(MessageRole::Assistant, raw_clean, cache_config, provider)

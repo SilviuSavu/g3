@@ -51,7 +51,6 @@ pub struct DatabricksConfig {
     pub model: String,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
-    pub cache_config: Option<String>, // "ephemeral", "5minute", "1hour", or None to disable
     pub use_oauth: Option<bool>, // Default to true if token not provided
 }
 
@@ -135,7 +134,6 @@ impl Default for Config {
                     model: "databricks-claude-sonnet-4".to_string(),
                     max_tokens: Some(4096),
                     temperature: Some(0.1),
-                    cache_config: None,
                     use_oauth: Some(true),
                 }),
                 embedded: None,
