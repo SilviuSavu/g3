@@ -27,7 +27,7 @@ fn get_todo_path(temp_dir: &TempDir) -> PathBuf {
 #[serial]
 async fn test_todo_write_creates_file() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     let todo_path = get_todo_path(&temp_dir);
     
     // Initially, todo.g3.md should not exist
@@ -67,7 +67,7 @@ async fn test_todo_read_from_file() {
     fs::write(&todo_path, test_content).unwrap();
     
     // Create agent (should load from file)
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     
     // Create a tool call to read TODO
     let tool_call = g3_core::ToolCall {
@@ -88,7 +88,7 @@ async fn test_todo_read_from_file() {
 #[serial]
 async fn test_todo_read_empty_file() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     
     // Create a tool call to read TODO (file doesn't exist)
     let tool_call = g3_core::ToolCall {
@@ -111,7 +111,7 @@ async fn test_todo_persistence_across_agents() {
     
     // Agent 1: Write TODO
     {
-        let agent = create_test_agent_in_dir(&temp_dir).await;
+        let mut agent = create_test_agent_in_dir(&temp_dir).await;
         let tool_call = g3_core::ToolCall {
             tool: "todo_write".to_string(),
             args: serde_json::json!({
@@ -126,7 +126,7 @@ async fn test_todo_persistence_across_agents() {
     
     // Agent 2: Read TODO (new agent instance)
     {
-        let agent = create_test_agent_in_dir(&temp_dir).await;
+        let mut agent = create_test_agent_in_dir(&temp_dir).await;
         let tool_call = g3_core::ToolCall {
             tool: "todo_read".to_string(),
             args: serde_json::json!({}),
@@ -143,7 +143,7 @@ async fn test_todo_persistence_across_agents() {
 #[serial]
 async fn test_todo_update_preserves_file() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     let todo_path = get_todo_path(&temp_dir);
     
     // Write initial TODO
@@ -173,7 +173,7 @@ async fn test_todo_update_preserves_file() {
 #[serial]
 async fn test_todo_handles_large_content() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     let todo_path = get_todo_path(&temp_dir);
     
     // Create a large TODO (but under the 50k limit)
@@ -202,7 +202,7 @@ async fn test_todo_handles_large_content() {
 #[serial]
 async fn test_todo_respects_size_limit() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     
     // Create content that exceeds the default 50k limit
     let huge_content = "x".repeat(60_000);
@@ -232,7 +232,7 @@ async fn test_todo_agent_initialization_loads_file() {
     fs::write(&todo_path, initial_content).unwrap();
     
     // Create agent - should load the file during initialization
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     
     // Read TODO - should return the pre-existing content
     let tool_call = g3_core::ToolCall {
@@ -248,7 +248,7 @@ async fn test_todo_agent_initialization_loads_file() {
 #[serial]
 async fn test_todo_handles_unicode_content() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     let todo_path = get_todo_path(&temp_dir);
     
     // Create TODO with unicode characters
@@ -283,7 +283,7 @@ async fn test_todo_handles_unicode_content() {
 #[serial]
 async fn test_todo_empty_content_creates_empty_file() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     let todo_path = get_todo_path(&temp_dir);
     
     // Write empty TODO
@@ -306,7 +306,7 @@ async fn test_todo_empty_content_creates_empty_file() {
 #[serial]
 async fn test_todo_whitespace_only_content() {
     let temp_dir = TempDir::new().unwrap();
-    let agent = create_test_agent_in_dir(&temp_dir).await;
+    let mut agent = create_test_agent_in_dir(&temp_dir).await;
     
     // Write whitespace-only TODO
     let tool_call = g3_core::ToolCall {

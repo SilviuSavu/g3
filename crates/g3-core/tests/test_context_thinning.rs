@@ -46,10 +46,10 @@ fn test_thin_context_basic() {
     // Add some messages to the first third
     for i in 0..9 {
         if i % 2 == 0 {
-            context.add_message(Message {
-                role: MessageRole::Assistant,
-                content: format!("Assistant message {}", i),
-            });
+            context.add_message(Message::new(
+                MessageRole::Assistant,
+                format!("Assistant message {}", i),
+            ));
         } else {
             // Add tool results with varying sizes
             let content = if i == 1 {
@@ -63,10 +63,10 @@ fn test_thin_context_basic() {
                 format!("Tool result: small result {}", i)
             };
             
-            context.add_message(Message {
-                role: MessageRole::User,
+            context.add_message(Message::new(
+                MessageRole::User,
                 content,
-            });
+            ));
         }
     }
     
@@ -98,10 +98,10 @@ fn test_thin_write_file_tool_calls() {
     let mut context = ContextWindow::new(10000);
     
     // Add some messages including a write_file tool call with large content
-    context.add_message(Message {
-        role: MessageRole::User,
-        content: "Please create a large file".to_string(),
-    });
+    context.add_message(Message::new(
+        MessageRole::User,
+        "Please create a large file".to_string(),
+    ));
     
     // Add an assistant message with a write_file tool call containing large content
     let large_content = "x".repeat(1500);
@@ -109,22 +109,22 @@ fn test_thin_write_file_tool_calls() {
         r#"{{"tool": "write_file", "args": {{"file_path": "test.txt", "content": "{}"}}}}"#,
         large_content
     );
-    context.add_message(Message {
-        role: MessageRole::Assistant,
-        content: format!("I'll create that file.\n\n{}", tool_call_json),
-    });
+    context.add_message(Message::new(
+        MessageRole::Assistant,
+        format!("I'll create that file.\n\n{}", tool_call_json),
+    ));
     
-    context.add_message(Message {
-        role: MessageRole::User,
-        content: "Tool result: ✅ Successfully wrote 1500 lines".to_string(),
-    });
+    context.add_message(Message::new(
+        MessageRole::User,
+        "Tool result: ✅ Successfully wrote 1500 lines".to_string(),
+    ));
     
     // Add more messages to ensure we have enough for "first third" logic
     for i in 0..6 {
-        context.add_message(Message {
-            role: MessageRole::Assistant,
-            content: format!("Response {}", i),
-        });
+        context.add_message(Message::new(
+            MessageRole::Assistant,
+            format!("Response {}", i),
+        ));
     }
     
     // Trigger thinning at 50%
@@ -154,10 +154,10 @@ fn test_thin_str_replace_tool_calls() {
     let mut context = ContextWindow::new(10000);
     
     // Add some messages including a str_replace tool call with large diff
-    context.add_message(Message {
-        role: MessageRole::User,
-        content: "Please update the file".to_string(),
-    });
+    context.add_message(Message::new(
+        MessageRole::User,
+        "Please update the file".to_string(),
+    ));
     
     // Add an assistant message with a str_replace tool call containing large diff
     let large_diff = format!("--- old\n{}\n+++ new\n{}", "-old line\n".repeat(100), "+new line\n".repeat(100));
@@ -165,22 +165,22 @@ fn test_thin_str_replace_tool_calls() {
         r#"{{"tool": "str_replace", "args": {{"file_path": "test.txt", "diff": "{}"}}}}"#,
         large_diff.replace('\n', "\\n")
     );
-    context.add_message(Message {
-        role: MessageRole::Assistant,
-        content: format!("I'll update that file.\n\n{}", tool_call_json),
-    });
+    context.add_message(Message::new(
+        MessageRole::Assistant,
+        format!("I'll update that file.\n\n{}", tool_call_json),
+    ));
     
-    context.add_message(Message {
-        role: MessageRole::User,
-        content: "Tool result: ✅ applied unified diff".to_string(),
-    });
+    context.add_message(Message::new(
+        MessageRole::User,
+        "Tool result: ✅ applied unified diff".to_string(),
+    ));
     
     // Add more messages to ensure we have enough for "first third" logic
     for i in 0..6 {
-        context.add_message(Message {
-            role: MessageRole::Assistant,
-            content: format!("Response {}", i),
-        });
+        context.add_message(Message::new(
+            MessageRole::Assistant,
+            format!("Response {}", i),
+        ));
     }
     
     // Trigger thinning at 50%
@@ -212,10 +212,10 @@ fn test_thin_context_no_large_results() {
     
     // Add only small messages
     for i in 0..9 {
-        context.add_message(Message {
-            role: MessageRole::User,
-            content: format!("Tool result: small {}", i),
-        });
+        context.add_message(Message::new(
+            MessageRole::User,
+            format!("Tool result: small {}", i),
+        ));
     }
     
     context.used_tokens = 5000;
@@ -244,7 +244,7 @@ fn test_thin_context_only_affects_first_third() {
             MessageRole::Assistant
         };
         
-        context.add_message(Message { role, content });
+        context.add_message(Message::new(role, content));
     }
     
     context.used_tokens = 5000;
