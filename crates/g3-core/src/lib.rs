@@ -3,6 +3,8 @@ pub mod error_handling;
 pub mod project;
 pub mod task_result;
 pub mod ui_writer;
+
+use std::process::exit;
 pub use task_result::TaskResult;
 
 #[cfg(test)]
@@ -1528,6 +1530,7 @@ If you can complete it with 1-2 tool calls, skip TODO.
                     Message::new(MessageRole::System, system_prompt)
                 }
             };
+
             self.context_window.add_message(system_message);
         }
 
