@@ -3029,9 +3029,6 @@ impl<W: UiWriter> Agent<W> {
                                 let mut modified_tool_call = tool_call.clone();
                                 modified_tool_call.tool = prefixed_tool_name;
                                 self.log_tool_call(&modified_tool_call, &warning_msg);
-                                
-                                // Show warning to user
-                                self.ui_writer.print_tool_output_line(&warning_msg);
                                 continue; // Skip execution of duplicate
                             }
                             
