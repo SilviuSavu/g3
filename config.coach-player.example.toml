@@ -34,3 +34,4 @@ temperature = 0.3  # Slightly higher temperature for more creative implementatio
 fallback_default_max_tokens = 8192
 enable_streaming = true
 timeout_seconds = 60
+allow_multiple_tool_calls = true  # Enable multiple tool calls, will usually only work with Anthropic

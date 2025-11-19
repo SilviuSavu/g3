@@ -38,7 +38,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
-use prompts::{SYSTEM_PROMPT_FOR_NON_NATIVE_TOOL_USE, SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE};
+use prompts::{SYSTEM_PROMPT_FOR_NON_NATIVE_TOOL_USE, get_system_prompt_for_native};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
@@ -2790,8 +2790,12 @@ impl<W: UiWriter> Agent<W> {
                 tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
             }
 
-            let provider = self.providers.get(None)?;
-            debug!("Got provider: {}", provider.name());
+            // Get provider info for logging, then drop it to avoid borrow issues
+            let (provider_name, provider_model) = {
+                let provider = self.providers.get(None)?;
+                (provider.name().to_string(), provider.model().to_string())
+            };
+            debug!("Got provider: {}", provider_name);
 
             // Create error context for detailed logging
             let last_prompt = request
@@ -2804,8 +2808,8 @@ impl<W: UiWriter> Agent<W> {
 
             let error_context = ErrorContext::new(
                 "stream_completion".to_string(),
-                provider.name().to_string(),
-                provider.model().to_string(),
+                provider_name.clone(),
+                provider_model.clone(),
                 last_prompt,
                 self.session_id.clone(),
                 self.context_window.used_tokens,
@@ -2818,8 +2822,8 @@ impl<W: UiWriter> Agent<W> {
 
             // Log initial request details
             debug!("Starting stream with provider={}, model={}, messages={}, tools={}, max_tokens={:?}",
-                provider.name(),
-                provider.model(),
+                provider_name,
+                provider_model,
                 request.messages.len(),
                 request.tools.is_some(),
                 request.max_tokens
@@ -2909,9 +2913,127 @@ impl<W: UiWriter> Agent<W> {
                         // Process chunk with the new parser
                         let completed_tools = parser.process_chunk(&chunk);
 
-                        // Handle completed tool calls
-                        if let Some(tool_call) = completed_tools.into_iter().next() {
+                        // Handle completed tool calls - process all if multiple calls enabled
+                        let tools_to_process: Vec<ToolCall> = if self.config.agent.allow_multiple_tool_calls {
+                            completed_tools
+                        } else {
+                            // Original behavior - only take the first tool
+                            completed_tools.into_iter().take(1).collect()
+                        };
+
+                        // Helper function to check if two tool calls are duplicates
+                        let are_duplicates = |tc1: &ToolCall, tc2: &ToolCall| -> bool {
+                            tc1.tool == tc2.tool && tc1.args == tc2.args
+                        };
+
+                        // De-duplicate tool calls and track duplicates
+                        let mut seen_in_chunk: Vec<ToolCall> = Vec::new();
+                        let mut deduplicated_tools: Vec<(ToolCall, Option<String>)> = Vec::new();
+                        
+                        for tool_call in tools_to_process {
+                            let mut duplicate_type = None;
+                            
+                            // Check for duplicates in current chunk
+                            if seen_in_chunk.iter().any(|tc| are_duplicates(tc, &tool_call)) {
+                                duplicate_type = Some("DUP IN CHUNK".to_string());
+                            } else {
+                                // Check for duplicate against previous message in history
+                                // Look at the last assistant message that contains tool calls
+                                let mut found_in_prev = false;
+                                for msg in self.context_window.conversation_history.iter().rev() {
+                                    if matches!(msg.role, MessageRole::Assistant) {
+                                        // Try to parse tool calls from the message content
+                                        if msg.content.contains(r#"\"tool\""#) {
+                                            // Simple JSON extraction for tool calls
+                                            let content = &msg.content;
+                                            let mut start_idx = 0;
+                                            while let Some(tool_start) = content[start_idx..].find(r#"{\"tool\""#) {
+                                                let tool_start = start_idx + tool_start;
+                                                // Find the end of this JSON object
+                                                let mut brace_count = 0;
+                                                let mut in_string = false;
+                                                let mut escape_next = false;
+                                                let mut end_idx = tool_start;
+                                                
+                                                for (i, ch) in content[tool_start..].char_indices() {
+                                                    if escape_next {
+                                                        escape_next = false;
+                                                        continue;
+                                                    }
+                                                    if ch == '\\' && in_string {
+                                                        escape_next = true;
+                                                        continue;
+                                                    }
+                                                    if ch == '"' && !escape_next {
+                                                        in_string = !in_string;
+                                                    }
+                                                    if !in_string {
+                                                        if ch == '{' {
+                                                            brace_count += 1;
+                                                        } else if ch == '}' {
+                                                            brace_count -= 1;
+                                                            if brace_count == 0 {
+                                                                end_idx = tool_start + i + 1;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if end_idx > tool_start {
+                                                    let tool_json = &content[tool_start..end_idx];
+                                                    if let Ok(prev_tool) = serde_json::from_str::<ToolCall>(tool_json) {
+                                                        if are_duplicates(&prev_tool, &tool_call) {
+                                                            found_in_prev = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                start_idx = end_idx;
+                                            }
+                                        }
+                                        // Only check the most recent assistant message
+                                        break;
+                                    }
+                                }
+                                
+                                if found_in_prev {
+                                    duplicate_type = Some("DUP IN MSG".to_string());
+                                }
+                            }
+                            
+                            // Add to seen list if not a duplicate in chunk
+                            if duplicate_type.as_ref().map_or(true, |s| s != "DUP IN CHUNK") {
+                                seen_in_chunk.push(tool_call.clone());
+                            }
+                            
+                            deduplicated_tools.push((tool_call, duplicate_type));
+                        }
+
+                        // Process each tool call
+                        for (tool_call, duplicate_type) in deduplicated_tools {
                             debug!("Processing completed tool call: {:?}", tool_call);
+                            
+                            // If it's a duplicate, log it and return a warning
+                            if let Some(dup_type) = &duplicate_type {
+                                // Log the duplicate with red prefix
+                                let prefixed_tool_name = format!("🟥 {} {}", tool_call.tool, dup_type);
+                                let warning_msg = format!(
+                                    "⚠️ Duplicate tool call detected ({}): Skipping execution of {} with args {}",
+                                    dup_type,
+                                    tool_call.tool,
+                                    serde_json::to_string(&tool_call.args).unwrap_or_else(|_| "<unserializable>".to_string())
+                                );
+                                
+                                // Log to tool log with red prefix
+                                let mut modified_tool_call = tool_call.clone();
+                                modified_tool_call.tool = prefixed_tool_name;
+                                self.log_tool_call(&modified_tool_call, &warning_msg);
+                                
+                                // Show warning to user
+                                self.ui_writer.print_tool_output_line(&warning_msg);
+                                continue; // Skip execution of duplicate
+                            }
                             
                             // Check if we should auto-compact at 90% BEFORE executing the tool
                             // We need to do this before any borrows of self
@@ -3201,7 +3323,16 @@ impl<W: UiWriter> Agent<W> {
                             current_response.clear();
                             // Reset response_started flag for next iteration
                             response_started = false;
-                            break; // Break out of current stream to start a new one
+                            
+                            // For single tool mode, break immediately
+                            if !self.config.agent.allow_multiple_tool_calls {
+                                break; // Break out of current stream to start a new one
+                            }
+                        } // End of for loop processing each tool call
+
+                        // If we processed any tools in multiple mode, break out to start new stream
+                        if tool_executed && self.config.agent.allow_multiple_tool_calls {
+                            break;
                         }
 
                         // If no tool calls were completed, continue streaming normally
@@ -3284,8 +3415,8 @@ impl<W: UiWriter> Agent<W> {
                                     error!("Iteration: {}/{}", iteration_count, MAX_ITERATIONS);
                                     error!(
                                         "Provider: {} (model: {})",
-                                        provider.name(),
-                                        provider.model()
+                                        provider_name,
+                                        provider_model
                                     );
                                     error!("Chunks received: {}", chunks_received);
                                     error!("Parser state:");

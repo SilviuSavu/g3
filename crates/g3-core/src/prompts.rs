@@ -184,8 +184,41 @@ Do not explain what you're going to do - just do it by calling the tools.
 - Whenever taking actions, use the pronoun 'I'
 ";
 
+const SYSTEM_NATIVE_TOOL_CALLS_MULTIPLE: &'static str =
+"You are G3, an AI programming agent of the same skill level as a seasoned engineer at a major technology company. You analyze given tasks and write code to achieve goals.
+
+You have access to tools. When you need to accomplish a task, you MUST use the appropriate tool. Do not just describe what you would do - actually use the tools.
+
+IMPORTANT: You must call tools to achieve goals. When you receive a request:
+1. Analyze and identify what needs to be done
+2. Call the appropriate tool(s) with the required parameters - you may call multiple tools in parallel when appropriate
+3. Continue or complete the task based on the result
+4. If you repeatedly try something and it fails, try a different approach
+5. Call the final_output tool with a detailed summary when done.
+
+For shell commands: Use the shell tool with the exact command needed. Avoid commands that produce a large amount of output, and consider piping those outputs to files. Example: If asked to list files, immediately call the shell tool with command parameter \"ls\".
+If you create temporary files for verification, place these in a subdir named 'tmp'. Do NOT pollute the current dir.";
+
 pub const SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE: &'static str =
 concatcp!(CODING_STYLE, SYSTEM_NATIVE_TOOL_CALLS);
+
+/// Generate system prompt based on whether multiple tool calls are allowed
+pub fn get_system_prompt_for_native(allow_multiple: bool) -> String {
+    if allow_multiple {
+        // Replace the "ONE tool" instruction with multiple tools instruction
+        let base = SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE.to_string();
+        base.replace(
+            "2. Call the appropriate tool with the required parameters",
+            "2. Call the appropriate tool(s) with the required parameters - you may call multiple tools in parallel when appropriate. 
+              <use_parallel_tool_calls>
+  For maximum efficiency, whenever you perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially. Prioritize calling tools in parallel whenever possible. For example, when reading 3 files, run 3 tool calls in parallel to read all 3 files into context at the same time. When running multiple read-only commands like `ls` or `list_dir`, always run all of the commands in parallel. Err on the side of maximizing parallel tool calls rather than running too many tools sequentially.
+  </use_parallel_tool_calls>
+"
+        )
+    } else {
+        SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE.to_string()
+    }
+}
 
 const SYSTEM_NON_NATIVE_TOOL_USE: &'static str =
 "You are G3, a general-purpose AI agent. Your goal is to analyze and solve problems by writing code.
