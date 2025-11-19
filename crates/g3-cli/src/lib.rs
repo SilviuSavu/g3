@@ -1686,6 +1686,9 @@ async fn run_autonomous(
                 turn, max_turns
             ));
 
+            // Surface provider info for player agent
+            agent.print_provider_banner("Player");
+
             // Player mode: implement requirements (with coach feedback if available)
             let player_prompt = if coach_feedback.is_empty() {
                 format!(
@@ -1878,6 +1881,9 @@ async fn run_autonomous(
         let ui_writer = ConsoleUiWriter::new();
         let mut coach_agent =
             Agent::new_autonomous_with_readme_and_quiet(coach_config, ui_writer, None, quiet).await?;
+
+        // Surface provider info for coach agent
+        coach_agent.print_provider_banner("Coach");
 
         // Ensure coach agent is also in the workspace directory
         project.enter_workspace()?;
