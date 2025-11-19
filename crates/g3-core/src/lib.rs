@@ -4,7 +4,6 @@ pub mod project;
 pub mod task_result;
 pub mod ui_writer;
 
-use std::process::exit;
 pub use task_result::TaskResult;
 
 #[cfg(test)]
@@ -951,7 +950,24 @@ impl<W: UiWriter> Agent<W> {
             ui_writer.print_context_status(&format!("⚠️ {}", warning));
         }
 
-        // If README content is provided, add it as the first system message
+        // Add system prompt as the FIRST message (before README)
+        // This ensures the agent always has proper tool usage instructions
+        let provider = providers.get(None)?;
+        let provider_has_native_tool_calling = provider.has_native_tool_calling();
+        let _ = provider; // Drop provider reference to avoid borrowing issues
+        
+        let system_prompt = if provider_has_native_tool_calling {
+            // For native tool calling providers, use a more explicit system prompt
+            SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE.to_string()
+        } else {
+            // For non-native providers (embedded models), use JSON format instructions
+            SYSTEM_PROMPT_FOR_NON_NATIVE_TOOL_USE.to_string()
+        };
+        
+        let system_message = Message::new(MessageRole::System, system_prompt);
+        context_window.add_message(system_message);
+        
+        // If README content is provided, add it as a second system message (after the main system prompt)
         if let Some(readme) = readme_content {
             let readme_message = Message::new(MessageRole::System, readme);
             context_window.add_message(readme_message);
@@ -1011,6 +1027,35 @@ impl<W: UiWriter> Agent<W> {
             },
             tool_call_count: 0,
         })
+    }
+
+    /// Validate that the system prompt is the first message in the conversation history.
+    /// This is a critical invariant that must be maintained for proper agent operation.
+    /// 
+    /// # Panics
+    /// Panics if:
+    /// - The conversation history is empty
+    /// - The first message is not a System message
+    /// - The first message doesn't contain the system prompt markers
+    fn validate_system_prompt_is_first(&self) {
+        if self.context_window.conversation_history.is_empty() {
+            panic!(
+                "FATAL: Conversation history is empty. System prompt must be the first message."
+            );
+        }
+
+        let first_message = &self.context_window.conversation_history[0];
+        
+        if !matches!(first_message.role, MessageRole::System) {
+            panic!(
+                "FATAL: First message is not a System message. Found: {:?}",
+                first_message.role
+            );
+        }
+
+        if !first_message.content.contains("You are G3") {
+            panic!("FATAL: First system message does not contain the system prompt. This likely means the README was added before the system prompt.");
+        }
     }
 
     /// Convert cache config string to CacheControl enum
@@ -1256,7 +1301,7 @@ impl<W: UiWriter> Agent<W> {
     async fn execute_single_task(
         &mut self,
         description: &str,
-        show_prompt: bool,
+        _show_prompt: bool,
         _show_code: bool,
         show_timing: bool,
         cancellation_token: CancellationToken,
@@ -1264,48 +1309,13 @@ impl<W: UiWriter> Agent<W> {
         // Reset the JSON tool call filter state at the start of each new task
         // This prevents the filter from staying in suppression mode between user interactions
         fixed_filter_json::reset_fixed_json_tool_state();
+        
+        // Validate that the system prompt is the first message (critical invariant)
+        self.validate_system_prompt_is_first();
 
         // Generate session ID based on the initial prompt if this is a new session
         if self.session_id.is_none() {
             self.session_id = Some(self.generate_session_id(description));
-        }
-
-        // Only add system message if this is the first interaction (empty conversation history)
-        if self.context_window.conversation_history.is_empty() {
-            let provider = self.providers.get(None)?;
-            let provider_has_native_tool_calling = provider.has_native_tool_calling();
-            let provider_name_for_system = provider.name().to_string();
-            drop(provider); // Drop provider reference to avoid borrowing issues
-            
-            let system_prompt = if provider_has_native_tool_calling {
-                // For native tool calling providers, use a more explicit system prompt
-                SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE.to_string()
-            } else {
-                // For non-native providers (embedded models), use JSON format instructions
-                SYSTEM_PROMPT_FOR_NON_NATIVE_TOOL_USE.to_string()
-            };
-
-            if show_prompt {
-                self.ui_writer.print_system_prompt(&system_prompt);
-            }
-
-            // Add system message to context window
-            let system_message = {
-                // Check if we should use cache control for system message
-                if let Some(cache_config) = match provider_name_for_system.as_str() {
-                    "anthropic" => self.config.providers.anthropic.as_ref()
-                        .and_then(|c| c.cache_config.as_ref())
-                        .and_then(|config| Self::parse_cache_control(config)),
-                    _ => None,
-                } {
-                    let provider = self.providers.get(None)?;
-                    Message::with_cache_control_validated(MessageRole::System, system_prompt, cache_config, provider)
-                } else {
-                    Message::new(MessageRole::System, system_prompt)
-                }
-            };
-
-            self.context_window.add_message(system_message);
         }
 
         // Add user message to context window
@@ -1318,8 +1328,8 @@ impl<W: UiWriter> Agent<W> {
         // Check if provider supports native tool calling and add tools if so
         let provider = self.providers.get(None)?;
         let provider_name = provider.name().to_string();
-        let has_native_tool_calling = provider.has_native_tool_calling();
-        let supports_cache_control = provider.supports_cache_control();
+        let _has_native_tool_calling = provider.has_native_tool_calling();
+        let _supports_cache_control = provider.supports_cache_control();
         let tools = if provider.has_native_tool_calling() {
             Some(Self::create_tool_definitions(
                 self.config.webdriver.enabled,
@@ -1329,7 +1339,7 @@ impl<W: UiWriter> Agent<W> {
         } else {
             None
         };
-        drop(provider); // Drop the provider reference to avoid borrowing issues
+        let _ = provider; // Drop the provider reference to avoid borrowing issues
 
         // Get max_tokens from provider configuration, falling back to sensible defaults
         let max_tokens = Some(self.resolve_max_tokens(&provider_name));
@@ -1689,17 +1699,21 @@ impl<W: UiWriter> Agent<W> {
     pub fn reload_readme(&mut self) -> Result<bool> {
         info!("Manual README reload triggered");
 
-        // Check if the first message in conversation history is a system message with README content
+        // Check if the second message in conversation history is a system message with README content
+        // (The first message should always be the system prompt)
         let has_readme = self
             .context_window
             .conversation_history
-            .first()
+            .get(1)  // Check the SECOND message (index 1)
             .map(|m| {
                 matches!(m.role, MessageRole::System)
                     && (m.content.contains("Project README")
                         || m.content.contains("Agent Configuration"))
             })
             .unwrap_or(false);
+        
+        // Validate that the system prompt is still first
+        self.validate_system_prompt_is_first();
 
         if !has_readme {
             return Ok(false);
@@ -1723,8 +1737,8 @@ impl<W: UiWriter> Agent<W> {
         }
 
         if found_any {
-            // Replace the first message with the new content
-            if let Some(first_msg) = self.context_window.conversation_history.first_mut() {
+            // Replace the second message (README) with the new content
+            if let Some(first_msg) = self.context_window.conversation_history.get_mut(1) {
                 first_msg.content = combined_content;
                 info!("README content reloaded successfully");
                 Ok(true)
@@ -5473,6 +5487,16 @@ mod integration_tests {
 // Implement Drop to clean up safaridriver process
 impl<W: UiWriter> Drop for Agent<W> {
     fn drop(&mut self) {
+        // Validate system prompt invariant on drop (agent exit)
+        // This catches any bugs where the conversation history was corrupted during execution
+        if !self.context_window.conversation_history.is_empty() {
+            if let Err(e) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.validate_system_prompt_is_first();
+            })) {
+                eprintln!("\n⚠️  FATAL ERROR ON EXIT: System prompt validation failed: {:?}", e);
+            }
+        }
+        
         // Try to kill safaridriver process if it's still running
         // We need to use try_lock since we can't await in Drop
         if let Ok(mut process_guard) = self.safaridriver_process.try_write() {
