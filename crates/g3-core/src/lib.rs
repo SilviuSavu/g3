@@ -959,10 +959,10 @@ impl<W: UiWriter> Agent<W> {
         let provider = providers.get(None)?;
         let provider_has_native_tool_calling = provider.has_native_tool_calling();
         let _ = provider; // Drop provider reference to avoid borrowing issues
-        
+
         let system_prompt = if provider_has_native_tool_calling {
             // For native tool calling providers, use a more explicit system prompt
-            SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE.to_string()
+            get_system_prompt_for_native(config.agent.allow_multiple_tool_calls)
         } else {
             // For non-native providers (embedded models), use JSON format instructions
             SYSTEM_PROMPT_FOR_NON_NATIVE_TOOL_USE.to_string()
