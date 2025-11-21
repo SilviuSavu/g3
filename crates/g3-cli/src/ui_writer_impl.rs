@@ -343,5 +343,18 @@ impl UiWriter for ConsoleUiWriter {
     fn flush(&self) {
         let _ = io::stdout().flush();
     }
+
+    fn prompt_user_yes_no(&self, message: &str) -> bool {
+        print!("{} [y/N] ", message);
+        let _ = io::stdout().flush();
+
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_ok() {
+            let trimmed = input.trim().to_lowercase();
+            trimmed == "y" || trimmed == "yes"
+        } else {
+            false
+        }
+    }
 }
 

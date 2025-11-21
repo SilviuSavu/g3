@@ -759,6 +759,7 @@ pub struct Agent<W: UiWriter> {
     macax_controller:
         std::sync::Arc<tokio::sync::RwLock<Option<g3_computer_control::MacAxController>>>,
     tool_call_count: usize,
+    requirements_sha: Option<String>,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -1030,6 +1031,7 @@ impl<W: UiWriter> Agent<W> {
                 }))
             },
             tool_call_count: 0,
+            requirements_sha: None,
         })
     }
 
@@ -1977,6 +1979,10 @@ impl<W: UiWriter> Agent<W> {
 
     pub fn get_config(&self) -> &Config {
         &self.config
+    }
+
+    pub fn set_requirements_sha(&mut self, sha: String) {
+        self.requirements_sha = Some(sha);
     }
 
     async fn stream_completion(
@@ -4250,6 +4256,46 @@ impl<W: UiWriter> Agent<W> {
                             let mut todo = self.todo_content.write().await;
                             *todo = content.clone();
                             
+                            // Check for staleness if enabled and we have a requirements SHA
+                            if self.config.agent.check_todo_staleness {
+                                if let Some(req_sha) = &self.requirements_sha {
+                                    // Parse the first line for the SHA header
+                                    if let Some(first_line) = content.lines().next() {
+                                        if first_line.starts_with("{{Based on the requirements file with SHA256:") {
+                                            let parts: Vec<&str> = first_line.split("SHA256:").collect();
+                                            if parts.len() > 1 {
+                                                let todo_sha = parts[1].trim().trim_end_matches("}}").trim();
+                                                if todo_sha != req_sha {
+                                                    let warning = format!(
+                                                        "⚠️ TODO list is stale! It was generated from a different requirements file.\nExpected SHA: {}\nFound SHA:    {}",
+                                                        req_sha, todo_sha
+                                                    );
+                                                    self.ui_writer.print_context_status(&warning);
+                                                    
+                                                    // Beep 6 times
+                                                    print!("\x07\x07\x07\x07\x07\x07");
+                                                    let _ = std::io::stdout().flush();
+                                                    
+                                                    if !self.ui_writer.prompt_user_yes_no("Requirements have changed! Continue?") {
+                                                        return Ok("❌ User aborted due to stale TODO list.".to_string());
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            // Header missing, but we have a SHA. Warn the user?
+                                            // For now, maybe just proceed or warn.
+                                            // Let's just warn but not block unless strictly required.
+                                            // Or maybe we should treat missing header as mismatch?
+                                            // The plan said: "If the SHA256 doesn't match..."
+                                            // Missing header implies it doesn't match.
+                                            // But existing TODOs might not have it.
+                                            // Let's be safe and only warn if we see a DIFFERENT SHA.
+                                            // If no header, it might be an old TODO or manual one.
+                                        }
+                                    }
+                                }
+                            }
+
                             if content.trim().is_empty() {
                                 Ok("📝 TODO list is empty".to_string())
                             } else {

@@ -56,6 +56,9 @@ pub trait UiWriter: Send + Sync {
     /// Returns true if this UI writer wants full, untruncated output
     /// Default is false (truncate for human readability)
     fn wants_full_output(&self) -> bool { false }
+
+    /// Prompt the user for a yes/no confirmation
+    fn prompt_user_yes_no(&self, message: &str) -> bool;
 }
 
 /// A no-op implementation for when UI output is not needed
@@ -80,4 +83,5 @@ impl UiWriter for NullUiWriter {
     fn notify_sse_received(&self) {}
     fn flush(&self) {}
     fn wants_full_output(&self) -> bool { false }
+    fn prompt_user_yes_no(&self, _message: &str) -> bool { true }
 }
