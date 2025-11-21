@@ -4283,14 +4283,7 @@ impl<W: UiWriter> Agent<W> {
                                             }
                                         } else {
                                             // Header missing, but we have a SHA. Warn the user?
-                                            // For now, maybe just proceed or warn.
-                                            // Let's just warn but not block unless strictly required.
-                                            // Or maybe we should treat missing header as mismatch?
-                                            // The plan said: "If the SHA256 doesn't match..."
-                                            // Missing header implies it doesn't match.
-                                            // But existing TODOs might not have it.
-                                            // Let's be safe and only warn if we see a DIFFERENT SHA.
-                                            // If no header, it might be an old TODO or manual one.
+                                            // For now, maybe just proceed... assuming it's an old TODO.
                                         }
                                     }
                                 }
