@@ -356,5 +356,27 @@ impl UiWriter for ConsoleUiWriter {
             false
         }
     }
+
+    fn prompt_user_choice(&self, message: &str, options: &[&str]) -> usize {
+        println!("{} ", message);
+        for (i, option) in options.iter().enumerate() {
+            println!("  [{}] {}", i + 1, option);
+        }
+        print!("Select an option (1-{}): ", options.len());
+        let _ = io::stdout().flush();
+
+        loop {
+            let mut input = String::new();
+            if io::stdin().read_line(&mut input).is_ok() {
+                if let Ok(choice) = input.trim().parse::<usize>() {
+                    if choice > 0 && choice <= options.len() {
+                        return choice - 1;
+                    }
+                }
+            }
+            print!("Invalid choice. Please select (1-{}): ", options.len());
+            let _ = io::stdout().flush();
+        }
+    }
 }
 

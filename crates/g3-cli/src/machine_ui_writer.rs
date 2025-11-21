@@ -98,4 +98,11 @@ impl UiWriter for MachineUiWriter {
         println!("PROMPT_USER_YES_NO: {}", message);
         true
     }
+
+    fn prompt_user_choice(&self, message: &str, options: &[&str]) -> usize {
+        println!("PROMPT_USER_CHOICE: {}", message);
+        println!("OPTIONS: {:?}", options);
+        // Default to first option (index 0) for automation
+        0
+    }
 }

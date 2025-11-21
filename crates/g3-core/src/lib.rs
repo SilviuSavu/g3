@@ -4276,8 +4276,25 @@ impl<W: UiWriter> Agent<W> {
                                                     print!("\x07\x07\x07\x07\x07\x07");
                                                     let _ = std::io::stdout().flush();
                                                     
-                                                    if !self.ui_writer.prompt_user_yes_no("Requirements have changed! Continue?") {
-                                                        return Ok("❌ User aborted due to stale TODO list.".to_string());
+                                                    let options = ["Ignore and Continue", "Mark as Stale", "Quit Application"];
+                                                    let choice = self.ui_writer.prompt_user_choice("Requirements have changed! What would you like to do?", &options);
+                                                    
+                                                    match choice {
+                                                        0 => {
+                                                            // Ignore and Continue
+                                                            self.ui_writer.print_context_status("⚠️ Ignoring staleness warning.");
+                                                        }
+                                                        1 => {
+                                                            // Mark as Stale
+                                                            // We return a message to the agent so it knows to regenerate/fix it.
+                                                            return Ok("⚠️ TODO list is stale (requirements changed). Please regenerate the TODO list to match the new requirements.".to_string());
+                                                        }
+                                                        2 => {
+                                                            // Quit Application
+                                                            self.ui_writer.print_context_status("❌ Quitting application as requested.");
+                                                            std::process::exit(0);
+                                                        }
+                                                        _ => unreachable!(),
                                                     }
                                                 }
                                             }
