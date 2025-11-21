@@ -26,6 +26,7 @@ mod test_multiple_tool_calls {
             auto_compact: true,
             max_retry_attempts: 3,
             autonomous_max_retry_attempts: 6,
+            check_todo_staleness: true,
         };
         
         // Test serialization

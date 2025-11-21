@@ -6,6 +6,9 @@ authors = ["G3 Team"]
 description = "Web console for monitoring and managing g3 instances"
 license = "MIT"
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "g3-console"
 path = "src/main.rs"

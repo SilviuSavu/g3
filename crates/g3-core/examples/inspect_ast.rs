@@ -48,7 +48,7 @@ pub async fn another_async(x: i32) -> Result<(), ()> {
     println!("{}\n", "=".repeat(80));
 
     let mut parser = Parser::new();
-    let language: Language = tree_sitter_rust::language().into();
+    let language: Language = tree_sitter_rust::LANGUAGE.into();
     parser.set_language(&language)?;
 
     let tree = parser.parse(source_code, None).unwrap();

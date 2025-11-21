@@ -1,6 +1,7 @@
 //! Test Python async query
 
 use tree_sitter::{Parser, Query, QueryCursor, Language};
+use streaming_iterator::StreamingIterator;
 
 fn main() -> anyhow::Result<()> {
     let source_code = r#"
@@ -12,7 +13,7 @@ async def async_function():
 "#;
 
     let mut parser = Parser::new();
-    let language: Language = tree_sitter_python::language().into();
+    let language: Language = tree_sitter_python::LANGUAGE.into();
     parser.set_language(&language)?;
 
     let tree = parser.parse(source_code, None).unwrap();

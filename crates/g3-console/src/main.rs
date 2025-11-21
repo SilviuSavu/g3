@@ -1,8 +1,6 @@
-mod api;
-mod logs;
-mod models;
-mod process;
-mod launch;
+use g3_console::api;
+use g3_console::process;
+use g3_console::launch;
 
 use api::control::{kill_instance, launch_instance, restart_instance};
 use api::instances::{get_instance, get_file_content, list_instances};

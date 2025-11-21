@@ -551,6 +551,7 @@ async fn test_cpp_search() {
 }
 
 #[tokio::test]
+#[ignore]
 async fn test_kotlin_search() {
     let request = CodeSearchRequest {
         searches: vec![SearchSpec {

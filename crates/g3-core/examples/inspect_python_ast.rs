@@ -46,7 +46,7 @@ class MyClass:
     println!("{}\n", "=".repeat(80));
 
     let mut parser = Parser::new();
-    let language: Language = tree_sitter_python::language().into();
+    let language: Language = tree_sitter_python::LANGUAGE.into();
     parser.set_language(&language)?;
 
     let tree = parser.parse(source_code, None).unwrap();
