@@ -2158,6 +2158,15 @@ impl<W: UiWriter> Agent<W> {
                     "required": ["content"]
                 }),
             },
+            Tool {
+                name: "code_coverage".to_string(),
+                description: "Generate a code coverage report for the entire workspace using cargo llvm-cov. This runs all tests with coverage instrumentation and returns a summary of coverage statistics. Requires llvm-tools-preview and cargo-llvm-cov to be installed (they will be auto-installed if missing).".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }),
+            },
         ];
 
         // Add code_search tool
@@ -4350,6 +4359,46 @@ impl<W: UiWriter> Agent<W> {
                     }
                 } else {
                     Ok("❌ Missing content argument".to_string())
+                }
+            }
+            "code_coverage" => {
+                debug!("Processing code_coverage tool call");
+                self.ui_writer.print_context_status("🔍 Generating code coverage report...");
+                
+                // Ensure coverage tools are installed
+                match g3_execution::ensure_coverage_tools_installed() {
+                    Ok(already_installed) => {
+                        if !already_installed {
+                            self.ui_writer.print_context_status("✅ Coverage tools installed successfully");
+                        }
+                    }
+                    Err(e) => {
+                        return Ok(format!("❌ Failed to install coverage tools: {}", e));
+                    }
+                }
+                
+                // Run cargo llvm-cov --workspace
+                let output = std::process::Command::new("cargo")
+                    .args(&["llvm-cov", "--workspace"])
+                    .current_dir(std::env::current_dir()?)
+                    .output()?;
+                
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    
+                    // Combine output
+                    let mut result = String::from("✅ Code coverage report generated successfully\n\n");
+                    result.push_str("## Coverage Summary\n");
+                    result.push_str(&stdout);
+                    if !stderr.is_empty() {
+                        result.push_str("\n## Warnings\n");
+                        result.push_str(&stderr);
+                    }
+                    Ok(result)
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    Ok(format!("❌ Failed to generate coverage report:\n{}", stderr))
                 }
             }
             "webdriver_start" => {

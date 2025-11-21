@@ -330,3 +330,87 @@ impl CodeExecutor {
         })
     }
 }
+
+/// Check if rustup component llvm-tools-preview is installed
+pub fn is_llvm_tools_installed() -> Result<bool> {
+    let output = Command::new("rustup")
+        .args(&["component", "list", "--installed"])
+        .output()?;
+    
+    let installed = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .any(|line| line.trim() == "llvm-tools-preview" || line.starts_with("llvm-tools"));
+    
+    Ok(installed)
+}
+
+/// Check if cargo-llvm-cov is installed
+pub fn is_cargo_llvm_cov_installed() -> Result<bool> {
+    let output = Command::new("cargo")
+        .args(&["--list"])
+        .output()?;
+    
+    let installed = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .any(|line| line.trim().starts_with("llvm-cov"));
+    
+    Ok(installed)
+}
+
+/// Install llvm-tools-preview via rustup
+pub fn install_llvm_tools() -> Result<()> {
+    info!("Installing llvm-tools-preview...");
+    let output = Command::new("rustup")
+        .args(&["component", "add", "llvm-tools-preview"])
+        .output()?;
+    
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Failed to install llvm-tools-preview: {}", stderr);
+    }
+    
+    info!("✅ llvm-tools-preview installed successfully");
+    Ok(())
+}
+
+/// Install cargo-llvm-cov via cargo install
+pub fn install_cargo_llvm_cov() -> Result<()> {
+    info!("Installing cargo-llvm-cov... (this may take a few minutes)");
+    let output = Command::new("cargo")
+        .args(&["install", "cargo-llvm-cov"])
+        .output()?;
+    
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Failed to install cargo-llvm-cov: {}", stderr);
+    }
+    
+    info!("✅ cargo-llvm-cov installed successfully");
+    Ok(())
+}
+
+/// Ensure both llvm-tools-preview and cargo-llvm-cov are installed
+/// Returns Ok(true) if tools were already installed, Ok(false) if they were installed by this function
+pub fn ensure_coverage_tools_installed() -> Result<bool> {
+    let mut already_installed = true;
+    
+    // Check and install llvm-tools-preview
+    if !is_llvm_tools_installed()? {
+        info!("llvm-tools-preview not found, installing...");
+        install_llvm_tools()?;
+        already_installed = false;
+    } else {
+        info!("✅ llvm-tools-preview is already installed");
+    }
+    
+    // Check and install cargo-llvm-cov
+    if !is_cargo_llvm_cov_installed()? {
+        info!("cargo-llvm-cov not found, installing...");
+        install_cargo_llvm_cov()?;
+        already_installed = false;
+    } else {
+        info!("✅ cargo-llvm-cov is already installed");
+    }
+    
+    Ok(already_installed)
+}
