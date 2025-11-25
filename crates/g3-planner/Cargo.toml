@@ -11,3 +11,4 @@ serde_json = { workspace = true }
 const_format = "0.2"
 anyhow = { workspace = true }
 tokio = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }

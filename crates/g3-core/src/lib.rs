@@ -3805,8 +3805,6 @@ impl<W: UiWriter> Agent<W> {
     async fn execute_tool_inner_in_dir(&mut self, tool_call: &ToolCall, working_dir: Option<&str>) -> Result<String> {
         debug!("=== EXECUTING TOOL ===");
         debug!("Tool name: {}", tool_call.tool);
-        eprintln!("[DEBUG execute_tool_inner_in_dir] tool='{}' working_dir={:?} args={}", 
-            tool_call.tool, working_dir, serde_json::to_string(&tool_call.args).unwrap_or_default());
         debug!("Working directory passed to execute_tool_inner_in_dir: {:?}", working_dir);
         debug!("Tool args (raw): {:?}", tool_call.args);
         debug!(
