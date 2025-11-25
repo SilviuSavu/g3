@@ -27,6 +27,7 @@ pub type StatusCallback = Box<dyn Fn(&str) + Send + Sync>;
 ///
 /// * `codebase_path` - The path to the codebase to explore
 /// * `provider` - An LLM provider to query for exploration commands
+/// * `requirements_text` - Optional requirements text to include in the discovery prompt
 /// * `status_callback` - Optional callback for status updates
 ///
 /// # Returns
@@ -34,6 +35,7 @@ pub type StatusCallback = Box<dyn Fn(&str) + Send + Sync>;
 /// A `Result<Vec<Message>>` containing Assistant messages with JSON tool call strings.
 pub async fn get_initial_discovery_messages(
     codebase_path: &str,
+    requirements_text: Option<&str>,
     provider: &dyn LLMProvider,
     status_callback: Option<&StatusCallback>,
 ) -> Result<Vec<Message>> {
@@ -50,10 +52,19 @@ pub async fn get_initial_discovery_messages(
     let codebase_report = explore_codebase(codebase_path);
 
     // Step 2: Build the prompt with the codebase report appended
-    let user_prompt = format!(
-        "{}\n\n=== CODEBASE REPORT ===\n\n{}",
-        DISCOVERY_REQUIREMENTS_PROMPT, codebase_report
-    );
+    let user_prompt = if let Some(requirements) = requirements_text {
+        format!(
+            "{}\n\n
+            === REQUIREMENTS ===\n\n{}\n\n
+            === CODEBASE REPORT ===\n\n{}",
+            DISCOVERY_REQUIREMENTS_PROMPT, requirements, codebase_report
+        )
+    } else {
+        format!(
+            "{}\n\n=== CODEBASE REPORT ===\n\n{}",
+            DISCOVERY_REQUIREMENTS_PROMPT, codebase_report
+        )
+    };
 
     // Step 3: Create messages for the LLM
     let messages = vec![

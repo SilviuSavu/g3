@@ -19,13 +19,20 @@ pub const DISCOVERY_REQUIREMENTS_PROMPT: &str = r#"**CRITICAL**: DO ABSOLUTELY N
 UNDERSTAND WHICH PARTS OF THE CODE YOU MIGHT BE INTERESTED IN, AND WHAT SEARCH/GREP EXPRESSIONS YOU MIGHT WANT TO USE
 TO GET A BETTER UNDERSTANDING OF THE CODEBASE.
 
-Your task is to analyze the codebase structure provided below and generate shell commands to explore it further.
+Your task is to analyze the codebase overview provided below and generate shell commands to explore it further - in particular, those
+you deem most relevant to the requirements given below.
 
 Your output MUST include:
-1. A section with heading {{SUMMARY BASED ON INITIAL INFO}} containing a brief summary of what you understand about the codebase structure (max 10000 tokens).
-2. A section with heading {{CODE EXPLORATION COMMANDS}} containing shell commands to explore the codebase further.
+1. retain as much information of that as you consider relevant to the request and your next job (not to be attempted yet)
+for planning the main tasks for what you will implement. Ideally that should not be more than 10000 tokens. Write a section
+that you will later use in your next phase, which is detailed implementation plan. Use the heading {{SUMMARY BASED ON INITIAL
+INFO}}.
+2. Based on the initial summary, try plan ahead for what you need for a deep dive into the code. Do pay attention that
+the information should be sparing.
    - Use tools like `ls`, `rg` (ripgrep), `grep`, `sed`, `cat`, `head`, `tail` etc.
-   - Focus on commands that will help understand the code structure without dumping entire files.
+   - Focus on commands that will help understand the code STRUCTURE without dumping large sections of file.
+   - e.g. for Rust you might try `rg --no-heading --line-number --with-filename --max-filesize 500K -g '*.rs' '^(pub )?(struct|enum|type|union)`
    - Mark the beginning and end of the commands with "```".
+   - Carefully consider which commands give you the most relevant information, make it a maximum of 20.
 
 DO NOT ADD ANY COMMENTS OR OTHER EXPLANATION IN THE COMMANDS SECTION, JUST INCLUDE THE SHELL COMMANDS."#;

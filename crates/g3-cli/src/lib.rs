@@ -1728,7 +1728,7 @@ async fn run_autonomous(
                 let status_callback: g3_planner::StatusCallback = Box::new(move |msg: &str| {
                     output_clone.print(msg);
                 });
-                match g3_planner::get_initial_discovery_messages(&path_str, provider, Some(&status_callback)).await {
+                match g3_planner::get_initial_discovery_messages(&path_str, Some(&requirements), provider, Some(&status_callback)).await {
                     Ok(messages) => (messages, Some(path_str.to_string())),
                     Err(e) => {
                         output.print(&format!("⚠️ LLM discovery failed: {}, skipping fast-start", e));
