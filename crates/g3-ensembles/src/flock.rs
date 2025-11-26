@@ -172,11 +172,13 @@ impl FlockMode {
                - A clear module name\n\
                - The specific requirements that belong to this module\n\
                - Any dependencies on other modules\n\n\
-            4. Use the final_output tool to provide your partitioning as a JSON array of objects, where each object has:\n\
+            4. Return your final partitioning exactly once, prefixed by the marker {{PARTITION JSON}} followed by a fenced code block that starts with \"```json\" and ends with \"```\". Place only the JSON array inside the fence.\n\
+            5. Use the final_output tool to provide your partitioning as a JSON array of objects, where each object has:\n\
                - \"module_name\": string\n\
                - \"requirements\": string (the requirements text for this module)\n\
                - \"dependencies\": array of strings (names of other modules this depends on)\n\n\
             Example format:\n\
+            {{{{PARTITION JSON}}}}\n\
             ```json\n\
             [\n\
               {{\n\
@@ -220,7 +222,7 @@ impl FlockMode {
         debug!("Partitioning agent output: {}", stdout);
         
         // Extract JSON from the output
-        let partitions_json = self.extract_json_from_output(&stdout)
+        let partitions_json = Self::extract_json_from_output(&stdout)
             .context("Failed to extract partition JSON from agent output")?;
         
         // Parse the partitions
@@ -274,19 +276,27 @@ impl FlockMode {
     }
     
     /// Extract JSON from agent output (looks for JSON array in output)
-    fn extract_json_from_output(&self, output: &str) -> Result<String> {
-        // Look for JSON array in the output
-        // Try to find content between [ and ]
-        if let Some(start) = output.find('[') {
-            if let Some(end) = output.rfind(']') {
-                if end > start {
-                    return Ok(output[start..=end].to_string());
-                }
-            }
-        }
+    fn extract_json_from_output(output: &str) -> Result<String> {
+        const MARKER: &str = "{{PARTITION JSON}}";
+        let marker_index = output
+            .find(MARKER)
+            .context("Could not find partition JSON marker in agent output")?;
+        let after_marker = &output[marker_index + MARKER.len()..];
         
-        // If we can't find JSON array markers, try to parse the whole output
-        anyhow::bail!("Could not find JSON array in agent output")
+        let fence_start = after_marker
+            .find("```")
+            .context("Could not find code fence start after partition marker")?;
+        let after_fence = &after_marker[fence_start + 3..];
+        let after_language = after_fence
+            .strip_prefix("json")
+            .unwrap_or(after_fence);
+        let content_start = after_language.trim_start_matches(|c| c == '\n' || c == '\r' || c == ' ');
+        
+        let fence_end = content_start
+            .find("```")
+            .context("Could not find closing code fence for partition JSON")?;
+        
+        Ok(content_start[..fence_end].trim().to_string())
     }
     
     /// Create segment workspaces by copying project directory
@@ -644,4 +654,61 @@ fn update_status_file(
     flock_status.save_to_file(status_file)?;
     
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FlockMode;
+    
+    #[test]
+    fn extract_json_from_output_handles_partition_marker_and_fences() {
+        const NOISY_PREFIX: &str = concat!(
+            "\u{001b}[2m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m# Requirements Partitioning into 2 Architectural Modules\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m## Analysis\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m```json\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m[\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m  {\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m  }\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m]\u{001b}[0m\n",
+            "\u{001b}[1A\u{001b}[2K│ \u{001b}[2m```\u{001b}[0m\n",
+            "\n",
+            "# Requirements Partitioning into 2 Architectural Modules\n",
+            "\n",
+            "## Analysis\n",
+            "\n",
+            "The requirements have been partitioned into two logical, largely non-overlapping modules based on architectural concerns:\n",
+            "\n",
+            "1. **Message Protocol Module** - Handles message identity, formatting, and LLM communication\n",
+            "2. **Observability Module** - Handles logging, summarization, and monitoring of message history\n",
+            "\n",
+            "## Module Partitioning\n",
+            "\n"
+        );
+        
+        let expected_json = r#"[
+  {
+    "module_name": "message-protocol",
+    "requirements": "For all messages sent in the message history, unique ID that is not longer than six characters they need to be alphanumeric and can be case sensitive. Double check the message format specification for Open AI message formats. Write tests to make sure the LLM works, so make sure it's an integration test.",
+    "dependencies": []
+  },
+  {
+    "module_name": "observability",
+    "requirements": "Add functionality that will summarise the entire message history every time it is sent to LLM. Put it in the logs directory the same as the workspace logs for message history. Call it \"context_window_<suffix>\" where the suffix is the same name as will be used for logging the message history, for example \"g3_session_you_are_g3_in_coach_f79be2a46ac40c35.json\". Look at the code that generates that file name in G3 and use the same code. This file name changes every time and new agent is created, so follow the same pattern with the context window summary. Whenever the file name changes, update a symlink called \"current_context_window\" to that new file. Every time the message history is sent to the LLM, rewrite the entire file. Each message should only take up one line. The format is: date&time, estimated number of tokens of the entire message (use the token estimator code in G3, write it in a compact way for example 1K, 2M, 100b, 200K, colour code it graded from bright green to dark red where 200b is bright green and 50K is dark red), message ID, role (e.g. \"user\", \"assistant\"), the first hundred characters of \"content\".",
+    "dependencies": ["message-protocol"]
+  }
+]"#;
+        
+        let mut output = String::from(NOISY_PREFIX);
+        output.push_str("{{PARTITION JSON}}\n```json\n");
+        output.push_str(expected_json);
+        output.push_str("```");
+        
+        let extracted = FlockMode::extract_json_from_output(&output)
+            .expect("should extract JSON between markers");
+        
+        assert_eq!(extracted, expected_json);
+    }
 }
