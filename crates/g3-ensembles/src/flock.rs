@@ -172,7 +172,7 @@ impl FlockMode {
                - A clear module name\n\
                - The specific requirements that belong to this module\n\
                - Any dependencies on other modules\n\n\
-            4. Return your final partitioning exactly once, prefixed by the marker {{PARTITION JSON}} followed by a fenced code block that starts with \"```json\" and ends with \"```\". Place only the JSON array inside the fence.\n\
+            4. Return your final partitioning exactly once, prefixed by the marker '{{PARTITION JSON}}' followed by a fenced code block that starts with \"```json\" and ends with \"```\". Place only the JSON array inside the fence.\n\
             5. Use the final_output tool to provide your partitioning as a JSON array of objects, where each object has:\n\
                - \"module_name\": string\n\
                - \"requirements\": string (the requirements text for this module)\n\
@@ -277,26 +277,69 @@ impl FlockMode {
     
     /// Extract JSON from agent output (looks for JSON array in output)
     fn extract_json_from_output(output: &str) -> Result<String> {
-        const MARKER: &str = "{{PARTITION JSON}}";
-        let marker_index = output
-            .find(MARKER)
-            .context("Could not find partition JSON marker in agent output")?;
-        let after_marker = &output[marker_index + MARKER.len()..];
+        // Try to find all occurrences of partition markers and extract valid JSON
+        const MARKERS: &[&str] = &["{{PARTITION JSON}}", "{PARTITION JSON}"];
         
-        let fence_start = after_marker
-            .find("```")
-            .context("Could not find code fence start after partition marker")?;
-        let after_fence = &after_marker[fence_start + 3..];
-        let after_language = after_fence
-            .strip_prefix("json")
-            .unwrap_or(after_fence);
-        let content_start = after_language.trim_start_matches(|c| c == '\n' || c == '\r' || c == ' ');
+        let mut candidates = Vec::new();
         
-        let fence_end = content_start
-            .find("```")
-            .context("Could not find closing code fence for partition JSON")?;
+        // Find all marker occurrences
+        for &marker in MARKERS {
+            let mut search_start = 0;
+            while let Some(marker_index) = output[search_start..].find(marker) {
+                let absolute_index = search_start + marker_index;
+                let after_marker = &output[absolute_index + marker.len()..];
+                
+                // Try to find a code fence after this marker
+                if let Some(fence_start) = after_marker.find("```") {
+                    let after_fence = &after_marker[fence_start + 3..];
+                    
+                    // Skip optional "json" language identifier
+                    let content_start = after_fence
+                        .strip_prefix("json")
+                        .unwrap_or(after_fence)
+                        .trim_start_matches(|c: char| c.is_whitespace());
+                    
+                    // Find closing fence
+                    if let Some(fence_end) = content_start.find("```") {
+                        let json_candidate = content_start[..fence_end].trim();
+                        candidates.push(json_candidate.to_string());
+                    }
+                }
+                
+                // Move search position forward
+                search_start = absolute_index + marker.len();
+            }
+        }
         
-        Ok(content_start[..fence_end].trim().to_string())
+        if candidates.is_empty() {
+            anyhow::bail!("Could not find any partition JSON markers with code fences in agent output");
+        }
+        
+        // Try to parse each candidate and return the first valid JSON
+        let mut last_error = None;
+        for (i, candidate) in candidates.iter().enumerate() {
+            match serde_json::from_str::<serde_json::Value>(candidate) {
+                Ok(_) => {
+                    debug!("Successfully parsed JSON from candidate {} of {}", i + 1, candidates.len());
+                    return Ok(candidate.clone());
+                }
+                Err(e) => {
+                    debug!("Failed to parse candidate {} of {}: {}", i + 1, candidates.len(), e);
+                    last_error = Some(e);
+                }
+            }
+        }
+        
+        // If we get here, none of the candidates were valid JSON
+        if let Some(err) = last_error {
+            anyhow::bail!(
+                "Found {} JSON candidate(s) but none were valid JSON. Last error: {}",
+                candidates.len(),
+                err
+            );
+        }
+        
+        anyhow::bail!("No valid JSON found in output")
     }
     
     /// Create segment workspaces by copying project directory
@@ -710,5 +753,159 @@ mod tests {
             .expect("should extract JSON between markers");
         
         assert_eq!(extracted, expected_json);
+    }
+    
+    #[test]
+    fn extract_json_from_output_handles_multiple_markers_and_invalid_json() {
+        // This is the actual output from the LLM that was failing
+        let output = r#"[2m[0m
+[1A[2K│ [2m# Requirements Partitioning into 2 Architectural Modules[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m## Analysis[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2mThe requirements have been partitioned into two logical, largely non-overlapping modules based on architectural concerns:[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m1. **Message Protocol Module** - Handles message identity, formatting, and LLM communication[0m
+[1A[2K│ [2m2. **Observability Module** - Handles logging, summarization, and monitoring of message history[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m## Module Partitioning[0m
+[1A[2K│ [2m[0m{PARTITION JSON}
+[1A[2K│ [2m```json[0m
+[1A[2K│ [2m[[0m
+[1A[2K│ [2m  {[0m
+[1A[2K│ [2m    "module_name": "message-protocol",[0m
+[1A[2K│ [2m    "requirements": "For all messages sent in the message history, unique ID that is not longer than six characters they need to be alphanumeric and can be case sensitive. Double check the message format specification for Open AI message formats. Write tests to make sure the LLM works, so make sure it's an integration test.",[0m
+[1A[2K│ [2m    "dependencies": [][0m
+[1A[2K│ [2m  },[0m
+[1A[2K│ [2m  {[0m
+[1A[2K│ [2m    "module_name": "observability",[0m
+[1A[2K│ [2m    "requirements": "Add functionality that will summarise the entire message history every time it is sent to LLM. Put it in the logs directory the same as the workspace logs for message history. Call it \"context_window_<suffix>\" where the suffix is the same name as will be used for logging the message history, for example \"g3_session_you_are_g3_in_coach_f79be2a46ac40c35.json\". Look at the code that generates that file name in G3 and use the same code. This file name changes every time and new agent is created, so follow the same pattern with the context window summary. Whenever the file name changes, update a symlink called \"current_context_window\" to that new file. Every time the message history is sent to the LLM, rewrite the entire file. Each message should only take up one line. The format is: date&time, estimated number of tokens of the entire message (use the token estimator code in G3, write it in a compact way for example 1K, 2M, 100b, 200K, colour code it graded from bright green to dark red where 200b is bright green and 50K is dark red), message ID, role (e.g. \"user\", \"assistant\"), the first hundred characters of \"content\".",[0m
+[1A[2K│ [2m    "dependencies": ["message-protocol"][0m
+[1A[2K│ [2m  }[0m
+[1A[2K│ [2m][0m
+[1A[2K│ [2m```[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m## Rationale[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m### Module 1: message-protocol[0m
+[1A[2K│ [2m**Purpose**: Core messaging infrastructure and LLM communication layer[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m**Responsibilities**:[0m
+[1A[2K│ [2m- Generate unique 6-character alphanumeric message IDs[0m
+[1A[2K│ [2m- Ensure OpenAI message format compliance[0m
+[1A[2K│ [2m- Handle LLM request/response cycles[0m
+[1A[2K│ [2m- Integration testing of LLM functionality[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m**Why it's independent**: This module defines the fundamental message structure and communication protocol. It can be developed and tested independently as a core library.[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m**Future evolution**: Could become a separate crate (e.g., `g3-message-protocol`) or even a standalone service if message routing becomes complex.[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m### Module 2: observability[0m
+[1A[2K│ [2m**Purpose**: Monitoring, logging, and visualization of system activity[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m**Responsibilities**:[0m
+[1A[2K│ [2m- Summarize message history on each LLM interaction[0m
+[1A[2K│ [2m- Generate context window summary files with specific naming conventions[0m
+[1A[2K│ [2m- Manage symlinks to current summary files[0m
+[1A[2K│ [2m- Format one-line summaries with timestamps, token counts, message IDs, roles, and content previews[0m
+[1A[2K│ [2m- Color-code token estimates for visual monitoring[0m
+[1A[2K│ [2m- Integrate with existing G3 logging infrastructure[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m**Why it depends on message-protocol**: Needs access to message IDs, message content, and token estimation utilities. However, the core messaging system doesn't need to know about observability.[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m**Future evolution**: Could become a separate crate (e.g., `g3-observability`) or monitoring service that subscribes to message events.[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m## Benefits of This Partitioning[0m
+[1A[2K│ [2m[0m
+[1A[2K│ [2m1. **Separation of Concerns**: Core messaging logic is isolated from monitoring/logging concerns[0m
+[1A[2K│ [2m2. **Parallel Development**: Teams can work independently on message protocol vs. observability features[0m
+[1A[2K│ [2m3. **Testability**: Each module can be tested in isolation[0m
+[1A[2K│ [2m4. **Maintainability**: Changes to logging/monitoring don't affect core message handling[0m
+[1A[2K│ [2m5. **Scalability**: Observability could be extracted to a separate service for distributed systems[0m
+[1A[2K│ [2m6. **Dependency Direction**: Clean one-way dependency (observability → message-protocol) prevents circular dependencies[0m
+
+
+
+# Requirements Partitioning into 2 Architectural Modules
+
+## Analysis
+
+The requirements have been partitioned into two logical, largely non-overlapping modules based on architectural concerns:
+
+1. **Message Protocol Module** - Handles message identity, formatting, and LLM communication
+2. **Observability Module** - Handles logging, summarization, and monitoring of message history
+
+## Module Partitioning
+
+{{PARTITION JSON}}
+```json
+[
+  {
+    "module_name": "message-protocol",
+    "requirements": "For all messages sent in the message history, unique ID that is not longer than six characters they need to be alphanumeric and can be case sensitive. Double check the message format specification for Open AI message formats. Write tests to make sure the LLM works, so make sure it's an integration test.",
+    "dependencies": []
+  },
+  {
+    "module_name": "observability",
+    "requirements": "Add functionality that will summarise the entire message history every time it is sent to LLM. Put it in the logs directory the same as the workspace logs for message history. Call it \"context_window_<suffix>\" where the suffix is the same name as will be used for logging the message history, for example \"g3_session_you_are_g3_in_coach_f79be2a46ac40c35.json\". Look at the code that generates that file name in G3 and use the same code. This file name changes every time and new agent is created, so follow the same pattern with the context window summary. Whenever the file name changes, update a symlink called \"current_context_window\" to that new file. Every time the message history is sent to the LLM, rewrite the entire file. Each message should only take up one line. The format is: date&time, estimated number of tokens of the entire message (use the token estimator code in G3, write it in a compact way for example 1K, 2M, 100b, 200K, colour code it graded from bright green to dark red where 200b is bright green and 50K is dark red), message ID, role (e.g. \"user\", \"assistant\"), the first hundred characters of \"content\".",
+    "dependencies": ["message-protocol"]
+  }
+]
+```
+
+## Rationale
+
+### Module 1: message-protocol
+**Purpose**: Core messaging infrastructure and LLM communication layer
+
+**Responsibilities**:
+- Generate unique 6-character alphanumeric message IDs
+- Ensure OpenAI message format compliance
+- Handle LLM request/response cycles
+- Integration testing of LLM functionality
+
+**Why it's independent**: This module defines the fundamental message structure and communication protocol. It can be developed and tested independently as a core library.
+
+**Future evolution**: Could become a separate crate (e.g., `g3-message-protocol`) or even a standalone service if message routing becomes complex.
+
+### Module 2: observability
+**Purpose**: Monitoring, logging, and visualization of system activity
+
+**Responsibilities**:
+- Summarize message history on each LLM interaction
+- Generate context window summary files with specific naming conventions
+- Manage symlinks to current summary files
+- Format one-line summaries with timestamps, token counts, message IDs, roles, and content previews
+- Color-code token estimates for visual monitoring
+- Integrate with existing G3 logging infrastructure
+
+**Why it depends on message-protocol**: Needs access to message IDs, message content, and token estimation utilities. However, the core messaging system doesn't need to know about observability.
+
+**Future evolution**: Could become a separate crate (e.g., `g3-observability`) or monitoring service that subscribes to message events.
+
+## Benefits of This Partitioning
+
+1. **Separation of Concerns**: Core messaging logic is isolated from monitoring/logging concerns
+2. **Parallel Development**: Teams can work independently on message protocol vs. observability features
+3. **Testability**: Each module can be tested in isolation
+4. **Maintainability**: Changes to logging/monitoring don't affect core message handling
+5. **Scalability**: Observability could be extracted to a separate service for distributed systems
+6. **Dependency Direction**: Clean one-way dependency (observability → message-protocol) prevents circular dependencies"#;
+        
+        let extracted = FlockMode::extract_json_from_output(output)
+            .expect("should extract valid JSON from output with multiple markers");
+        
+        // Should be able to parse as JSON
+        let parsed: serde_json::Value = serde_json::from_str(&extracted)
+            .expect("extracted content should be valid JSON");
+        
+        // Verify it's an array with 2 elements
+        assert!(parsed.is_array());
+        let arr = parsed.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        
+        // Verify the structure
+        assert_eq!(arr[0]["module_name"], "message-protocol");
+        assert_eq!(arr[1]["module_name"], "observability");
     }
 }
