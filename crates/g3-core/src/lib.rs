@@ -1412,7 +1412,21 @@ impl<W: UiWriter> Agent<W> {
         }
 
         // Add user message to context window
-        let user_message = Message::new(MessageRole::User, format!("Task: {}", description));
+        let user_message = {
+            // Check if we should use cache control (every 10 tool calls)
+            // But only if we haven't already added 4 cache_control annotations
+            let provider = self.providers.get(None)?;
+            if let Some(cache_config) = match provider.name() {
+                "anthropic" => self.config.providers.anthropic.as_ref()
+                    .and_then(|c| c.cache_config.as_ref())
+                    .and_then(|config| Self::parse_cache_control(config)),
+                _ => None,
+            } {
+                Message::with_cache_control_validated(MessageRole::User, format!("Task: {}", description), cache_config, provider)
+            } else {
+                Message::new(MessageRole::User, format!("Task: {}", description))
+            }
+        };
         self.context_window.add_message(user_message);
 
         // Execute fast-discovery tool calls if provided (immediately after user message)
@@ -1434,7 +1448,7 @@ impl<W: UiWriter> Agent<W> {
                     
                     // Add cache_control to the last user message if provider supports it (anthropic)
                     let is_last = idx == message_count - 1;
-                    // But only if we haven't already added 4 cache_control annotations
+                    let result_message = if supports_cache && is_last && self.count_cache_controls_in_history() < 4 {
                         Message::with_cache_control(
                             MessageRole::User,
                             format!("Tool result: {}", result),
@@ -1514,24 +1528,7 @@ impl<W: UiWriter> Agent<W> {
         // Add assistant response to context window only if not empty
         // This prevents the "Skipping empty message" warning when only tools were executed
         if !response_content.trim().is_empty() {
-            let assistant_message = {
-                // Check if we should use cache control (every 10 tool calls)
-                // But only if we haven't already added 4 cache_control annotations
-                    let provider = self.providers.get(None)?;
-                    if let Some(cache_config) = match provider.name() {
-                        "anthropic" => self.config.providers.anthropic.as_ref()
-                            .and_then(|c| c.cache_config.as_ref())
-                            .and_then(|config| Self::parse_cache_control(config)),
-                        _ => None,
-                    } {
-                        Message::with_cache_control_validated(MessageRole::Assistant, response_content.clone(), cache_config, provider)
-                    } else {
-                        Message::new(MessageRole::Assistant, response_content.clone())
-                    }
-                } else {
-                    Message::new(MessageRole::Assistant, response_content.clone())
-                }
-            };
+            let assistant_message = Message::new(MessageRole::Assistant, response_content.clone());
             self.context_window.add_message(assistant_message);
         } else {
             debug!("Assistant response was empty (likely only tool execution), skipping message addition");
@@ -3380,7 +3377,25 @@ impl<W: UiWriter> Agent<W> {
                                         tool_call.tool, tool_call.args
                                 ))
                             };
-                            let result_message = Message::new(MessageRole::User, format!("Tool result: {}", tool_result));
+                            let result_message = {
+                                // Check if we should use cache control (every 10 tool calls)
+                                // But only if we haven't already added 4 cache_control annotations
+                                if self.tool_call_count > 0 && self.tool_call_count % 10 == 0 && self.count_cache_controls_in_history() < 4 {
+                                    let provider = self.providers.get(None)?;
+                                    if let Some(cache_config) = match provider.name() {
+                                        "anthropic" => self.config.providers.anthropic.as_ref()
+                                            .and_then(|c| c.cache_config.as_ref())
+                                            .and_then(|config| Self::parse_cache_control(config)),
+                                        _ => None,
+                                    } {
+                                        Message::with_cache_control_validated(MessageRole::User, format!("Tool result: {}", tool_result), cache_config, provider)
+                                    } else {
+                                        Message::new(MessageRole::User, format!("Tool result: {}", tool_result))
+                                    }
+                                } else {
+                                    Message::new(MessageRole::User, format!("Tool result: {}", tool_result))
+                                }
+                            };
 
                             self.context_window.add_message(tool_message);
                             self.context_window.add_message(result_message);
@@ -3730,25 +3745,7 @@ impl<W: UiWriter> Agent<W> {
                         .replace("<</SYS>>", "");
 
                     if !raw_clean.trim().is_empty() {
-                        let assistant_message = {
-                            // Check if we should use cache control (every 10 tool calls)
-                            // But only if we haven't already added 4 cache_control annotations
-                            if self.tool_call_count > 0 && self.tool_call_count % 10 == 0 && self.count_cache_controls_in_history() < 4 {
-                                let provider = self.providers.get(None)?;
-                                if let Some(cache_config) = match provider.name() {
-                                    "anthropic" => self.config.providers.anthropic.as_ref()
-                                        .and_then(|c| c.cache_config.as_ref())
-                                        .and_then(|config| Self::parse_cache_control(config)),
-                                    _ => None,
-                                } {
-                                    Message::with_cache_control_validated(MessageRole::Assistant, raw_clean, cache_config, provider)
-                                } else {
-                                    Message::new(MessageRole::Assistant, raw_clean)
-                                }
-                            } else {
-                                Message::new(MessageRole::Assistant, raw_clean)
-                            }
-                        };
+                        let assistant_message = Message::new(MessageRole::Assistant, raw_clean);
                         self.context_window.add_message(assistant_message);
                     }
                 }
