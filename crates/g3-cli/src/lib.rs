@@ -1704,7 +1704,7 @@ async fn run_autonomous(
     output.print("🔄 Starting coach-player feedback loop...");
 
     // Check if implementation files already exist
-    let skip_first_player = project.has_implementation_files();
+    let skip_first_player = project.has_implementation_files(agent.ui_writer());
     if skip_first_player {
         output.print("📂 Detected existing implementation files in workspace");
         output.print("⏭️  Skipping first player turn - proceeding directly to coach review");

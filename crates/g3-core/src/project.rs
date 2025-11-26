@@ -1,6 +1,9 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::process::exit;
+
+use crate::ui_writer::UiWriter;
 
 /// Represents a G3 project with workspace configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,13 +102,13 @@ impl Project {
     }
     
     /// Check if implementation files exist in the workspace
-    pub fn has_implementation_files(&self) -> bool {
-        self.check_dir_for_implementation_files(&self.workspace_dir)
+    pub fn has_implementation_files<W: UiWriter>(&self, ui_writer: &W) -> bool {
+        self.check_dir_for_implementation_files(&self.workspace_dir, ui_writer)
     }
     
     /// Recursively check a directory for implementation files
     #[allow(clippy::only_used_in_recursion)]
-    fn check_dir_for_implementation_files(&self, dir: &Path) -> bool {
+    fn check_dir_for_implementation_files<W: UiWriter>(&self, dir: &Path, ui_writer: &W) -> bool {
         // Common source file extensions
         let extensions = vec![
             "swift", "rs", "py", "js", "ts", "java", "cpp", "c",
@@ -121,6 +124,7 @@ impl Project {
                     if let Some(ext) = path.extension() {
                         if let Some(ext_str) = ext.to_str() {
                             if extensions.contains(&ext_str) {
+                                ui_writer.println(&format!("⚠️⚠️Existing implementation file found: {}", path.display()));
                                 return true;
                             }
                         }
@@ -130,7 +134,7 @@ impl Project {
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
                         if !name.starts_with('.') && name != "logs" && name != "target" && name != "node_modules" {
                             // Recursively check subdirectories
-                            if self.check_dir_for_implementation_files(&path) {
+                            if self.check_dir_for_implementation_files(&path, ui_writer) {
                                 return true;
                             }
                         }

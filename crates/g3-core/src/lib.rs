@@ -1297,6 +1297,11 @@ impl<W: UiWriter> Agent<W> {
         self.providers.get(None)
     }
 
+    /// Get a reference to the UI writer
+    pub fn ui_writer(&self) -> &W {
+        &self.ui_writer
+    }
+
     /// Get the current session ID for this agent
     pub fn get_session_id(&self) -> Option<&str> {
         self.session_id.as_deref()
