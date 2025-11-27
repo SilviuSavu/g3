@@ -1087,6 +1087,14 @@ impl<W: UiWriter> Agent<W> {
         }
     }
 
+    /// Count how many cache_control annotations exist in the conversation history
+    fn count_cache_controls_in_history(&self) -> usize {
+        self.context_window.conversation_history
+            .iter()
+            .filter(|msg| msg.cache_control.is_some())
+            .count()
+    }
+
     /// Get the configured max_tokens for a provider from top-level config
     fn provider_max_tokens(config: &Config, provider_name: &str) -> Option<u32> {
         match provider_name {
@@ -1426,7 +1434,7 @@ impl<W: UiWriter> Agent<W> {
                     
                     // Add cache_control to the last user message if provider supports it (anthropic)
                     let is_last = idx == message_count - 1;
-                    let result_message = if is_last && supports_cache {
+                    // But only if we haven't already added 4 cache_control annotations
                         Message::with_cache_control(
                             MessageRole::User,
                             format!("Tool result: {}", result),
@@ -1508,7 +1516,7 @@ impl<W: UiWriter> Agent<W> {
         if !response_content.trim().is_empty() {
             let assistant_message = {
                 // Check if we should use cache control (every 10 tool calls)
-                if self.tool_call_count > 0 && self.tool_call_count % 10 == 0 {
+                // But only if we haven't already added 4 cache_control annotations
                     let provider = self.providers.get(None)?;
                     if let Some(cache_config) = match provider.name() {
                         "anthropic" => self.config.providers.anthropic.as_ref()
@@ -3724,7 +3732,8 @@ impl<W: UiWriter> Agent<W> {
                     if !raw_clean.trim().is_empty() {
                         let assistant_message = {
                             // Check if we should use cache control (every 10 tool calls)
-                            if self.tool_call_count > 0 && self.tool_call_count % 10 == 0 {
+                            // But only if we haven't already added 4 cache_control annotations
+                            if self.tool_call_count > 0 && self.tool_call_count % 10 == 0 && self.count_cache_controls_in_history() < 4 {
                                 let provider = self.providers.get(None)?;
                                 if let Some(cache_config) = match provider.name() {
                                     "anthropic" => self.config.providers.anthropic.as_ref()
