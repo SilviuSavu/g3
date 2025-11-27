@@ -104,7 +104,7 @@ fn format_elapsed_time(duration: Duration) -> String {
     let hours = total_secs / 3600;
     let minutes = (total_secs % 3600) / 60;
     let seconds = total_secs % 60;
-    
+
     if hours > 0 {
         format!("{}h {}m {}s", hours, minutes, seconds)
     } else if minutes > 0 {
@@ -267,13 +267,38 @@ pub struct Cli {
     #[arg(long)]
     pub webdriver: bool,
 
+    /// Enable flock mode - parallel multi-agent development
+    #[arg(long, requires = "flock_workspace", requires = "segments")]
+    pub project: Option<PathBuf>,
+
+    /// Flock workspace directory (where segment copies will be created)
+    #[arg(long, requires = "project")]
+    pub flock_workspace: Option<PathBuf>,
+
+    /// Number of segments to partition work into (for flock mode)
+    #[arg(long, requires = "project")]
+    pub segments: Option<usize>,
+
+    /// Maximum turns per segment in flock mode (default: 5)
+    #[arg(long, default_value = "5")]
+    pub flock_max_turns: usize,
+
     /// Enable fast codebase discovery before first LLM turn
     #[arg(long, value_name = "PATH")]
-    pub codebase_fast_start: Option<PathBuf>,
+    pub codebase_fast_start: Option<PathBuf>
 }
 
 pub async fn run() -> Result<()> {
     let cli = Cli::parse();
+
+    // Check if flock mode is enabled
+    if let (Some(project_dir), Some(flock_workspace), Some(num_segments)) =
+        (&cli.project, &cli.flock_workspace, cli.segments) {
+        // Run flock mode
+        return run_flock_mode(project_dir.clone(), flock_workspace.clone(), num_segments, cli.flock_max_turns).await;
+    }
+
+    // Otherwise, continue with normal mode
 
     // Only initialize logging if not in retro mode
     if !cli.machine {
@@ -460,6 +485,39 @@ pub async fn run() -> Result<()> {
         run_with_console_mode(agent, cli, project, combined_content).await?;
     }
     
+    Ok(())
+}
+
+/// Run flock mode - parallel multi-agent development
+async fn run_flock_mode(
+    project_dir: PathBuf,
+    flock_workspace: PathBuf,
+    num_segments: usize,
+    max_turns: usize,
+) -> Result<()> {
+    let output = SimpleOutput::new();
+
+    output.print("");
+    output.print("🦅 G3 FLOCK MODE - Parallel Multi-Agent Development");
+    output.print("");
+    output.print(&format!("📁 Project: {}", project_dir.display()));
+    output.print(&format!("🗂️  Workspace: {}", flock_workspace.display()));
+    output.print(&format!("🔢 Segments: {}", num_segments));
+    output.print(&format!("🔄 Max Turns per Segment: {}", max_turns));
+    output.print("");
+
+    // Create flock configuration
+    let config = g3_ensembles::FlockConfig::new(project_dir, flock_workspace, num_segments)?
+        .with_max_turns(max_turns);
+
+    // Create and run flock mode
+    let mut flock = g3_ensembles::FlockMode::new(config)?;
+
+    match flock.run().await {
+        Ok(_) => output.print("\n✅ Flock mode completed successfully"),
+        Err(e) => output.print(&format!("\n❌ Flock mode failed: {}", e)),
+    }
+
     Ok(())
 }
 
@@ -1714,7 +1772,7 @@ async fn run_autonomous(
     }
 
     // Load fast-discovery messages before the loop starts (if enabled)
-    let (discovery_messages, discovery_working_dir): (Vec<g3_providers::Message>, Option<String>) = 
+    let (discovery_messages, discovery_working_dir): (Vec<g3_providers::Message>, Option<String>) =
     if let Some(ref codebase_path) = codebase_fast_start {
         // Canonicalize the path to ensure it's absolute
         let canonical_path = codebase_path.canonicalize().unwrap_or_else(|_| codebase_path.clone());
@@ -2014,7 +2072,7 @@ Remember: Be clear in your review and concise in your feedback. APPROVE iff the 
 
         loop {
             match coach_agent
-                .execute_task_with_timing(&coach_prompt, None, false, show_prompt, show_code, true, 
+                .execute_task_with_timing(&coach_prompt, None, false, show_prompt, show_code, true,
                     if has_discovery {
                         Some(DiscoveryOptions {
                             messages: &discovery_messages,
