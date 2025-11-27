@@ -1703,16 +1703,6 @@ async fn run_autonomous(
     let loop_start = Instant::now();
     output.print("🔄 Starting coach-player feedback loop...");
 
-    // Check if implementation files already exist
-    let skip_first_player = project.has_implementation_files(agent.ui_writer());
-    if skip_first_player {
-        output.print("📂 Detected existing implementation files in workspace");
-        output.print("⏭️  Skipping first player turn - proceeding directly to coach review");
-    } else {
-        output.print("📂 No existing implementation files detected");
-        output.print("🎯 Starting with player implementation");
-    }
-
     // Load fast-discovery messages before the loop starts (if enabled)
     let (discovery_messages, discovery_working_dir): (Vec<g3_providers::Message>, Option<String>) = 
     if let Some(ref codebase_path) = codebase_fast_start {
