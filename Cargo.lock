@@ -1546,6 +1546,7 @@ dependencies = [
  "futures-util",
  "llama_cpp",
  "nanoid",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",

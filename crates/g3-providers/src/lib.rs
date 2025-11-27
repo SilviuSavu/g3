@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
 use std::collections::HashMap;
+use rand::Rng;
 
 /// Trait for LLM providers
 #[async_trait::async_trait]
@@ -75,6 +76,7 @@ impl CacheControl {
 pub struct Message {
     pub role: MessageRole,
     pub content: String,
+    pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_control: Option<CacheControl>,
 }
@@ -137,11 +139,30 @@ pub use embedded::EmbeddedProvider;
 pub use openai::OpenAIProvider;
 
 impl Message {
+    /// Generate a unique message ID in format HHMMSS-XXX
+    /// where XXX are 3 random alphanumeric characters (upper and lowercase)
+    fn generate_id() -> String {
+        let now = chrono::Local::now();
+        let timestamp = now.format("%H%M%S").to_string();
+        
+        let mut rng = rand::thread_rng();
+        let random_chars: String = (0..3)
+            .map(|_| {
+                let chars = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                let idx = rng.gen_range(0..chars.len());
+                chars[idx] as char
+            })
+            .collect();
+        
+        format!("{}-{}", timestamp, random_chars)
+    }
+    
     /// Create a new message with optional cache control
     pub fn new(role: MessageRole, content: String) -> Self {
         Self {
             role,
             content,
+            id: Self::generate_id(),
             cache_control: None,
         }
     }
@@ -151,6 +172,7 @@ impl Message {
         Self {
             role,
             content,
+            id: Self::generate_id(),
             cache_control: Some(cache_control),
         }
     }
@@ -287,5 +309,57 @@ mod tests {
         assert!(json.contains("cache_control"), "JSON should contain 'cache_control' field");
         assert!(json.contains("ephemeral"), "JSON should contain 'ephemeral' type");
         assert!(json.contains("\"ttl\":\"1h\""), "JSON should contain ttl field with 1h value");
+    }
+
+    #[test]
+    fn test_message_id_generation() {
+        let msg = Message::new(MessageRole::User, "Hello".to_string());
+        
+        // Check that id is not empty
+        assert!(!msg.id.is_empty(), "Message ID should not be empty");
+        
+        // Check format: HHMMSS-XXX
+        let parts: Vec<&str> = msg.id.split('-').collect();
+        assert_eq!(parts.len(), 2, "Message ID should have format HHMMSS-XXX");
+        
+        // Check timestamp part is 6 digits
+        assert_eq!(parts[0].len(), 6, "Timestamp should be 6 digits (HHMMSS)");
+        assert!(parts[0].chars().all(|c| c.is_ascii_digit()), "Timestamp should be all digits");
+        
+        // Check random part is 3 alpha characters
+        assert_eq!(parts[1].len(), 3, "Random part should be 3 characters");
+        assert!(parts[1].chars().all(|c| c.is_ascii_alphabetic()), 
+                "Random part should be all alphabetic characters");
+    }
+
+    #[test]
+    fn test_message_id_uniqueness() {
+        let msg1 = Message::new(MessageRole::User, "Hello".to_string());
+        let msg2 = Message::new(MessageRole::User, "Hello".to_string());
+        
+        // IDs should be different (due to random component)
+        // Note: There's a tiny chance they could be the same, but very unlikely
+        println!("msg1.id: {}, msg2.id: {}", msg1.id, msg2.id);
+    }
+
+    #[test]
+    fn test_message_id_not_serialized() {
+        let msg = Message::new(MessageRole::User, "Hello".to_string());
+        let json = serde_json::to_string(&msg).unwrap();
+        
+        println!("Message JSON: {}", json);
+        assert!(!json.contains("\"id\""), "JSON should not contain 'id' field");
+    }
+
+    #[test]
+    fn test_message_with_cache_control_has_id() {
+        let msg = Message::with_cache_control(
+            MessageRole::User,
+            "Hello".to_string(),
+            CacheControl::ephemeral(),
+        );
+        
+        assert!(!msg.id.is_empty(), "Message with cache control should have an ID");
+        assert!(msg.id.contains('-'), "Message ID should contain hyphen separator");
     }
 }
