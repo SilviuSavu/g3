@@ -1743,202 +1743,200 @@ async fn run_autonomous(
     loop {
         let turn_start_time = Instant::now();
         let turn_start_tokens = agent.get_context_window().used_tokens;
-        // Skip player turn if it's the first turn and implementation files exist
-        if !(turn == 1 && skip_first_player) {
-            output.print(&format!(
-                "\n=== TURN {}/{} - PLAYER MODE ===",
-                turn, max_turns
-            ));
 
-            // Surface provider info for player agent
-            agent.print_provider_banner("Player");
+        output.print(&format!(
+            "\n=== TURN {}/{} - PLAYER MODE ===",
+            turn, max_turns
+        ));
 
-            // Player mode: implement requirements (with coach feedback if available)
-            let player_prompt = if coach_feedback.is_empty() {
-                format!(
-                    "You are G3 in implementation mode. Read and implement the following requirements:\n\n{}\n\nRequirements SHA256: {}\n\nImplement this step by step, creating all necessary files and code.",
-                    requirements, requirements_sha
-                )
-            } else {
-                format!(
-                    "You are G3 in implementation mode. Address the following specific feedback from the coach:\n\n{}\n\nContext: You are improving an implementation based on these requirements:\n{}\n\nFocus on fixing the issues mentioned in the coach feedback above.",
-                    coach_feedback, requirements
-                )
-            };
+        // Surface provider info for player agent
+        agent.print_provider_banner("Player");
 
-            output.print(&format!("🎯 Starting player implementation... (elapsed: {})", format_elapsed_time(loop_start.elapsed())));
+        // Player mode: implement requirements (with coach feedback if available)
+        let player_prompt = if coach_feedback.is_empty() {
+            format!(
+                "You are G3 in implementation mode. Read and implement the following requirements:\n\n{}\n\nRequirements SHA256: {}\n\nImplement this step by step, creating all necessary files and code.",
+                requirements, requirements_sha
+            )
+        } else {
+            format!(
+                "You are G3 in implementation mode. Address the following specific feedback from the coach:\n\n{}\n\nContext: You are improving an implementation based on these requirements:\n{}\n\nFocus on fixing the issues mentioned in the coach feedback above.",
+                coach_feedback, requirements
+            )
+        };
 
-            // Display what feedback the player is receiving
-            // If there's no coach feedback on subsequent turns, this is an error
-            if coach_feedback.is_empty() {
-                if turn > 1 {
-                    return Err(anyhow::anyhow!(
-                        "Player mode error: No coach feedback received on turn {}",
-                        turn
-                    ));
-                }
-                output.print("📋 Player starting initial implementation (no prior coach feedback)");
-            } else {
-                output.print(&format!(
-                    "📋 Player received coach feedback ({} chars):",
-                    coach_feedback.len()
-                ));
-                output.print(&coach_feedback.to_string());
-            }
-            output.print(""); // Empty line for readability
+        output.print(&format!("🎯 Starting player implementation... (elapsed: {})", format_elapsed_time(loop_start.elapsed())));
 
-            // Execute player task with retry on error
-            let mut _player_retry_count = 0;
-            const MAX_PLAYER_RETRIES: u32 = 3;
-            let mut player_failed = false;
-
-            loop {
-                match agent
-                    .execute_task_with_timing(
-                        &player_prompt,
-                        None,
-                        false,
-                        show_prompt,
-                        show_code,
-                        true,
-                        if has_discovery {
-                            Some(DiscoveryOptions {
-                                messages: &discovery_messages,
-                                fast_start_path: discovery_working_dir.as_deref(),
-                            })
-                        } else { None },
-                    )
-                    .await
-                {
-                    Ok(result) => {
-                        // Display player's implementation result
-                        output.print("📝 Player implementation completed:");
-                        output.print_smart(&result.response);
-                        break;
-                    }
-                    Err(e) => {
-                        // Check if this is a context length exceeded error
-                        use g3_core::error_handling::{classify_error, ErrorType, RecoverableError};
-                        let error_type = classify_error(&e);
-                        
-                        if matches!(error_type, ErrorType::Recoverable(RecoverableError::ContextLengthExceeded)) {
-                            output.print(&format!("⚠️ Context length exceeded in player turn: {}", e));
-                            output.print("📝 Logging error to session and ending current turn...");
-                            
-                            // Build forensic context
-                            let forensic_context = format!(
-                                "Turn: {}\n\
-                                 Role: Player\n\
-                                 Context tokens: {}\n\
-                                 Total available: {}\n\
-                                 Percentage used: {:.1}%\n\
-                                 Prompt length: {} chars\n\
-                                 Error occurred at: {}",
-                                turn,
-                                agent.get_context_window().used_tokens,
-                                agent.get_context_window().total_tokens,
-                                agent.get_context_window().percentage_used(),
-                                player_prompt.len(),
-                                chrono::Utc::now().to_rfc3339()
-                            );
-                            
-                            // Log to session JSON
-                            agent.log_error_to_session(&e, "assistant", Some(forensic_context));
-                            
-                            // Mark turn as failed and continue to next turn
-                            player_failed = true;
-                            break;
-                        } else if e.to_string().contains("panic") {
-                            output.print(&format!("💥 Player panic detected: {}", e));
-
-                            // Generate final report even for panic
-                            let elapsed = start_time.elapsed();
-                            let context_window = agent.get_context_window();
-
-                            output.print(&format!("\n{}", "=".repeat(60)));
-                            output.print("📊 AUTONOMOUS MODE SESSION REPORT");
-                            output.print(&"=".repeat(60));
-
-                            output.print(&format!(
-                                "⏱️  Total Duration: {:.2}s",
-                                elapsed.as_secs_f64()
-                            ));
-                            output.print(&format!("🔄 Turns Taken: {}/{}", turn, max_turns));
-                            output.print("📝 Final Status: 💥 PLAYER PANIC");
-
-                            output.print("\n📈 Token Usage Statistics:");
-                            output.print(&format!(
-                                "   • Used Tokens: {}",
-                                context_window.used_tokens
-                            ));
-                            output.print(&format!(
-                                "   • Total Available: {}",
-                                context_window.total_tokens
-                            ));
-                            output.print(&format!(
-                                "   • Cumulative Tokens: {}",
-                                context_window.cumulative_tokens
-                            ));
-                            output.print(&format!(
-                                "   • Usage Percentage: {:.1}%",
-                                context_window.percentage_used()
-                            ));
-                            // Add per-turn histogram
-                            output.print(&generate_turn_histogram(&turn_metrics));
-                            output.print(&"=".repeat(60));
-
-                            return Err(e);
-                        }
-
-                        _player_retry_count += 1;
-                        output.print(&format!(
-                            "⚠️ Player error (attempt {}/{}): {}",
-                            _player_retry_count, MAX_PLAYER_RETRIES, e
-                        ));
-
-                        if _player_retry_count >= MAX_PLAYER_RETRIES {
-                            output.print(
-                                "🔄 Max retries reached for player, marking turn as failed...",
-                            );
-                            player_failed = true;
-                            break; // Exit retry loop
-                        }
-                        output.print("🔄 Retrying player implementation...");
-                    }
-                }
-            }
-
-            // If player failed after max retries, increment turn and continue
-            if player_failed {
-                output.print(&format!(
-                    "⚠️ Player turn {} failed after max retries. Moving to next turn.",
+        // Display what feedback the player is receiving
+        // If there's no coach feedback on subsequent turns, this is an error
+        if coach_feedback.is_empty() {
+            if turn > 1 {
+                return Err(anyhow::anyhow!(
+                    "Player mode error: No coach feedback received on turn {}",
                     turn
                 ));
-                // Record turn metrics before incrementing
-                let turn_duration = turn_start_time.elapsed();
-                let turn_tokens = agent.get_context_window().used_tokens.saturating_sub(turn_start_tokens);
-                turn_metrics.push(TurnMetrics {
-                    turn_number: turn,
-                    tokens_used: turn_tokens,
-                    wall_clock_time: turn_duration,
-                });
-                turn += 1;
+            }
+            output.print("📋 Player starting initial implementation (no prior coach feedback)");
+        } else {
+            output.print(&format!(
+                "📋 Player received coach feedback ({} chars):",
+                coach_feedback.len()
+            ));
+            output.print(&coach_feedback.to_string());
+        }
+        output.print(""); // Empty line for readability
 
-                // Check if we've reached max turns
-                if turn > max_turns {
-                    output.print("\n=== SESSION COMPLETED - MAX TURNS REACHED ===");
-                    output.print(&format!("⏰ Maximum turns ({}) reached", max_turns));
+        // Execute player task with retry on error
+        let mut _player_retry_count = 0;
+        const MAX_PLAYER_RETRIES: u32 = 3;
+        let mut player_failed = false;
+
+        loop {
+            match agent
+                .execute_task_with_timing(
+                    &player_prompt,
+                    None,
+                    false,
+                    show_prompt,
+                    show_code,
+                    true,
+                    if has_discovery {
+                        Some(DiscoveryOptions {
+                            messages: &discovery_messages,
+                            fast_start_path: discovery_working_dir.as_deref(),
+                        })
+                    } else { None },
+                )
+                .await
+            {
+                Ok(result) => {
+                    // Display player's implementation result
+                    output.print("📝 Player implementation completed:");
+                    output.print_smart(&result.response);
                     break;
                 }
+                Err(e) => {
+                    // Check if this is a context length exceeded error
+                    use g3_core::error_handling::{classify_error, ErrorType, RecoverableError};
+                    let error_type = classify_error(&e);
 
-                // Continue to next iteration with empty feedback (restart from scratch)
-                coach_feedback = String::new();
-                continue;
+                    if matches!(error_type, ErrorType::Recoverable(RecoverableError::ContextLengthExceeded)) {
+                        output.print(&format!("⚠️ Context length exceeded in player turn: {}", e));
+                        output.print("📝 Logging error to session and ending current turn...");
+
+                        // Build forensic context
+                        let forensic_context = format!(
+                            "Turn: {}\n\
+                             Role: Player\n\
+                             Context tokens: {}\n\
+                             Total available: {}\n\
+                             Percentage used: {:.1}%\n\
+                             Prompt length: {} chars\n\
+                             Error occurred at: {}",
+                            turn,
+                            agent.get_context_window().used_tokens,
+                            agent.get_context_window().total_tokens,
+                            agent.get_context_window().percentage_used(),
+                            player_prompt.len(),
+                            chrono::Utc::now().to_rfc3339()
+                        );
+
+                        // Log to session JSON
+                        agent.log_error_to_session(&e, "assistant", Some(forensic_context));
+
+                        // Mark turn as failed and continue to next turn
+                        player_failed = true;
+                        break;
+                    } else if e.to_string().contains("panic") {
+                        output.print(&format!("💥 Player panic detected: {}", e));
+
+                        // Generate final report even for panic
+                        let elapsed = start_time.elapsed();
+                        let context_window = agent.get_context_window();
+
+                        output.print(&format!("\n{}", "=".repeat(60)));
+                        output.print("📊 AUTONOMOUS MODE SESSION REPORT");
+                        output.print(&"=".repeat(60));
+
+                        output.print(&format!(
+                            "⏱️  Total Duration: {:.2}s",
+                            elapsed.as_secs_f64()
+                        ));
+                        output.print(&format!("🔄 Turns Taken: {}/{}", turn, max_turns));
+                        output.print("📝 Final Status: 💥 PLAYER PANIC");
+
+                        output.print("\n📈 Token Usage Statistics:");
+                        output.print(&format!(
+                            "   • Used Tokens: {}",
+                            context_window.used_tokens
+                        ));
+                        output.print(&format!(
+                            "   • Total Available: {}",
+                            context_window.total_tokens
+                        ));
+                        output.print(&format!(
+                            "   • Cumulative Tokens: {}",
+                            context_window.cumulative_tokens
+                        ));
+                        output.print(&format!(
+                            "   • Usage Percentage: {:.1}%",
+                            context_window.percentage_used()
+                        ));
+                        // Add per-turn histogram
+                        output.print(&generate_turn_histogram(&turn_metrics));
+                        output.print(&"=".repeat(60));
+
+                        return Err(e);
+                    }
+
+                    _player_retry_count += 1;
+                    output.print(&format!(
+                        "⚠️ Player error (attempt {}/{}): {}",
+                        _player_retry_count, MAX_PLAYER_RETRIES, e
+                    ));
+
+                    if _player_retry_count >= MAX_PLAYER_RETRIES {
+                        output.print(
+                            "🔄 Max retries reached for player, marking turn as failed...",
+                        );
+                        player_failed = true;
+                        break; // Exit retry loop
+                    }
+                    output.print("🔄 Retrying player implementation...");
+                }
+            }
+        }
+
+        // If player failed after max retries, increment turn and continue
+        if player_failed {
+            output.print(&format!(
+                "⚠️ Player turn {} failed after max retries. Moving to next turn.",
+                turn
+            ));
+            // Record turn metrics before incrementing
+            let turn_duration = turn_start_time.elapsed();
+            let turn_tokens = agent.get_context_window().used_tokens.saturating_sub(turn_start_tokens);
+            turn_metrics.push(TurnMetrics {
+                turn_number: turn,
+                tokens_used: turn_tokens,
+                wall_clock_time: turn_duration,
+            });
+            turn += 1;
+
+            // Check if we've reached max turns
+            if turn > max_turns {
+                output.print("\n=== SESSION COMPLETED - MAX TURNS REACHED ===");
+                output.print(&format!("⏰ Maximum turns ({}) reached", max_turns));
+                break;
             }
 
-            // Give some time for file operations to complete
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            // Continue to next iteration with empty feedback (restart from scratch)
+            coach_feedback = String::new();
+            continue;
         }
+
+        // Give some time for file operations to complete
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
         // Create a new agent instance for coach mode to ensure fresh context
         // Use the same config with overrides that was passed to the player agent
