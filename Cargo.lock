@@ -1351,6 +1351,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "g3-cli",
+ "g3-providers",
+ "serde_json",
  "tokio",
 ]
 
@@ -1546,6 +1548,7 @@ dependencies = [
  "futures-util",
  "llama_cpp",
  "nanoid",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",
