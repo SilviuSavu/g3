@@ -1739,19 +1739,30 @@ impl<W: UiWriter> Agent<W> {
             };
 
             // Get first 100 characters of content
-            let content_preview: String = message.content.chars().take(100).collect();
+            let content_preview: String = message.content.chars().take(120).collect();
 
             // Replace newlines with spaces for single-line format
             let content_preview = content_preview.replace('\n', " ").replace('\r', " ");
 
-            // Format: date&time, indicator + token_count (fixed width), message_id, role, first_100_chars
+            // Format: message_id, role, token_count, indicator, first_100_chars
             let line = format!(
-                "{}, {} {}, {}, {}, {}\n",
-                timestamp, token_str, indicator, message.id, role, content_preview
+                "{}, {}, {} {}, {}\n",
+                message.id, role, token_str, indicator, content_preview
             );
-
             summary_lines.push(line);
         }
+
+        // Add total estimate after the last line of conversation history
+        let total_tokens = self.context_window.used_tokens;
+        let total_capacity = self.context_window.total_tokens;
+        let percentage = self.context_window.percentage_used();
+        let total_token_str = Self::format_token_count(total_tokens);
+        let capacity_str = Self::format_token_count(total_capacity);
+        
+        summary_lines.push(format!(
+            "\n--- TOTAL: {} / {} ({:.1}%) ---\n",
+            total_token_str, capacity_str, percentage
+        ));
 
         // Write to file
         let summary_content = summary_lines.join("");
