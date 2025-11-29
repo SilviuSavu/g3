@@ -1720,7 +1720,7 @@ impl<W: UiWriter> Agent<W> {
         let mut summary_lines = Vec::new();
 
         for message in &self.context_window.conversation_history {
-            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let _timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
             // Estimate tokens for this message
             let message_tokens = ContextWindow::estimate_tokens(&message.content);
