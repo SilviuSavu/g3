@@ -340,14 +340,18 @@ impl ContextWindow {
     }
 
     /// Update token usage from provider response
+    /// NOTE: This only updates cumulative_tokens (total API usage tracking).
+    /// It does NOT update used_tokens because:
+    /// 1. prompt_tokens represents the ENTIRE context sent to API (already tracked via add_message)
+    /// 2. completion_tokens will be tracked when the assistant message is added via add_message
+    /// Adding total_tokens here would cause double/triple counting and break the 80% threshold check.
     pub fn update_usage_from_response(&mut self, usage: &g3_providers::Usage) {
-        // Add the tokens from this response to our running total
-        // The usage.total_tokens represents tokens used in this single API call
-        self.used_tokens += usage.total_tokens;
+        // Only update cumulative tokens for API usage tracking
+        // Do NOT update used_tokens - that's tracked via add_message to avoid double counting
         self.cumulative_tokens += usage.total_tokens;
 
         debug!(
-            "Added {} tokens from provider response (used: {}/{}, cumulative: {})",
+            "Updated cumulative tokens: {} (used: {}/{}, cumulative: {})",
             usage.total_tokens, self.used_tokens, self.total_tokens, self.cumulative_tokens
         );
     }
@@ -371,12 +375,14 @@ impl ContextWindow {
         self.update_usage_from_response(usage);
     }
 
-    /// Update cumulative token usage (for streaming)
+    /// Update cumulative token usage (for streaming) when no provider usage data is available
+    /// NOTE: This only updates cumulative_tokens, not used_tokens.
+    /// The assistant message will be added via add_message which tracks used_tokens.
     pub fn add_streaming_tokens(&mut self, new_tokens: u32) {
-        self.used_tokens += new_tokens;
+        // Only update cumulative tokens - used_tokens is tracked via add_message
         self.cumulative_tokens += new_tokens;
         debug!(
-            "Added {} streaming tokens (used: {}/{}, cumulative: {})",
+            "Updated cumulative streaming tokens: {} (used: {}/{}, cumulative: {})",
             new_tokens, self.used_tokens, self.total_tokens, self.cumulative_tokens
         );
     }
