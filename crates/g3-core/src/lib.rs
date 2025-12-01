@@ -421,6 +421,7 @@ Format this as a detailed but concise summary that can be used to resume the con
     }
 
     /// Reset the context window with a summary
+    /// Preserves the original system prompt as the first message
     pub fn reset_with_summary(
         &mut self,
         summary: String,
@@ -433,9 +434,30 @@ Format this as a detailed but concise summary that can be used to resume the con
             .map(|m| m.content.len())
             .sum();
 
+        // Preserve the original system prompt (first message) and optionally the README (second message)
+        let original_system_prompt = self.conversation_history.first().cloned();
+        let readme_message = self.conversation_history.get(1).and_then(|msg| {
+            if matches!(msg.role, MessageRole::System) && 
+               (msg.content.contains("Project README") || msg.content.contains("Agent Configuration")) {
+                Some(msg.clone())
+            } else {
+                None
+            }
+        });
+
         // Clear the conversation history
         self.conversation_history.clear();
         self.used_tokens = 0;
+
+        // Re-add the original system prompt first (critical invariant)
+        if let Some(system_prompt) = original_system_prompt {
+            self.add_message(system_prompt);
+        }
+
+        // Re-add the README message if it existed
+        if let Some(readme) = readme_message {
+            self.add_message(readme);
+        }
 
         // Add the summary as a system message
         let summary_message = Message::new(
