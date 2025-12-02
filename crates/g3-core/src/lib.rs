@@ -950,6 +950,7 @@ impl<W: UiWriter> Agent<W> {
                     anthropic_config.temperature,
                     anthropic_config.cache_config.clone(),
                     anthropic_config.enable_1m_context,
+                    anthropic_config.thinking_budget_tokens,
                 )?;
                 providers.register(anthropic_provider);
             }
@@ -1167,6 +1168,17 @@ impl<W: UiWriter> Agent<W> {
         }
     }
 
+    /// Get the configured temperature for a provider from top-level config
+    fn provider_temperature(config: &Config, provider_name: &str) -> Option<f32> {
+        match provider_name {
+            "anthropic" => config.providers.anthropic.as_ref()?.temperature,
+            "openai" => config.providers.openai.as_ref()?.temperature,
+            "databricks" => config.providers.databricks.as_ref()?.temperature,
+            "embedded" => config.providers.embedded.as_ref()?.temperature,
+            _ => None,
+        }
+    }
+
     /// Resolve the max_tokens to use for a given provider, applying fallbacks
     fn resolve_max_tokens(&self, provider_name: &str) -> u32 {
         match provider_name {
@@ -1176,6 +1188,16 @@ impl<W: UiWriter> Agent<W> {
             other => Self::provider_max_tokens(&self.config, other)
                 .or(Some(self.config.agent.fallback_default_max_tokens as u32))
                 .unwrap_or(16000),
+        }
+    }
+
+    /// Resolve the temperature to use for a given provider, applying fallbacks
+    fn resolve_temperature(&self, provider_name: &str) -> f32 {
+        match provider_name {
+            "databricks" => Self::provider_temperature(&self.config, "databricks")
+                .unwrap_or(0.1),
+            other => Self::provider_temperature(&self.config, other)
+                .unwrap_or(0.1),
         }
     }
 
@@ -1562,7 +1584,7 @@ impl<W: UiWriter> Agent<W> {
         let request = CompletionRequest {
             messages,
             max_tokens,
-            temperature: Some(0.1),
+            temperature: Some(self.resolve_temperature(&provider_name)),
             stream: true, // Enable streaming
             tools,
         };
@@ -2022,7 +2044,7 @@ impl<W: UiWriter> Agent<W> {
         let summary_request = CompletionRequest {
             messages: summary_messages,
             max_tokens: summary_max_tokens,
-            temperature: Some(0.3),
+            temperature: Some(self.resolve_temperature(provider.name())),
             stream: false,
             tools: None,
         };
@@ -3080,7 +3102,7 @@ impl<W: UiWriter> Agent<W> {
                 let summary_request = CompletionRequest {
                     messages: summary_messages,
                     max_tokens: summary_max_tokens,
-                    temperature: Some(0.3), // Lower temperature for factual summary
+                    temperature: Some(self.resolve_temperature(provider.name())),
                     stream: false,
                     tools: None,
                 };
