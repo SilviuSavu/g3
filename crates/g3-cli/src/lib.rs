@@ -163,33 +163,66 @@ fn extract_coach_feedback_from_logs(
                 if let Some(context_window) = log_json.get("context_window") {
                     if let Some(conversation_history) = context_window.get("conversation_history") {
                         if let Some(messages) = conversation_history.as_array() {
-                            // Get the last message which contains the final_output tool result
-                            // The last message is a USER message with format "Tool result: {summary}"
-                            if let Some(last_message) = messages.last() {
-                                if let Some(content) = last_message.get("content") {
-                                    if let Some(content_str) = content.as_str() {
-                                        // Strip the "Tool result: " prefix if present
-                                        let feedback = if content_str.starts_with("Tool result: ") {
-                                            content_str.strip_prefix("Tool result: ")
-                                                .unwrap_or(content_str)
-                                                .to_string()
-                                        } else {
-                                            content_str.to_string()
-                                        };
-                                        
-                                        // Log the extraction for debugging
-                                        output.print(&format!(
-                                            "Coach feedback extracted: {} characters (from {} total)",
-                                            feedback.len(),
-                                            content_str.len()
-                                        ));
-                                        output.print(&format!("Coach feedback:\n{}", feedback));
-                                        
-                                        output.print(&format!(
-                                            "✅ Extracted coach feedback from session: {}",
-                                            session_id
-                                        ));
-                                        return Ok(feedback);
+                            // Go backwards through the conversation to find the last tool result
+                            // that corresponds to a final_output tool call
+                            for i in (0..messages.len()).rev() {
+                                let msg = &messages[i];
+                                
+                                // Check if this is a User message with "Tool result:"
+                                if let Some(role) = msg.get("role") {
+                                    if let Some(role_str) = role.as_str() {
+                                        if role_str == "User" || role_str == "user" {
+                                            if let Some(content) = msg.get("content") {
+                                                if let Some(content_str) = content.as_str() {
+                                                    if content_str.starts_with("Tool result:") {
+                                                        // Found a tool result, now check the preceding message
+                                                        // to verify it was a final_output tool call
+                                                        if i > 0 {
+                                                            let prev_msg = &messages[i - 1];
+                                                            if let Some(prev_role) = prev_msg.get("role") {
+                                                                if let Some(prev_role_str) = prev_role.as_str() {
+                                                                    if prev_role_str == "assistant" || prev_role_str == "Assistant" {
+                                                                        if let Some(prev_content) = prev_msg.get("content") {
+                                                                            if let Some(prev_content_str) = prev_content.as_str() {
+                                                                                // Check if the previous assistant message contains a final_output tool call
+                                                                                if prev_content_str.contains("\"tool\": \"final_output\"") {
+                                                                                    // This is a final_output tool result
+                                                                                    let feedback = if content_str.starts_with("Tool result: ") {
+                                                                                        content_str.strip_prefix("Tool result: ")
+                                                                                            .unwrap_or(content_str)
+                                                                                            .to_string()
+                                                                                    } else {
+                                                                                        content_str.to_string()
+                                                                                    };
+                                                                                    
+                                                                                    output.print(&format!(
+                                                                                        "Coach feedback extracted: {} characters (from {} total)",
+                                                                                        feedback.len(),
+                                                                                        content_str.len()
+                                                                                    ));
+                                                                                    output.print(&format!("Coach feedback:\n{}", feedback));
+                                                                                    
+                                                                                    output.print(&format!(
+                                                                                        "✅ Extracted coach feedback from session: {} (verified final_output tool)",
+                                                                                        session_id
+                                                                                    ));
+                                                                                    return Ok(feedback);
+                                                                                } else {
+                                                                                    output.print(&format!(
+                                                                                        "⚠️  Skipping tool result at index {} - not a final_output tool call",
+                                                                                        i
+                                                                                    ));
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -205,7 +238,7 @@ fn extract_coach_feedback_from_logs(
         "CRITICAL: Could not extract coach feedback from session: {}\n\
          Log file path: {:?}\n\
          Log file exists: {}\n\
-         This indicates the coach did not call any tool or the log is corrupted.\n\
+         This indicates the coach did not call final_output tool or the log is corrupted.\n\
          Coach result response length: {} chars",
         session_id,
         log_file_path,
