@@ -2044,7 +2044,7 @@ impl<W: UiWriter> Agent<W> {
         let summary_request = CompletionRequest {
             messages: summary_messages,
             max_tokens: summary_max_tokens,
-            temperature: Some(0.3),
+            temperature: Some(self.resolve_temperature(provider.name())),
             stream: false,
             tools: None,
         };
@@ -3102,7 +3102,7 @@ impl<W: UiWriter> Agent<W> {
                 let summary_request = CompletionRequest {
                     messages: summary_messages,
                     max_tokens: summary_max_tokens,
-                    temperature: Some(0.3), // Lower temperature for factual summary
+                    temperature: Some(self.resolve_temperature(provider.name())),
                     stream: false,
                     tools: None,
                 };
