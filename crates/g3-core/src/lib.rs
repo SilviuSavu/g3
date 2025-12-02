@@ -1024,6 +1024,28 @@ impl<W: UiWriter> Agent<W> {
             context_window.add_message(readme_message);
         }
 
+        // Load existing TODO list if present (after system prompt and README)
+        let todo_path = std::env::current_dir().ok().map(|p| p.join("todo.g3.md"));
+        let initial_todo_content = if let Some(ref path) = todo_path {
+            if path.exists() {
+                std::fs::read_to_string(path).ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(ref todo_content) = initial_todo_content {
+            if !todo_content.trim().is_empty() {
+                let todo_message = Message::new(
+                    MessageRole::System,
+                    format!("📋 Existing TODO list (from todo.g3.md):\n\n{}", todo_content),
+                );
+                context_window.add_message(todo_message);
+            }
+        }
+
         // Initialize computer controller if enabled
         let computer_controller = if config.computer_control.enabled {
             match g3_computer_control::create_controller() {
@@ -4735,6 +4757,27 @@ impl<W: UiWriter> Agent<W> {
                                 "❌ TODO list too large: {} chars (max: {})",
                                 char_count, max_chars
                             ));
+                        }
+
+                        // Check if all todos are completed (all checkboxes are checked)
+                        let has_incomplete = content_str.lines().any(|line| {
+                            let trimmed = line.trim();
+                            trimmed.starts_with("- [ ]")
+                        });
+
+                        // If all todos are complete, delete the file instead of writing
+                        if !has_incomplete && (content_str.contains("- [x]") || content_str.contains("- [X]")) {
+                            let todo_path = std::env::current_dir()?.join("todo.g3.md");
+                            if todo_path.exists() {
+                                match std::fs::remove_file(&todo_path) {
+                                    Ok(_) => {
+                                        let mut todo = self.todo_content.write().await;
+                                        *todo = String::new();
+                                        return Ok("✅ All TODOs completed! Removed todo.g3.md".to_string());
+                                    }
+                                    Err(e) => return Ok(format!("❌ Failed to remove todo.g3.md: {}", e)),
+                                }
+                            }
                         }
 
                         // Write to todo.g3.md file in current workspace directory
