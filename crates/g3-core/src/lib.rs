@@ -4735,6 +4735,11 @@ impl<W: UiWriter> Agent<W> {
                             if content.trim().is_empty() {
                                 Ok("📝 TODO list is empty".to_string())
                             } else {
+                                // Print the TODO content to the console
+                                self.ui_writer.print_context_status("📝 TODO list:");
+                                for line in content.lines() {
+                                    self.ui_writer.print_tool_output_line(line);
+                                }
                                 Ok(format!("📝 TODO list:\n{}", content))
                             }
                         }
@@ -4788,10 +4793,15 @@ impl<W: UiWriter> Agent<W> {
                                 // Also update in-memory content to stay in sync
                                 let mut todo = self.todo_content.write().await;
                                 *todo = content_str.to_string();
-                                Ok(format!(
-                                    "✅ TODO list updated ({} chars) and saved to todo.g3.md",
+                                // Print the TODO content to the console
+                                self.ui_writer.print_context_status(&format!(
+                                    "✅ TODO list updated ({} chars) and saved to todo.g3.md:",
                                     char_count
-                                ))
+                                ));
+                                for line in content_str.lines() {
+                                    self.ui_writer.print_tool_output_line(line);
+                                }
+                                Ok(format!("✅ TODO list updated ({} chars) and saved to todo.g3.md:\n{}", char_count, content_str))
                             }
                             Err(e) => Ok(format!("❌ Failed to write todo.g3.md: {}", e)),
                         }
