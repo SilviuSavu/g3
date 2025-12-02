@@ -3604,40 +3604,6 @@ impl<W: UiWriter> Agent<W> {
                                 }
                             }
 
-                            // Check if this was a final_output tool call
-                            if tool_call.tool == "final_output" {
-                                // The summary was already displayed via print_final_output
-                                // Don't add it to full_response to avoid duplicate printing
-                                // full_response is intentionally left empty/unchanged
-                                self.ui_writer.println("");
-                                let _ttft =
-                                    first_token_time.unwrap_or_else(|| stream_start.elapsed());
-
-                                // Add timing if needed
-                                let final_response = if show_timing {
-                                    format!(
-                                        "🕝 {} | 💭 {}",
-                                        Self::format_duration(stream_start.elapsed()),
-                                        Self::format_duration(_ttft)
-                                    )
-                                } else {
-                                    // Return empty string since content was already displayed
-                                    String::new()
-                                };
-
-                                return Ok(TaskResult::new(
-                                    final_response,
-                                    self.context_window.clone(),
-                                ));
-                            }
-
-                            // Closure marker with timing
-                            if tool_call.tool != "final_output" {
-                                self.ui_writer
-                                    .print_tool_timing(&Self::format_duration(exec_duration));
-                                self.ui_writer.print_agent_prompt();
-                            }
-
                             // Add the tool call and result to the context window using RAW unfiltered content
                             // This ensures the log file contains the true raw content including JSON tool calls
                             let tool_message = if !raw_content_for_log.trim().is_empty() {
@@ -3700,6 +3666,43 @@ impl<W: UiWriter> Agent<W> {
 
                             self.context_window.add_message(tool_message);
                             self.context_window.add_message(result_message);
+
+                            // Check if this was a final_output tool call
+                            if tool_call.tool == "final_output" {
+                                // Save context window BEFORE returning so the session log includes final_output
+                                self.save_context_window("completed");
+                                
+                                // The summary was already displayed via print_final_output
+                                // Don't add it to full_response to avoid duplicate printing
+                                // full_response is intentionally left empty/unchanged
+                                self.ui_writer.println("");
+                                let _ttft =
+                                    first_token_time.unwrap_or_else(|| stream_start.elapsed());
+
+                                // Add timing if needed
+                                let final_response = if show_timing {
+                                    format!(
+                                        "🕝 {} | 💭 {}",
+                                        Self::format_duration(stream_start.elapsed()),
+                                        Self::format_duration(_ttft)
+                                    )
+                                } else {
+                                    // Return empty string since content was already displayed
+                                    String::new()
+                                };
+
+                                return Ok(TaskResult::new(
+                                    final_response,
+                                    self.context_window.clone(),
+                                ));
+                            }
+
+                            // Closure marker with timing
+                            if tool_call.tool != "final_output" {
+                                self.ui_writer
+                                    .print_tool_timing(&Self::format_duration(exec_duration));
+                                self.ui_writer.print_agent_prompt();
+                            }
 
                             // Update the request with the new context for next iteration
                             request.messages = self.context_window.conversation_history.clone();
@@ -3922,6 +3925,9 @@ impl<W: UiWriter> Agent<W> {
                                 full_response = String::new();
 
                                 self.ui_writer.println("");
+                                
+                                // Save context window BEFORE returning
+                                self.save_context_window("completed");
                                 let _ttft =
                                     first_token_time.unwrap_or_else(|| stream_start.elapsed());
 
@@ -4060,6 +4066,9 @@ impl<W: UiWriter> Agent<W> {
                     }
                 }
 
+                // Save context window BEFORE returning
+                self.save_context_window("completed");
+                
                 // Add timing if needed
                 let final_response = if show_timing {
                     format!(

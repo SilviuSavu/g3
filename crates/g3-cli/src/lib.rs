@@ -163,15 +163,33 @@ fn extract_coach_feedback_from_logs(
                 if let Some(context_window) = log_json.get("context_window") {
                     if let Some(conversation_history) = context_window.get("conversation_history") {
                         if let Some(messages) = conversation_history.as_array() {
-                            // Simply get the last message content - this is the coach's final feedback
+                            // Get the last message which contains the final_output tool result
+                            // The last message is a USER message with format "Tool result: {summary}"
                             if let Some(last_message) = messages.last() {
                                 if let Some(content) = last_message.get("content") {
                                     if let Some(content_str) = content.as_str() {
+                                        // Strip the "Tool result: " prefix if present
+                                        let feedback = if content_str.starts_with("Tool result: ") {
+                                            content_str.strip_prefix("Tool result: ")
+                                                .unwrap_or(content_str)
+                                                .to_string()
+                                        } else {
+                                            content_str.to_string()
+                                        };
+                                        
+                                        // Log the extraction for debugging
+                                        output.print(&format!(
+                                            "Coach feedback extracted: {} characters (from {} total)",
+                                            feedback.len(),
+                                            content_str.len()
+                                        ));
+                                        output.print(&format!("Coach feedback:\n{}", feedback));
+                                        
                                         output.print(&format!(
                                             "✅ Extracted coach feedback from session: {}",
                                             session_id
                                         ));
-                                        return Ok(content_str.to_string());
+                                        return Ok(feedback);
                                     }
                                 }
                             }
