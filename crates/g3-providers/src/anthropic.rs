@@ -26,6 +26,7 @@
 //!         Some(0.1),
 //!         None, // cache_config
 //!         None, // enable_1m_context
+//!         None, // thinking_budget_tokens
 //!     )?;
 //!
 //!     // Create a completion request
@@ -63,6 +64,7 @@
 //!         None,
 //!         None, // cache_config
 //!         None, // enable_1m_context
+//!         None, // thinking_budget_tokens
 //!     )?;
 //!
 //!     let request = CompletionRequest {
@@ -122,6 +124,7 @@ pub struct AnthropicProvider {
     temperature: f32,
     cache_config: Option<String>,
     enable_1m_context: bool,
+    thinking_budget_tokens: Option<u32>,
 }
 
 impl AnthropicProvider {
@@ -132,6 +135,7 @@ impl AnthropicProvider {
         temperature: Option<f32>,
         cache_config: Option<String>,
         enable_1m_context: Option<bool>,
+        thinking_budget_tokens: Option<u32>,
     ) -> Result<Self> {
         let client = Client::builder()
             .timeout(Duration::from_secs(300))
@@ -150,6 +154,7 @@ impl AnthropicProvider {
             temperature: temperature.unwrap_or(0.1),
             cache_config,
             enable_1m_context: enable_1m_context.unwrap_or(false),
+            thinking_budget_tokens,
         })
     }
 
@@ -279,6 +284,11 @@ impl AnthropicProvider {
         // Convert tools if provided
         let anthropic_tools = tools.map(|t| self.convert_tools(t));
 
+        // Add thinking configuration if budget_tokens is set
+        let thinking = self.thinking_budget_tokens.map(|budget| {
+            ThinkingConfig::enabled(budget)
+        });
+
         let request = AnthropicRequest {
             model: self.model.clone(),
             max_tokens,
@@ -287,6 +297,7 @@ impl AnthropicProvider {
             system,
             tools: anthropic_tools,
             stream: streaming,
+            thinking,
         };
 
         // Ensure the conversation starts with a user message
@@ -778,6 +789,19 @@ impl LLMProvider for AnthropicProvider {
 // Anthropic API request/response structures
 
 #[derive(Debug, Serialize)]
+struct ThinkingConfig {
+    #[serde(rename = "type")]
+    thinking_type: String,
+    budget_tokens: u32,
+}
+
+impl ThinkingConfig {
+    fn enabled(budget_tokens: u32) -> Self {
+        Self { thinking_type: "enabled".to_string(), budget_tokens }
+    }
+}
+
+#[derive(Debug, Serialize)]
 struct AnthropicRequest {
     model: String,
     max_tokens: u32,
@@ -788,6 +812,8 @@ struct AnthropicRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<AnthropicTool>>,
     stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thinking: Option<ThinkingConfig>,
 }
 
 #[derive(Debug, Serialize)]
@@ -886,7 +912,7 @@ mod tests {
     #[test]
     fn test_message_conversion() {
         let provider =
-            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None).unwrap();
+            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None).unwrap();
 
         let messages = vec![
             Message::new(
@@ -914,6 +940,7 @@ mod tests {
             Some(0.5),
             None,
             None,
+            None,
         )
         .unwrap();
 
@@ -934,7 +961,7 @@ mod tests {
     #[test]
     fn test_tool_conversion() {
         let provider =
-            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None).unwrap();
+            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None).unwrap();
 
         let tools = vec![Tool {
             name: "get_weather".to_string(),
@@ -967,7 +994,7 @@ mod tests {
     #[test]
     fn test_cache_control_serialization() {
         let provider =
-            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None).unwrap();
+            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None).unwrap();
 
         // Test message WITHOUT cache_control
         let messages_without = vec![Message::new(MessageRole::User, "Hello".to_string())];
@@ -1008,5 +1035,47 @@ mod tests {
             !json_without.contains("cache_control") || !json_without.contains("null"),
             "JSON should not contain 'cache_control' field or null values when not configured"
         );
+    }
+
+    #[test]
+    fn test_thinking_parameter_serialization() {
+        // Test WITHOUT thinking parameter
+        let provider_without = AnthropicProvider::new(
+            "test-key".to_string(),
+            Some("claude-sonnet-4-5".to_string()),
+            Some(1000),
+            Some(0.5),
+            None,
+            None,
+            None, // No thinking budget
+        )
+        .unwrap();
+
+        let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
+        let request_without = provider_without
+            .create_request_body(&messages, None, false, 1000, 0.5)
+            .unwrap();
+        let json_without = serde_json::to_string(&request_without).unwrap();
+        assert!(!json_without.contains("thinking"), "JSON should not contain 'thinking' field when not configured");
+
+        // Test WITH thinking parameter
+        let provider_with = AnthropicProvider::new(
+            "test-key".to_string(),
+            Some("claude-sonnet-4-5".to_string()),
+            Some(1000),
+            Some(0.5),
+            None,
+            None,
+            Some(10000), // With thinking budget
+        )
+        .unwrap();
+
+        let request_with = provider_with
+            .create_request_body(&messages, None, false, 1000, 0.5)
+            .unwrap();
+        let json_with = serde_json::to_string(&request_with).unwrap();
+        assert!(json_with.contains("thinking"), "JSON should contain 'thinking' field when configured");
+        assert!(json_with.contains("\"type\":\"enabled\""), "JSON should contain type: enabled");
+        assert!(json_with.contains("\"budget_tokens\":10000"), "JSON should contain budget_tokens: 10000");
     }
 }

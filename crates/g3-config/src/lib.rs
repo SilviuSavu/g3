@@ -42,6 +42,7 @@ pub struct AnthropicConfig {
     pub temperature: Option<f32>,
     pub cache_config: Option<String>, // "ephemeral", "5minute", "1hour", or None to disable
     pub enable_1m_context: Option<bool>, // Enable 1m context window (costs extra)
+    pub thinking_budget_tokens: Option<u32>, // Budget tokens for extended thinking
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
