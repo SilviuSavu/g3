@@ -81,6 +81,9 @@ impl UiWriter for MockUiWriter {
             .push(format!("CHOICE: {} Options: {:?}", message, options));
         self.choice_responses.lock().unwrap().pop().unwrap_or(0)
     }
+    fn print_final_output(&self, summary: &str) {
+        self.output.lock().unwrap().push(format!("FINAL: {}", summary));
+    }
 }
 
 #[tokio::test]

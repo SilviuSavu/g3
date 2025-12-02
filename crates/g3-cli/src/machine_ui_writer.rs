@@ -105,4 +105,9 @@ impl UiWriter for MachineUiWriter {
         // Default to first option (index 0) for automation
         0
     }
+
+    fn print_final_output(&self, summary: &str) {
+        println!("FINAL_OUTPUT:");
+        println!("{}", summary);
+    }
 }

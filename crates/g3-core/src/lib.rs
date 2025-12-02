@@ -3529,11 +3529,9 @@ impl<W: UiWriter> Agent<W> {
 
                             // Display tool execution result with proper indentation
                             if tool_call.tool == "final_output" {
-                                // For final_output, display the summary without truncation
-                                for line in tool_result.lines() {
-                                    self.ui_writer.update_tool_output_line(line);
-                                }
-                                self.ui_writer.println("");
+                                // For final_output, use the dedicated method that renders markdown
+                                // with a spinner animation
+                                self.ui_writer.print_final_output(&tool_result);
                             } else {
                                 let output_lines: Vec<&str> = tool_result.lines().collect();
 
@@ -3563,44 +3561,32 @@ impl<W: UiWriter> Agent<W> {
                                 const MAX_LINE_WIDTH: usize = 80;
                                 let output_len = output_lines.len();
 
-                                // For todo tools, show all lines without truncation
+                                // Skip printing for todo tools - they already print their content
                                 let is_todo_tool =
                                     tool_call.tool == "todo_read" || tool_call.tool == "todo_write";
-                                let max_lines_to_show = if is_todo_tool || wants_full {
-                                    output_len
-                                } else {
-                                    MAX_LINES
-                                };
 
-                                for (idx, line) in output_lines.iter().enumerate() {
-                                    if !is_todo_tool && !wants_full && idx >= max_lines_to_show {
-                                        break;
-                                    }
-                                    // Clip line to max width (but not for todo tools)
-                                    let clipped_line = truncate_line(
-                                        line,
-                                        MAX_LINE_WIDTH,
-                                        !wants_full && !is_todo_tool,
-                                    );
+                                if !is_todo_tool {
+                                    let max_lines_to_show = if wants_full { output_len } else { MAX_LINES };
 
-                                    // Use print_tool_output_line for todo tools to get special formatting
-                                    if is_todo_tool {
-                                        self.ui_writer.print_tool_output_line(&clipped_line);
-                                    } else {
+                                    for (idx, line) in output_lines.iter().enumerate() {
+                                        if !wants_full && idx >= max_lines_to_show {
+                                            break;
+                                        }
+                                        let clipped_line = truncate_line(line, MAX_LINE_WIDTH, !wants_full);
                                         self.ui_writer.update_tool_output_line(&clipped_line);
                                     }
-                                }
 
-                                if !is_todo_tool && !wants_full && output_len > MAX_LINES {
-                                    self.ui_writer.print_tool_output_summary(output_len);
+                                    if !wants_full && output_len > MAX_LINES {
+                                        self.ui_writer.print_tool_output_summary(output_len);
+                                    }
                                 }
                             }
 
                             // Check if this was a final_output tool call
                             if tool_call.tool == "final_output" {
-                                // The summary was displayed above when we printed the tool result
-                                // Add it to full_response so it's included in the TaskResult
-                                full_response.push_str(&tool_result);
+                                // The summary was already displayed via print_final_output
+                                // Don't add it to full_response to avoid duplicate printing
+                                // full_response is intentionally left empty/unchanged
                                 self.ui_writer.println("");
                                 let _ttft =
                                     first_token_time.unwrap_or_else(|| stream_start.elapsed());
@@ -3608,13 +3594,13 @@ impl<W: UiWriter> Agent<W> {
                                 // Add timing if needed
                                 let final_response = if show_timing {
                                     format!(
-                                        "{}\n\n🕝 {} | 💭 {}",
-                                        full_response,
+                                        "🕝 {} | 💭 {}",
                                         Self::format_duration(stream_start.elapsed()),
                                         Self::format_duration(_ttft)
                                     )
                                 } else {
-                                    full_response
+                                    // Return empty string since content was already displayed
+                                    String::new()
                                 };
 
                                 return Ok(TaskResult::new(

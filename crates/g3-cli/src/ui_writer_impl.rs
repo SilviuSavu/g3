@@ -1,5 +1,6 @@
 use g3_core::ui_writer::UiWriter;
 use std::io::{self, Write};
+use termimad::MadSkin;
 
 /// Console implementation of UiWriter that prints to stdout
 pub struct ConsoleUiWriter {
@@ -104,6 +105,9 @@ impl UiWriter for ConsoleUiWriter {
 
     fn print_tool_output_header(&self) {
         println!();
+        // Reset output_line_printed at the start of a new tool output
+        // This ensures the header isn't cleared by update_tool_output_line
+        *self.output_line_printed.lock().unwrap() = false;
         // Now print the tool header with the most important arg in bold green
         if let Some(tool_name) = self.current_tool_name.lock().unwrap().as_ref() {
             let args = self.current_tool_args.lock().unwrap();
@@ -305,5 +309,45 @@ impl UiWriter for ConsoleUiWriter {
             print!("Invalid choice. Please select (1-{}): ", options.len());
             let _ = io::stdout().flush();
         }
+    }
+
+    fn print_final_output(&self, summary: &str) {
+        // Show spinner while "formatting"
+        let spinner_frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        let message = "summarizing work done...";
+
+        // Brief spinner animation (about 0.5 seconds)
+        for i in 0..5 {
+            let frame = spinner_frames[i % spinner_frames.len()];
+            print!("\r\x1b[36m{} {}\x1b[0m", frame, message);
+            let _ = io::stdout().flush();
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+
+        // Clear the spinner line
+        print!("\r\x1b[2K");
+        let _ = io::stdout().flush();
+
+        // Create a styled markdown skin
+        let mut skin = MadSkin::default();
+        // Customize colors for better terminal appearance
+        skin.bold.set_fg(termimad::crossterm::style::Color::Green);
+        skin.italic.set_fg(termimad::crossterm::style::Color::Cyan);
+        skin.headers[0].set_fg(termimad::crossterm::style::Color::Magenta);
+        skin.headers[1].set_fg(termimad::crossterm::style::Color::Magenta);
+        skin.code_block.set_fg(termimad::crossterm::style::Color::Yellow);
+        skin.inline_code.set_fg(termimad::crossterm::style::Color::Yellow);
+
+        // Print a header separator
+        println!("\x1b[1;35m━━━ Summary ━━━\x1b[0m");
+        println!();
+
+        // Render the markdown
+        let rendered = skin.term_text(summary);
+        print!("{}", rendered);
+
+        // Print a footer separator
+        println!();
+        println!("\x1b[1;35m━━━━━━━━━━━━━━━\x1b[0m");
     }
 }

@@ -65,6 +65,10 @@ pub trait UiWriter: Send + Sync {
     /// Prompt the user to choose from a list of options
     /// Returns the index of the selected option
     fn prompt_user_choice(&self, message: &str, options: &[&str]) -> usize;
+
+    /// Print the final output summary with markdown formatting
+    /// Shows a spinner while formatting, then renders the markdown
+    fn print_final_output(&self, summary: &str);
 }
 
 /// A no-op implementation for when UI output is not needed
@@ -96,5 +100,8 @@ impl UiWriter for NullUiWriter {
     }
     fn prompt_user_choice(&self, _message: &str, _options: &[&str]) -> usize {
         0
+    }
+    fn print_final_output(&self, _summary: &str) {
+        // No-op for null writer
     }
 }
