@@ -737,6 +737,233 @@ Format this as a detailed but concise summary that can be used to resume the con
         }
     }
 
+    /// Perform context thinning on the ENTIRE conversation history (not just first third)
+    /// This is the "skinnify" variant that processes all messages
+    /// Returns a summary message about what was thinned
+    pub fn thin_context_all(&mut self) -> (String, usize) {
+        let current_percentage = self.percentage_used() as u32;
+
+        // Calculate the total messages - process ALL of them
+        let total_messages = self.conversation_history.len();
+
+        let mut leaned_count = 0;
+        let mut tool_call_leaned_count = 0;
+        let mut chars_saved = 0;
+
+        // Create ~/tmp directory if it doesn't exist
+        let tmp_dir = shellexpand::tilde("~/tmp").to_string();
+        if let Err(e) = std::fs::create_dir_all(&tmp_dir) {
+            warn!("Failed to create ~/tmp directory: {}", e);
+            return (
+                "⚠️  Context skinnifying failed: could not create ~/tmp directory".to_string(),
+                0,
+            );
+        }
+
+        // Scan ALL messages (not just first third)
+        for i in 0..total_messages {
+            // Check if the previous message was a TODO tool call (before getting mutable reference)
+            let is_todo_result = if i > 0 {
+                if let Some(prev_message) = self.conversation_history.get(i - 1) {
+                    if matches!(prev_message.role, MessageRole::Assistant) {
+                        prev_message.content.contains(r#""tool":"todo_read""#)
+                            || prev_message.content.contains(r#""tool":"todo_write""#)
+                            || prev_message.content.contains(r#""tool": "todo_read""#)
+                            || prev_message.content.contains(r#""tool": "todo_write""#)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            if let Some(message) = self.conversation_history.get_mut(i) {
+                // Process User messages that look like tool results
+                if matches!(message.role, MessageRole::User)
+                    && message.content.starts_with("Tool result:")
+                {
+                    let content_len = message.content.len();
+
+                    // Only thin if the content is greater than 500 chars and not a TODO tool result
+                    if !is_todo_result && content_len > 500 {
+                        // Generate a unique filename based on timestamp and index
+                        let timestamp = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs();
+                        let filename = format!("skinny_tool_result_{}_{}.txt", timestamp, i);
+                        let file_path = format!("{}/{}", tmp_dir, filename);
+
+                        // Write the content to file
+                        if let Err(e) = std::fs::write(&file_path, &message.content) {
+                            warn!("Failed to write skinnified content to {}: {}", file_path, e);
+                            continue;
+                        }
+
+                        // Replace the message content with a note
+                        let original_len = message.content.len();
+                        message.content = format!("Tool result saved to {}", file_path);
+
+                        leaned_count += 1;
+                        chars_saved += original_len - message.content.len();
+
+                        debug!(
+                            "Skinnified tool result {} ({} chars) to {}",
+                            i, original_len, file_path
+                        );
+                    }
+                }
+
+                // Process Assistant messages that contain tool calls with large arguments
+                if matches!(message.role, MessageRole::Assistant) {
+                    // Try to parse the message content as JSON to find tool calls
+                    let content = &message.content;
+
+                    // Look for JSON tool call patterns
+                    if let Some(tool_call_start) = content
+                        .find(r#"{"tool":"#)
+                        .or_else(|| content.find(r#"{ "tool":"#))
+                        .or_else(|| content.find(r#"{"tool" :"#))
+                        .or_else(|| content.find(r#"{ "tool" :"#))
+                    {
+                        // Try to extract and parse the JSON tool call
+                        let json_portion = &content[tool_call_start..];
+
+                        // Find the end of the JSON object
+                        if let Some(json_end) = Self::find_json_end(json_portion) {
+                            let json_str = &json_portion[..=json_end];
+
+                            // Try to parse as ToolCall
+                            if let Ok(mut tool_call) = serde_json::from_str::<ToolCall>(json_str) {
+                                let mut modified = false;
+
+                                // Handle write_file tool calls
+                                if tool_call.tool == "write_file" {
+                                    if let Some(args_obj) = tool_call.args.as_object_mut() {
+                                        let content_info = args_obj
+                                            .get("content")
+                                            .and_then(|v| v.as_str())
+                                            .map(|s| (s.to_string(), s.len()));
+
+                                        if let Some((content_str, content_len)) = content_info {
+                                            if content_len > 500 {
+                                                let timestamp = std::time::SystemTime::now()
+                                                    .duration_since(std::time::UNIX_EPOCH)
+                                                    .unwrap_or_default()
+                                                    .as_secs();
+                                                let filename = format!(
+                                                    "skinny_write_file_content_{}_{}.txt",
+                                                    timestamp, i
+                                                );
+                                                let file_path = format!("{}/{}", tmp_dir, filename);
+
+                                                if std::fs::write(&file_path, &content_str).is_ok() {
+                                                    args_obj.insert(
+                                                        "content".to_string(),
+                                                        serde_json::Value::String(format!(
+                                                            "<content saved to {}>",
+                                                            file_path
+                                                        )),
+                                                    );
+                                                    modified = true;
+                                                    chars_saved += content_len;
+                                                    tool_call_leaned_count += 1;
+                                                    debug!("Skinnified write_file content {} ({} chars) to {}", i, content_len, file_path);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Handle str_replace tool calls
+                                if tool_call.tool == "str_replace" {
+                                    if let Some(args_obj) = tool_call.args.as_object_mut() {
+                                        let diff_info = args_obj
+                                            .get("diff")
+                                            .and_then(|v| v.as_str())
+                                            .map(|s| (s.to_string(), s.len()));
+
+                                        if let Some((diff_str, diff_len)) = diff_info {
+                                            if diff_len > 500 {
+                                                let timestamp = std::time::SystemTime::now()
+                                                    .duration_since(std::time::UNIX_EPOCH)
+                                                    .unwrap_or_default()
+                                                    .as_secs();
+                                                let filename = format!(
+                                                    "skinny_str_replace_diff_{}_{}.txt",
+                                                    timestamp, i
+                                                );
+                                                let file_path = format!("{}/{}", tmp_dir, filename);
+
+                                                if std::fs::write(&file_path, &diff_str).is_ok() {
+                                                    args_obj.insert(
+                                                        "diff".to_string(),
+                                                        serde_json::Value::String(format!(
+                                                            "<diff saved to {}>",
+                                                            file_path
+                                                        )),
+                                                    );
+                                                    modified = true;
+                                                    chars_saved += diff_len;
+                                                    tool_call_leaned_count += 1;
+                                                    debug!("Skinnified str_replace diff {} ({} chars) to {}", i, diff_len, file_path);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // If we modified the tool call, reconstruct the message
+                                if modified {
+                                    let prefix = &content[..tool_call_start];
+                                    let suffix = &content[tool_call_start + json_str.len()..];
+
+                                    // Serialize the modified tool call
+                                    if let Ok(new_json) = serde_json::to_string(&tool_call) {
+                                        message.content =
+                                            format!("{}{}{}", prefix, new_json, suffix);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recalculate token usage after thinning
+        self.recalculate_tokens();
+
+        if leaned_count > 0 {
+            if tool_call_leaned_count > 0 {
+                (format!("🦴 Context skinnified at {}%: {} tool results + {} tool calls across entire history, ~{} chars saved",
+                        current_percentage, leaned_count, tool_call_leaned_count, chars_saved), chars_saved)
+            } else {
+                (
+                    format!(
+                        "🦴 Context skinnified at {}%: {} tool results across entire history, ~{} chars saved",
+                        current_percentage, leaned_count, chars_saved
+                    ),
+                    chars_saved,
+                )
+            }
+        } else if tool_call_leaned_count > 0 {
+            (
+                format!(
+                    "🦴 Context skinnified at {}%: {} tool calls across entire history, ~{} chars saved",
+                    current_percentage, tool_call_leaned_count, chars_saved
+                ),
+                chars_saved,
+            )
+        } else {
+            (format!("ℹ Context skinnifying triggered at {}% but no large tool results or tool calls found in entire history",
+                    current_percentage), 0)
+        }
+    }
+
     /// Recalculate token usage based on current conversation history
     fn recalculate_tokens(&mut self) {
         let mut total = 0;
@@ -2086,6 +2313,15 @@ impl<W: UiWriter> Agent<W> {
     pub fn force_thin(&mut self) -> String {
         info!("Manual context thinning triggered");
         let (message, chars_saved) = self.context_window.thin_context();
+        self.thinning_events.push(chars_saved);
+        message
+    }
+
+    /// Manually trigger context thinning for the ENTIRE context window
+    /// Unlike force_thin which only processes the first third, this processes all messages
+    pub fn force_thin_all(&mut self) -> String {
+        info!("Manual full context skinnifying triggered");
+        let (message, chars_saved) = self.context_window.thin_context_all();
         self.thinning_events.push(chars_saved);
         message
     }

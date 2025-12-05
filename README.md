@@ -76,6 +76,7 @@ G3 includes robust error handling with automatic retry logic:
 G3's interactive CLI includes control commands for manual context management:
 - **`/compact`**: Manually trigger summarization to compact conversation history
 - **`/thinnify`**: Manually trigger context thinning to replace large tool results with file references
+- **`/skinnify`**: Manually trigger full context thinning (like `/thinnify` but processes the entire context window, not just the first third)
 - **`/readme`**: Reload README.md and AGENTS.md from disk without restarting
 - **`/stats`**: Show detailed context and performance statistics
 - **`/help`**: Display all available control commands

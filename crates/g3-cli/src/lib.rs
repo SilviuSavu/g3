@@ -1334,6 +1334,7 @@ async fn run_interactive<W: UiWriter>(
                                 output.print("📖 Control Commands:");
                                 output.print("  /compact   - Trigger auto-summarization (compacts conversation history)");
                                 output.print("  /thinnify  - Trigger context thinning (replaces large tool results with file references)");
+                                output.print("  /skinnify  - Trigger full context thinning (like /thinnify but for entire context, not just first third)");
                                 output.print(
                                     "  /readme    - Reload README.md and AGENTS.md from disk",
                                 );
@@ -1363,6 +1364,11 @@ async fn run_interactive<W: UiWriter>(
                             }
                             "/thinnify" => {
                                 let summary = agent.force_thin();
+                                println!("{}", summary);
+                                continue;
+                            }
+                            "/skinnify" => {
+                                let summary = agent.force_thin_all();
                                 println!("{}", summary);
                                 continue;
                             }
@@ -1575,6 +1581,12 @@ async fn run_interactive_machine(
                             println!("{}", summary);
                             continue;
                         }
+                        "/skinnify" => {
+                            println!("COMMAND: skinnify");
+                            let summary = agent.force_thin_all();
+                            println!("{}", summary);
+                            continue;
+                        }
                         "/readme" => {
                             println!("COMMAND: readme");
                             match agent.reload_readme() {
@@ -1597,7 +1609,7 @@ async fn run_interactive_machine(
                         }
                         "/help" => {
                             println!("COMMAND: help");
-                            println!("AVAILABLE_COMMANDS: /compact /thinnify /readme /stats /help");
+                            println!("AVAILABLE_COMMANDS: /compact /thinnify /skinnify /readme /stats /help");
                             continue;
                         }
                         _ => {
