@@ -145,6 +145,7 @@ impl DatabricksAuth {
 #[derive(Debug, Clone)]
 pub struct DatabricksProvider {
     client: Client,
+    name: String,
     host: String,
     auth: DatabricksAuth,
     model: String,
@@ -172,6 +173,34 @@ impl DatabricksProvider {
 
         Ok(Self {
             client,
+            name: "databricks".to_string(),
+            host: host.trim_end_matches('/').to_string(),
+            auth: DatabricksAuth::token(token),
+            model,
+            max_tokens: max_tokens.unwrap_or(50000),
+            temperature: temperature.unwrap_or(0.1),
+        })
+    }
+
+    /// Create a DatabricksProvider with token auth and a custom name (e.g., "databricks.default")
+    pub fn from_token_with_name(
+        name: String,
+        host: String,
+        token: String,
+        model: String,
+        max_tokens: Option<u32>,
+        temperature: Option<f32>,
+    ) -> Result<Self> {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+            .build()
+            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
+
+        info!("Initialized Databricks provider '{}' with model: {} on host: {}", name, model, host);
+
+        Ok(Self {
+            client,
+            name,
             host: host.trim_end_matches('/').to_string(),
             auth: DatabricksAuth::token(token),
             model,
@@ -198,6 +227,33 @@ impl DatabricksProvider {
 
         Ok(Self {
             client,
+            name: "databricks".to_string(),
+            host: host.trim_end_matches('/').to_string(),
+            auth: DatabricksAuth::oauth(host.clone()),
+            model,
+            max_tokens: max_tokens.unwrap_or(50000),
+            temperature: temperature.unwrap_or(0.1),
+        })
+    }
+
+    /// Create a DatabricksProvider with OAuth auth and a custom name (e.g., "databricks.default")
+    pub async fn from_oauth_with_name(
+        name: String,
+        host: String,
+        model: String,
+        max_tokens: Option<u32>,
+        temperature: Option<f32>,
+    ) -> Result<Self> {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+            .build()
+            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
+
+        info!("Initialized Databricks provider '{}' with OAuth for model: {} on host: {}", name, model, host);
+
+        Ok(Self {
+            client,
+            name,
             host: host.trim_end_matches('/').to_string(),
             auth: DatabricksAuth::oauth(host.clone()),
             model,
@@ -1045,7 +1101,7 @@ impl LLMProvider for DatabricksProvider {
     }
 
     fn name(&self) -> &str {
-        "databricks"
+        &self.name
     }
 
     fn model(&self) -> &str {

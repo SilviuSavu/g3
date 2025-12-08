@@ -1,12 +1,24 @@
-//! g3-planner: Fast-discovery planner for G3 AI coding agent
+//! g3-planner: Planning mode and fast-discovery planner for G3 AI coding agent
 //!
-//! This crate provides functionality to generate initial discovery tool calls
-//! that are injected into the conversation before the first LLM turn.
+//! This crate provides:
+//! - Planning mode state machine and orchestration
+//! - Requirements refinement workflow
+//! - Git integration for planning commits
+//! - Planner history management
+//! - Fast-discovery functionality for codebase exploration
 
 mod code_explore;
+pub mod git;
+pub mod history;
+pub mod llm;
+pub mod planner;
 pub mod prompts;
+pub mod state;
 
 pub use code_explore::explore_codebase;
+pub use planner::{expand_codepath, PlannerConfig, PlannerResult};
+pub use state::{PlannerState, RecoveryInfo};
+pub use planner::run_planning_mode;
 
 use anyhow::Result;
 use chrono::Local;

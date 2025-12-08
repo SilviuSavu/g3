@@ -1529,9 +1529,13 @@ dependencies = [
  "anyhow",
  "chrono",
  "const_format",
+ "g3-config",
+ "g3-core",
  "g3-providers",
  "serde",
  "serde_json",
+ "shellexpand",
+ "tempfile",
  "tokio",
 ]
 

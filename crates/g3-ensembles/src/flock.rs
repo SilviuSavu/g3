@@ -67,7 +67,55 @@ impl FlockConfig {
         }
 
         // Load default config
-        let g3_config = Config::load(None)?;
+        let g3_config = Config::load(None).or_else(|_| {
+            // If no config file exists, return an error with helpful message
+            anyhow::bail!("No G3 configuration found. Please create a .g3.toml file.")
+        })?;
+
+        Ok(Self {
+            project_dir,
+            flock_workspace,
+            num_segments,
+            max_turns: 5, // Default
+            g3_config,
+            g3_binary: None,
+        })
+    }
+
+    /// Create a new flock configuration with a specified config path
+    pub fn new_with_config(
+        project_dir: PathBuf,
+        flock_workspace: PathBuf,
+        num_segments: usize,
+        config_path: Option<&str>,
+    ) -> Result<Self> {
+        // Validate project directory
+        if !project_dir.exists() {
+            anyhow::bail!(
+                "Project directory does not exist: {}",
+                project_dir.display()
+            );
+        }
+
+        // Check if it's a git repo
+        if !project_dir.join(".git").exists() {
+            anyhow::bail!(
+                "Project directory must be a git repository: {}",
+                project_dir.display()
+            );
+        }
+
+        // Check for flock-requirements.md
+        let requirements_path = project_dir.join("flock-requirements.md");
+        if !requirements_path.exists() {
+            anyhow::bail!(
+                "Project directory must contain flock-requirements.md: {}",
+                project_dir.display()
+            );
+        }
+
+        // Load config from specified path
+        let g3_config = Config::load(config_path)?;
 
         Ok(Self {
             project_dir,

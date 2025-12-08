@@ -5,13 +5,15 @@
 
 use g3_config::Config;
 use g3_core::ContextWindow;
+use std::collections::HashMap;
 
 /// Helper function to create a minimal config for testing
 fn create_test_config_with_thinking(thinking_budget: Option<u32>) -> Config {
     let mut config = Config::default();
     
-    // Set up Anthropic provider with optional thinking budget
-    config.providers.anthropic = Some(g3_config::AnthropicConfig {
+    // Set up Anthropic provider with optional thinking budget using new HashMap format
+    let mut anthropic_configs = HashMap::new();
+    anthropic_configs.insert("default".to_string(), g3_config::AnthropicConfig {
         api_key: "test-key".to_string(),
         model: "claude-sonnet-4-5".to_string(),
         max_tokens: Some(16000),
@@ -20,8 +22,9 @@ fn create_test_config_with_thinking(thinking_budget: Option<u32>) -> Config {
         enable_1m_context: None,
         thinking_budget_tokens: thinking_budget,
     });
+    config.providers.anthropic = anthropic_configs;
     
-    config.providers.default_provider = "anthropic".to_string();
+    config.providers.default_provider = "anthropic.default".to_string();
     config
 }
 
@@ -35,14 +38,14 @@ fn test_no_thinking_budget_passes_through() {
     
     // The constraint check would return (proposed_max, false)
     // since there's no thinking_budget_tokens configured
-    assert!(config.providers.anthropic.as_ref().unwrap().thinking_budget_tokens.is_none());
+    assert!(config.providers.anthropic.get("default").unwrap().thinking_budget_tokens.is_none());
 }
 
 /// Test that when max_tokens > budget_tokens + buffer, no reduction is needed
 #[test]
 fn test_sufficient_max_tokens_no_reduction_needed() {
     let config = create_test_config_with_thinking(Some(10000));
-    let budget_tokens = config.providers.anthropic.as_ref().unwrap().thinking_budget_tokens.unwrap();
+    let budget_tokens = config.providers.anthropic.get("default").unwrap().thinking_budget_tokens.unwrap();
     
     // minimum_required = budget_tokens + 1024 = 11024
     let minimum_required = budget_tokens + 1024;
@@ -56,7 +59,7 @@ fn test_sufficient_max_tokens_no_reduction_needed() {
 #[test]
 fn test_insufficient_max_tokens_needs_reduction() {
     let config = create_test_config_with_thinking(Some(10000));
-    let budget_tokens = config.providers.anthropic.as_ref().unwrap().thinking_budget_tokens.unwrap();
+    let budget_tokens = config.providers.anthropic.get("default").unwrap().thinking_budget_tokens.unwrap();
     
     // minimum_required = budget_tokens + 1024 = 11024
     let minimum_required = budget_tokens + 1024;
