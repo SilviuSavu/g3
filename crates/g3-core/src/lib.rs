@@ -5031,7 +5031,14 @@ impl<W: UiWriter> Agent<W> {
                                     Ok(_) => {
                                         let mut todo = self.todo_content.write().await;
                                         *todo = String::new();
-                                        return Ok("✅ All TODOs completed! Removed todo.g3.md".to_string());
+                                        // Show the final completed TODOs before deletion
+                                        let mut result = String::from("✅ All TODOs completed! Removed todo.g3.md\n\nFinal status:\n");
+                                        for line in content_str.lines() {
+                                            self.ui_writer.print_tool_output_line(line);
+                                            result.push_str(line);
+                                            result.push('\n');
+                                        }
+                                        return Ok(result);
                                     }
                                     Err(e) => return Ok(format!("❌ Failed to remove todo.g3.md: {}", e)),
                                 }
@@ -5046,11 +5053,7 @@ impl<W: UiWriter> Agent<W> {
                                 // Also update in-memory content to stay in sync
                                 let mut todo = self.todo_content.write().await;
                                 *todo = content_str.to_string();
-                                // Print the TODO content to the console
-                                self.ui_writer.print_context_status(&format!(
-                                    "✅ TODO list updated ({} chars) and saved to todo.g3.md:",
-                                    char_count
-                                ));
+                                // Print the TODO content to the console (inside the tool frame)
                                 for line in content_str.lines() {
                                     self.ui_writer.print_tool_output_line(line);
                                 }
