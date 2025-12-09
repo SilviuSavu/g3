@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 use crate::git;
 use crate::history;
 use crate::llm;
-use crate::prompts;
 use crate::state::{
     ApprovalChoice, BranchConfirmChoice, CompletionChoice, DirtyFilesChoice,
     PlannerState, RecoveryChoice, RecoveryInfo,
@@ -482,13 +481,13 @@ pub fn stage_and_commit(
         return Ok(());
     }
     
+    // Log commit to history BEFORE making the commit (provides audit trail even if commit fails)
+    history::write_git_commit(&config.plan_dir(), summary)?;
+    
     // Make commit
     print_msg("📝 Making git commit...");
     let _commit_sha = git::commit(&config.codepath, summary, description)?;
     print_msg("✅ Commit successful");
-    
-    // Log commit to history
-    history::write_git_commit(&config.plan_dir(), summary)?;
     
     Ok(())
 }
@@ -588,6 +587,9 @@ pub async fn run_coach_player_loop(
     // Set environment variable for custom todo path
     std::env::set_var("G3_TODO_PATH", planner_config.todo_path().display().to_string());
     
+    // Set environment variable for workspace path (used for logs)
+    std::env::set_var("G3_WORKSPACE_PATH", planner_config.codepath.display().to_string());
+    
     let mut turn = 1;
     let mut coach_feedback = String::new();
     
@@ -598,7 +600,7 @@ pub async fn run_coach_player_loop(
         print_msg("🎯 Player: Implementing requirements...");
         
         let player_config = g3_config.for_player()?;
-        let ui_writer = llm::PlannerUiWriter;
+        let ui_writer = llm::PlannerUiWriter::new();
         let mut player_agent = Agent::new_autonomous_with_readme_and_quiet(
             player_config,
             ui_writer,
@@ -633,7 +635,7 @@ pub async fn run_coach_player_loop(
         print_msg("🎓 Coach: Reviewing implementation...");
         
         let coach_config = g3_config.for_coach()?;
-        let coach_ui_writer = llm::PlannerUiWriter;
+        let coach_ui_writer = llm::PlannerUiWriter::new();
         let mut coach_agent = Agent::new_autonomous_with_readme_and_quiet(
             coach_config,
             coach_ui_writer,
@@ -657,7 +659,19 @@ pub async fn run_coach_player_loop(
                     return Ok(());
                 }
                 coach_feedback = result.response;
-                print_msg(&format!("📝 Coach feedback: {} chars", coach_feedback.len()));
+                // Display first 25 lines of coach feedback
+                let lines: Vec<&str> = coach_feedback.lines().collect();
+                let display_lines = if lines.len() > 25 {
+                    let mut truncated: Vec<&str> = lines[..25].to_vec();
+                    truncated.push("...");
+                    truncated
+                } else {
+                    lines
+                };
+                print_msg(&format!("📝 Coach feedback ({} chars):", coach_feedback.len()));
+                for line in display_lines {
+                    print_msg(&format!("  {}", line));
+                }
             }
             Err(e) => {
                 print_msg(&format!("⚠️  Coach error: {}", e));

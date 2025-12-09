@@ -182,8 +182,33 @@ pub async fn generate_commit_message(
 }
 
 /// A simple UiWriter implementation for planner output
+/// Uses single-line status updates during LLM processing
 #[derive(Clone)]
-pub struct PlannerUiWriter;
+pub struct PlannerUiWriter {
+    tool_count: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl Default for PlannerUiWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PlannerUiWriter {
+    pub fn new() -> Self {
+        Self {
+            tool_count: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        }
+    }
+    
+    /// Clear the current line and print a status message
+    fn print_status_line(&self, message: &str) {
+        use std::io::Write;
+        // Use carriage return to overwrite previous line, pad to 80 chars to clear old content
+        print!("\r{:<80}", message);
+        std::io::stdout().flush().ok();
+    }
+}
 
 impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     fn print(&self, message: &str) {
@@ -209,7 +234,11 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     }
     
     fn print_tool_header(&self, tool_name: &str) {
-        println!("🔧 {}", tool_name);
+        // Increment tool count and show on single line
+        let count = self.tool_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        // Clear the "Thinking..." line and print tool header on new line
+        print!("\r{:<80}\n", ""); // Clear status line
+        println!("🔧 [{}] {}", count, tool_name);
     }
     
     fn print_tool_arg(&self, _key: &str, _value: &str) {}
@@ -218,9 +247,25 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     fn print_tool_output_line(&self, _line: &str) {}
     fn print_tool_output_summary(&self, _hidden_count: usize) {}
     fn print_tool_timing(&self, _duration_str: &str) {}
-    fn print_agent_prompt(&self) {}
-    fn print_agent_response(&self, _content: &str) {}
-    fn notify_sse_received(&self) {}
+    
+    fn print_agent_prompt(&self) {
+        // Clear any status line before agent response
+        print!("\r{:<80}\n", "");
+    }
+    
+    fn print_agent_response(&self, content: &str) {
+        // Display non-tool text messages from LLM
+        if !content.trim().is_empty() {
+            print!("{}", content);
+            use std::io::Write;
+            std::io::stdout().flush().ok();
+        }
+    }
+    
+    fn notify_sse_received(&self) {
+        // Show "Thinking..." status on single line
+        self.print_status_line("💭 Thinking...");
+    }
     
     fn flush(&self) {
         use std::io::Write;
@@ -254,7 +299,7 @@ pub async fn call_refinement_llm_with_tools(
 
     // Create agent with planner config
     let planner_config = config.for_planner()?;
-    let ui_writer = PlannerUiWriter;
+    let ui_writer = PlannerUiWriter::new();
     
     // Create project pointing to codepath as workspace
     let workspace = std::path::PathBuf::from(codepath);

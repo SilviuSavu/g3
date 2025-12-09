@@ -52,6 +52,27 @@ fn get_todo_path() -> std::path::PathBuf {
     }
 }
 
+/// Get the path to the logs directory.
+///
+/// Checks for G3_WORKSPACE_PATH environment variable first (used by planning mode),
+/// then falls back to "logs" in the current directory.
+fn get_logs_dir() -> std::path::PathBuf {
+    if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
+        std::path::PathBuf::from(workspace_path).join("logs")
+    } else {
+        std::env::current_dir().unwrap_or_default().join("logs")
+    }
+}
+
+/// Public accessor for the logs directory path (for use by submodules)
+pub fn logs_dir() -> std::path::PathBuf {
+    get_logs_dir()
+}
+
+/// Environment variable name for workspace path
+/// Used to direct all logs to the workspace directory
+pub const G3_WORKSPACE_PATH_ENV: &str = "G3_WORKSPACE_PATH";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub tool: String,
@@ -1832,18 +1853,19 @@ impl<W: UiWriter> Agent<W> {
 
         TOOL_LOG
             .get_or_init(|| {
-                if let Err(e) = std::fs::create_dir_all("logs") {
+                let logs_dir = get_logs_dir();
+                if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                     error!("Failed to create logs directory for tool log: {}", e);
                     return None;
                 }
 
                 let ts = Local::now().format("%Y%m%d_%H%M%S").to_string();
-                let path = format!("logs/tool_calls_{}.log", ts);
+                let path = logs_dir.join(format!("tool_calls_{}.log", ts));
 
                 match OpenOptions::new().create(true).append(true).open(&path) {
                     Ok(file) => Some(Mutex::new(file)),
                     Err(e) => {
-                        error!("Failed to open tool log file {}: {}", path, e);
+                        error!("Failed to open tool log file {:?}: {}", path, e);
                         None
                     }
                 }
@@ -2202,9 +2224,9 @@ impl<W: UiWriter> Agent<W> {
             .as_secs();
 
         // Create logs directory if it doesn't exist
-        let logs_dir = std::path::Path::new("logs");
+        let logs_dir = get_logs_dir();
         if !logs_dir.exists() {
-            if let Err(e) = std::fs::create_dir_all(logs_dir) {
+            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                 error!("Failed to create logs directory: {}", e);
                 return;
             }
@@ -2212,9 +2234,9 @@ impl<W: UiWriter> Agent<W> {
 
         // Use session-based filename if we have a session ID, otherwise fall back to timestamp
         let filename = if let Some(ref session_id) = self.session_id {
-            format!("logs/g3_session_{}.json", session_id)
+            logs_dir.join(format!("g3_session_{}.json", session_id))
         } else {
-            format!("logs/g3_context_{}.json", timestamp)
+            logs_dir.join(format!("g3_context_{}.json", timestamp))
         };
 
         let context_data = serde_json::json!({
@@ -2231,8 +2253,8 @@ impl<W: UiWriter> Agent<W> {
 
         match serde_json::to_string_pretty(&context_data) {
             Ok(json_content) => {
-                if let Err(e) = std::fs::write(&filename, json_content) {
-                    error!("Failed to save context window to {}: {}", filename, e);
+                if let Err(e) = std::fs::write(&filename, &json_content) {
+                    error!("Failed to save context window to {:?}: {}", &filename, e);
                 }
             }
             Err(e) => {
@@ -2290,17 +2312,17 @@ impl<W: UiWriter> Agent<W> {
         };
 
         // Create logs directory if it doesn't exist
-        let logs_dir = std::path::Path::new("logs");
+        let logs_dir = get_logs_dir();
         if !logs_dir.exists() {
-            if let Err(e) = std::fs::create_dir_all(logs_dir) {
+            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                 error!("Failed to create logs directory: {}", e);
                 return;
             }
         }
 
         // Generate filename using same pattern as save_context_window
-        let filename = format!("logs/context_window_{}.txt", session_id);
-        let symlink_path = "logs/current_context_window";
+        let filename = logs_dir.join(format!("context_window_{}.txt", session_id));
+        let symlink_path = logs_dir.join("current_context_window");
 
         // Build the summary content
         let mut summary_lines = Vec::new();
@@ -2354,23 +2376,23 @@ impl<W: UiWriter> Agent<W> {
         let summary_content = summary_lines.join("");
         if let Err(e) = std::fs::write(&filename, summary_content) {
             error!(
-                "Failed to write context window summary to {}: {}",
-                filename, e
+                "Failed to write context window summary to {:?}: {}",
+                &filename, e
             );
             return;
         }
 
         // Update symlink
         // Remove old symlink if it exists
-        let _ = std::fs::remove_file(symlink_path);
+        let _ = std::fs::remove_file(&symlink_path);
 
         // Create new symlink
         #[cfg(unix)]
         {
             use std::os::unix::fs::symlink;
             let target = format!("context_window_{}.txt", session_id);
-            if let Err(e) = symlink(&target, symlink_path) {
-                error!("Failed to create symlink {}: {}", symlink_path, e);
+            if let Err(e) = symlink(&target, &symlink_path) {
+                error!("Failed to create symlink {:?}: {}", &symlink_path, e);
             }
         }
 
@@ -2378,13 +2400,13 @@ impl<W: UiWriter> Agent<W> {
         {
             use std::os::windows::fs::symlink_file;
             let target = format!("context_window_{}.txt", session_id);
-            if let Err(e) = symlink_file(&target, symlink_path) {
-                error!("Failed to create symlink {}: {}", symlink_path, e);
+            if let Err(e) = symlink_file(&target, &symlink_path) {
+                error!("Failed to create symlink {:?}: {}", &symlink_path, e);
             }
         }
 
         debug!(
-            "Context window summary written to {} ({} messages)",
+            "Context window summary written to {:?} ({} messages)",
             filename,
             self.context_window.conversation_history.len()
         );
@@ -2443,7 +2465,8 @@ impl<W: UiWriter> Agent<W> {
             .unwrap_or_default()
             .as_secs();
 
-        let filename = format!("logs/g3_session_{}.json", session_id);
+        let logs_dir = get_logs_dir();
+        let filename = logs_dir.join(format!("g3_session_{}.json", session_id));
 
         // Read existing session log
         let mut session_data: serde_json::Value = if std::path::Path::new(&filename).exists() {
@@ -5293,8 +5316,11 @@ impl<W: UiWriter> Agent<W> {
                         });
 
                         // If all todos are complete, delete the file instead of writing
-                        if !has_incomplete && (content_str.contains("- [x]") || content_str.contains("- [X]")) {
-                            let todo_path = get_todo_path();
+                        // EXCEPT in planner mode (G3_TODO_PATH is set) - preserve for rename to completed_todo_*.md
+                        let in_planner_mode = std::env::var("G3_TODO_PATH").is_ok();
+                        let todo_path = get_todo_path();
+                        
+                        if !in_planner_mode && !has_incomplete && (content_str.contains("- [x]") || content_str.contains("- [X]")) {
                             if todo_path.exists() {
                                 match std::fs::remove_file(&todo_path) {
                                     Ok(_) => {
@@ -5315,7 +5341,6 @@ impl<W: UiWriter> Agent<W> {
                         }
 
                         // Write to todo.g3.md file (uses G3_TODO_PATH env var if set, else current dir)
-                        let todo_path = get_todo_path();
 
                         match std::fs::write(&todo_path, content_str) {
                             Ok(_) => {

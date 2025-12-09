@@ -196,12 +196,19 @@ pub fn extract_summary(response: &str) -> Option<String> {
 
 /// Write the codebase report to logs directory
 fn write_code_report(report: &str) -> Result<()> {
-    // Ensure logs directory exists
-    fs::create_dir_all("logs")?;
+    // Get logs directory from workspace path or current dir
+    let logs_dir = if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
+        std::path::PathBuf::from(workspace_path).join("logs")
+    } else {
+        std::env::current_dir().unwrap_or_default().join("logs")
+    };
+    
+    // Ensure logs directory exists  
+    fs::create_dir_all(&logs_dir)?;
 
     // Generate timestamp in same format as tool_calls log
     let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
-    let filename = format!("logs/code_report_{}.log", timestamp);
+    let filename = logs_dir.join(format!("code_report_{}.log", timestamp));
 
     // Write the report to file
     let mut file = OpenOptions::new()
@@ -218,12 +225,19 @@ fn write_code_report(report: &str) -> Result<()> {
 
 /// Write the discovery commands to logs directory
 fn write_discovery_commands(commands: &[String]) -> Result<()> {
+    // Get logs directory from workspace path or current dir
+    let logs_dir = if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
+        std::path::PathBuf::from(workspace_path).join("logs")
+    } else {
+        std::env::current_dir().unwrap_or_default().join("logs")
+    };
+    
     // Ensure logs directory exists
-    fs::create_dir_all("logs")?;
+    fs::create_dir_all(&logs_dir)?;
 
     // Generate timestamp in same format as tool_calls log
     let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
-    let filename = format!("logs/discovery_commands_{}.log", timestamp);
+    let filename = logs_dir.join(format!("discovery_commands_{}.log", timestamp));
 
     // Write the commands to file
     let mut file = OpenOptions::new()

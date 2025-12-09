@@ -11,8 +11,6 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 
-use crate::prompts;
-
 /// Format a timestamp for planner_history.txt entries
 /// Format: YYYY-MM-DD HH:MM:SS (ISO 8601 for readability)
 pub fn format_timestamp() -> String {

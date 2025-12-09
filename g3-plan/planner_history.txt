@@ -6,3 +6,14 @@
                       >>
 2025-12-08 18:30:00 - COMPLETED REQUIREMENTS (completed_requirements_2025-12-08_18-30-00.md)
 2025-12-08 18:30:01 - GIT COMMIT (Implement planning mode)
+2025-12-09 14:47:50 - REFINING REQUIREMENTS (new_requirements.md)
+2025-12-09 15:23:04 - GIT HEAD (9a3688fd05f099225652f705bc7b0715b6abbe44)
+2025-12-09 15:23:10 - START IMPLEMENTING (current_requirements.md)
+<<
+  Planner mode refinements for g3-planner: display first 25 lines of coach feedback (not just char count), ensure TODO
+  file writes to g3-plan dir and prevent deletion during planning (needed for history rename), write GIT COMMIT history
+  entry before actual commit for better audit trail, use single-line UI updates with carriage return during LLM processing
+  (show thinking/tool count/context size) while still printing agent text responses, and redirect all logs to workspace...
+>>
+2025-12-09 16:16:51 - COMPLETED REQUIREMENTS (completed_requirements_2025-12-09_16-16-51.md,  completed_todo_2025-12-09_16-16-51.md)
+2025-12-09 16:17:54 - GIT COMMIT (Refine planner mode UI, logging, and history tracking)
