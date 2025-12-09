@@ -1408,14 +1408,25 @@ impl<W: UiWriter> Agent<W> {
 
     /// Resolve the max_tokens to use for a given provider, applying fallbacks
     fn resolve_max_tokens(&self, provider_name: &str) -> u32 {
-        match provider_name {
+        let base = match provider_name {
             "databricks" => Self::provider_max_tokens(&self.config, "databricks")
                 .or(Some(self.config.agent.fallback_default_max_tokens as u32))
                 .unwrap_or(32000),
             other => Self::provider_max_tokens(&self.config, other)
                 .or(Some(self.config.agent.fallback_default_max_tokens as u32))
                 .unwrap_or(16000),
+        };
+        
+        // For Anthropic with thinking enabled, ensure max_tokens is sufficient
+        // Anthropic requires: max_tokens > thinking.budget_tokens
+        if provider_name == "anthropic" {
+            if let Some(budget) = self.get_thinking_budget_tokens() {
+                let minimum_for_thinking = budget + 1024;
+                return base.max(minimum_for_thinking);
+            }
         }
+        
+        base
     }
 
     /// Get the thinking budget tokens for Anthropic provider, if configured
