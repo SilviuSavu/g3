@@ -4011,7 +4011,7 @@ impl<W: UiWriter> Agent<W> {
                             // Skip printing tool call details for final_output
                             if tool_call.tool != "final_output" {
                                 // Tool call header
-                                self.ui_writer.print_tool_header(&tool_call.tool);
+                                self.ui_writer.print_tool_header(&tool_call.tool, Some(&tool_call.args));
                                 if let Some(args_obj) = tool_call.args.as_object() {
                                     for (key, value) in args_obj {
                                         let value_str = match value {

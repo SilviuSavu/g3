@@ -9,6 +9,7 @@ use anyhow::{anyhow, Context, Result};
 use g3_config::Config;
 use g3_core::project::Project;
 use g3_core::Agent;
+use g3_core::error_handling::{classify_error, ErrorType};
 use g3_providers::{CompletionRequest, LLMProvider, Message, MessageRole};
 
 use crate::prompts;
@@ -205,10 +206,9 @@ impl PlannerUiWriter {
     
     /// Clear the current line and print a status message
     fn print_status_line(&self, message: &str) {
-        use std::io::Write;
-        // Use carriage return to overwrite previous line, pad to 80 chars to clear old content
-        print!("\r{:<80}", message);
-        std::io::stdout().flush().ok();
+        // Print status message without overwriting previous content
+        // Use println to ensure each status is on its own line
+        println!("{:.80}", message);
     }
 }
 
@@ -235,12 +235,32 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
         println!("🗜️  {}", message);
     }
     
-    fn print_tool_header(&self, tool_name: &str) {
+    fn print_tool_header(&self, tool_name: &str, tool_args: Option<&serde_json::Value>) {
         // Increment tool count and show on single line
         let count = self.tool_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-        // Clear the "Thinking..." line and print tool header on new line
-        print!("\r{:<80}\n", ""); // Clear status line
-        println!("🔧 [{}] {}", count, tool_name);
+        
+        // Format args for display (first 50 chars)
+        let args_display = if let Some(args) = tool_args {
+            let args_str = serde_json::to_string(args).unwrap_or_else(|_| "{}".to_string());
+            if args_str.len() > 50 {
+                // Truncate at char boundary
+                let truncated: String = args_str.chars().take(50).collect();
+                format!("{}", truncated)
+            } else {
+                args_str
+            }
+        } else {
+            String::new()
+        };
+        
+        // Print on single line with args
+        use std::io::Write;
+        if args_display.is_empty() {
+            println!("🔧 [{}] {}", count, tool_name);
+        } else {
+            println!("🔧 [{}] {}  {}", count, tool_name, args_display);
+        }
+        std::io::stdout().flush().ok();
     }
     
     fn print_tool_arg(&self, _key: &str, _value: &str) {}
@@ -258,15 +278,13 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     fn print_agent_response(&self, content: &str) {
         // Display non-tool text messages from LLM
         if !content.trim().is_empty() {
-            print!("{}", content);
-            use std::io::Write;
-            std::io::stdout().flush().ok();
+            println!("{}", content);
         }
     }
     
     fn notify_sse_received(&self) {
-        // Show "Thinking..." status on single line
-        self.print_status_line("💭 Thinking...");
+        // No-op - we don't want to overwrite previous content
+        // The "Thinking..." status was causing overwrites
     }
     
     fn flush(&self) {
@@ -322,10 +340,29 @@ pub async fn call_refinement_llm_with_tools(
     // The agent will have access to tools and execute them
     let task = user_message;
     
-    let result = agent
+    let result = match agent
         .execute_task_with_timing(&task, None, false, false, false, true, None)
         .await
-        .context("Failed to call refinement LLM")?;
+    {
+        Ok(response) => response,
+        Err(e) => {
+            // Classify the error
+            let error_type = classify_error(&e);
+            
+            // Display user-friendly message based on error type
+            match error_type {
+                ErrorType::Recoverable(recoverable) => {
+                    eprintln!("⚠️  Recoverable error: {:?}", recoverable);
+                    eprintln!("   Details: {}", e);
+                }
+                ErrorType::NonRecoverable => {
+                    eprintln!("❌ Non-recoverable error: {}", e);
+                }
+            }
+            
+            return Err(e.context("Failed to call refinement LLM"));
+        }
+    };
     
     println!("📝 Refinement complete");
     

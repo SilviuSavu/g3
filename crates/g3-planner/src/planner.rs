@@ -587,9 +587,6 @@ pub async fn run_coach_player_loop(
     // Set environment variable for custom todo path
     std::env::set_var("G3_TODO_PATH", planner_config.todo_path().display().to_string());
     
-    // Set environment variable for workspace path (used for logs)
-    std::env::set_var("G3_WORKSPACE_PATH", planner_config.codepath.display().to_string());
-    
     let mut turn = 1;
     let mut coach_feedback = String::new();
     
@@ -701,19 +698,7 @@ pub async fn run_planning_mode(
     print_msg("\n🎯 G3 Planning Mode");
     print_msg("==================\n");
     
-    // Create the LLM provider for planning
-    print_msg("🔧 Initializing planner provider...");
-    let provider = match llm::create_planner_provider(config_path).await {
-        Ok(p) => p,
-        Err(e) => {
-            print_msg(&format!("❌ Failed to initialize provider: {}", e));
-            print_msg("Please check your configuration file.");
-            anyhow::bail!("Provider initialization failed: {}", e);
-        }
-    };
-    print_msg(&format!("✅ Provider initialized: {}", provider.name()));
-    
-    // Get codepath from argument or prompt user
+    // Get codepath first (needed for setting workspace path early)
     let codepath = match codepath {
         Some(path) => {
             let expanded = expand_codepath(&path)?;
@@ -731,6 +716,30 @@ pub async fn run_planning_mode(
     if !codepath.exists() {
         anyhow::bail!("Codepath does not exist: {}", codepath.display());
     }
+    
+    // Set workspace path EARLY for all logging (before provider initialization)
+    std::env::set_var("G3_WORKSPACE_PATH", codepath.display().to_string());
+    
+    // Create logs directory and verify it exists
+    let logs_dir = codepath.join("logs");
+    if !logs_dir.exists() {
+        fs::create_dir_all(&logs_dir)
+            .context("Failed to create logs directory")?;
+    }
+    print_msg(&format!("📁 Logs directory: {}", logs_dir.display()));
+    
+    // Create the LLM provider for planning
+    print_msg("🔧 Initializing planner provider...");
+    let provider = match llm::create_planner_provider(config_path).await {
+        Ok(p) => p,
+        Err(e) => {
+            print_msg(&format!("❌ Failed to initialize provider: {}", e));
+            print_msg("Please check your configuration file.");
+            anyhow::bail!("Provider initialization failed: {}", e);
+        }
+    };
+    print_msg(&format!("✅ Provider initialized: {}", provider.name()));
+    
     
     // Create configuration
     let config = PlannerConfig {

@@ -78,7 +78,7 @@ impl UiWriter for ConsoleUiWriter {
         let _ = io::stdout().flush();
     }
 
-    fn print_tool_header(&self, tool_name: &str) {
+    fn print_tool_header(&self, tool_name: &str, _tool_args: Option<&serde_json::Value>) {
         // Store the tool name and clear args for collection
         *self.current_tool_name.lock().unwrap() = Some(tool_name.to_string());
         self.current_tool_args.lock().unwrap().clear();
