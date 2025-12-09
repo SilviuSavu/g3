@@ -1475,12 +1475,16 @@ impl<W: UiWriter> Agent<W> {
         let model_limit = self.context_window.total_tokens;
         let current_usage = self.context_window.used_tokens;
         
+        // Get the configured max_tokens for this provider
+        let configured_max_tokens = self.resolve_max_tokens(provider_name);
+        
         // Calculate available tokens with buffer
         let buffer = (model_limit / 40).clamp(1000, 10000); // 2.5% buffer
         let available = model_limit
             .saturating_sub(current_usage)
             .saturating_sub(buffer);
-        let proposed_max_tokens = available.min(10_000);
+        // Use the smaller of available tokens or configured max_tokens
+        let proposed_max_tokens = available.min(configured_max_tokens);
 
         // Validate against thinking budget constraint
         let (adjusted, needs_reduction) = self.preflight_validate_max_tokens(provider_name, proposed_max_tokens);
@@ -2423,8 +2427,15 @@ impl<W: UiWriter> Agent<W> {
         let mut summary_max_tokens = self.apply_summary_fallback_sequence(&provider_name);
 
         // Apply provider-specific caps
+        // For Anthropic with thinking enabled, we need max_tokens > thinking.budget_tokens
+        // So we set a higher cap when thinking is configured
+        let anthropic_cap = match self.get_thinking_budget_tokens() {
+            Some(budget) => (budget + 2000).max(10_000), // At least budget + 2000 for response
+            None => 10_000,
+        };
         summary_max_tokens = match provider_name.as_str() {
-            "databricks" | "anthropic" => summary_max_tokens.min(10_000),
+            "anthropic" => summary_max_tokens.min(anthropic_cap),
+            "databricks" => summary_max_tokens.min(10_000),
             "embedded" => summary_max_tokens.min(3000),
             _ => summary_max_tokens.min(5000),
         };
@@ -3436,8 +3447,15 @@ impl<W: UiWriter> Agent<W> {
                 let mut summary_max_tokens = self.apply_summary_fallback_sequence(&provider_name);
 
                 // Apply provider-specific caps
+                // For Anthropic with thinking enabled, we need max_tokens > thinking.budget_tokens
+                // So we set a higher cap when thinking is configured
+                let anthropic_cap = match self.get_thinking_budget_tokens() {
+                    Some(budget) => (budget + 2000).max(10_000), // At least budget + 2000 for response
+                    None => 10_000,
+                };
                 summary_max_tokens = match provider_name.as_str() {
-                    "databricks" | "anthropic" => summary_max_tokens.min(10_000),
+                    "anthropic" => summary_max_tokens.min(anthropic_cap),
+                    "databricks" => summary_max_tokens.min(10_000),
                     "embedded" => summary_max_tokens.min(3000),
                     _ => summary_max_tokens.min(5000),
                 };

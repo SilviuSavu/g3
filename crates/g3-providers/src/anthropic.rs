@@ -284,9 +284,21 @@ impl AnthropicProvider {
         // Convert tools if provided
         let anthropic_tools = tools.map(|t| self.convert_tools(t));
 
-        // Add thinking configuration if budget_tokens is set
-        let thinking = self.thinking_budget_tokens.map(|budget| {
-            ThinkingConfig::enabled(budget)
+        // Add thinking configuration if budget_tokens is set AND max_tokens is sufficient
+        // Anthropic requires: max_tokens > thinking.budget_tokens
+        // We add 1024 as minimum buffer for actual response content
+        let thinking = self.thinking_budget_tokens.and_then(|budget| {
+            let min_required = budget + 1024;
+            if max_tokens > min_required {
+                Some(ThinkingConfig::enabled(budget))
+            } else {
+                tracing::warn!(
+                    "Disabling thinking mode: max_tokens ({}) is not greater than thinking.budget_tokens ({}) + 1024 buffer. \
+                     Required: max_tokens > {}",
+                    max_tokens, budget, min_required
+                );
+                None
+            }
         });
 
         let request = AnthropicRequest {
@@ -847,6 +859,12 @@ enum AnthropicContent {
         #[serde(skip_serializing_if = "Option::is_none")]
         cache_control: Option<crate::CacheControl>,
     },
+    #[serde(rename = "thinking")]
+    Thinking {
+        thinking: String,
+        #[serde(default)]
+        signature: Option<String>,
+    },
     #[serde(rename = "tool_use")]
     ToolUse {
         id: String,
@@ -1058,11 +1076,12 @@ mod tests {
         let json_without = serde_json::to_string(&request_without).unwrap();
         assert!(!json_without.contains("thinking"), "JSON should not contain 'thinking' field when not configured");
 
-        // Test WITH thinking parameter
+        // Test WITH thinking parameter - max_tokens must be > budget_tokens + 1024
+        // Using budget=10000 requires max_tokens > 11024
         let provider_with = AnthropicProvider::new(
             "test-key".to_string(),
             Some("claude-sonnet-4-5".to_string()),
-            Some(1000),
+            Some(20000),  // Sufficient for thinking budget
             Some(0.5),
             None,
             None,
@@ -1071,11 +1090,47 @@ mod tests {
         .unwrap();
 
         let request_with = provider_with
-            .create_request_body(&messages, None, false, 1000, 0.5)
+            .create_request_body(&messages, None, false, 20000, 0.5)
             .unwrap();
         let json_with = serde_json::to_string(&request_with).unwrap();
         assert!(json_with.contains("thinking"), "JSON should contain 'thinking' field when configured");
         assert!(json_with.contains("\"type\":\"enabled\""), "JSON should contain type: enabled");
         assert!(json_with.contains("\"budget_tokens\":10000"), "JSON should contain budget_tokens: 10000");
+
+        // Test WITH thinking parameter but INSUFFICIENT max_tokens - thinking should be disabled
+        let request_insufficient = provider_with
+            .create_request_body(&messages, None, false, 5000, 0.5)  // Less than budget + 1024
+            .unwrap();
+        let json_insufficient = serde_json::to_string(&request_insufficient).unwrap();
+        assert!(!json_insufficient.contains("thinking"), "JSON should NOT contain 'thinking' field when max_tokens is insufficient");
+    }
+
+    #[test]
+    fn test_thinking_content_block_deserialization() {
+        // Test that we can deserialize a response containing a "thinking" content block
+        // This is what Anthropic returns when extended thinking is enabled
+        let json_response = r#"{
+            "content": [
+                {"type": "thinking", "thinking": "Let me analyze this...", "signature": "abc123"},
+                {"type": "text", "text": "Here is my response."}
+            ],
+            "model": "claude-sonnet-4-5",
+            "usage": {"input_tokens": 100, "output_tokens": 50}
+        }"#;
+
+        let response: AnthropicResponse = serde_json::from_str(json_response)
+            .expect("Should be able to deserialize response with thinking block");
+        
+        assert_eq!(response.content.len(), 2);
+        assert_eq!(response.model, "claude-sonnet-4-5");
+        
+        // Extract only text content (thinking should be filtered out)
+        let text_content: Vec<_> = response.content.iter().filter_map(|c| match c {
+            AnthropicContent::Text { text, .. } => Some(text.as_str()),
+            _ => None,
+        }).collect();
+        
+        assert_eq!(text_content.len(), 1);
+        assert_eq!(text_content[0], "Here is my response.");
     }
 }
