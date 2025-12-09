@@ -1472,7 +1472,7 @@ impl<W: UiWriter> Agent<W> {
         // For Anthropic with thinking enabled, ensure max_tokens is sufficient
         // Anthropic requires: max_tokens > thinking.budget_tokens
         if provider_name == "anthropic" {
-            if let Some(budget) = self.get_thinking_budget_tokens() {
+            if let Some(budget) = self.get_thinking_budget_tokens(provider_name) {
                 let minimum_for_thinking = budget + 1024;
                 return base.max(minimum_for_thinking);
             }
@@ -1565,7 +1565,7 @@ impl<W: UiWriter> Agent<W> {
         // but ensure we don't go below thinking budget floor for Anthropic
         let proposed_max_tokens = available.min(configured_max_tokens);
         let proposed_max_tokens = if provider_name == "anthropic" {
-            if let Some(budget) = self.get_thinking_budget_tokens() {
+            if let Some(budget) = self.get_thinking_budget_tokens(provider_name) {
                 proposed_max_tokens.max(budget + 1024)
             } else {
                 proposed_max_tokens
@@ -2577,7 +2577,7 @@ impl<W: UiWriter> Agent<W> {
 
         // Determine if we need to disable thinking mode for this request
         // Anthropic requires: max_tokens > thinking.budget_tokens + 1024
-        let disable_thinking = self.get_thinking_budget_tokens().map_or(false, |budget| {
+        let disable_thinking = self.get_thinking_budget_tokens(provider.name()).map_or(false, |budget| {
             let minimum_for_thinking = budget + 1024;
             let should_disable = summary_max_tokens <= minimum_for_thinking;
             if should_disable {
@@ -3611,7 +3611,7 @@ impl<W: UiWriter> Agent<W> {
 
                 // Determine if we need to disable thinking mode for this request
                 // Anthropic requires: max_tokens > thinking.budget_tokens + 1024
-                let disable_thinking = self.get_thinking_budget_tokens().map_or(false, |budget| {
+                let disable_thinking = self.get_thinking_budget_tokens(provider.name()).map_or(false, |budget| {
                     let minimum_for_thinking = budget + 1024;
                     let should_disable = summary_max_tokens <= minimum_for_thinking;
                     if should_disable {

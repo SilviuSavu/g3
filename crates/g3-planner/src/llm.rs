@@ -122,6 +122,7 @@ pub async fn generate_requirements_summary(
         temperature: Some(0.3), // Low temperature for consistent output
         stream: false,
         tools: None,
+        disable_thinking: false,
     };
 
     let response = provider
@@ -170,6 +171,7 @@ pub async fn generate_commit_message(
         temperature: Some(0.3),
         stream: false,
         tools: None,
+        disable_thinking: false,
     };
 
     let response = provider
