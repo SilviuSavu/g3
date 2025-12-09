@@ -39,6 +39,7 @@
 //!         temperature: Some(0.7),
 //!         stream: false,
 //!         tools: None,
+//!         disable_thinking: false,
 //!     };
 //!
 //!     // Get a completion
@@ -75,6 +76,7 @@
 //!         temperature: Some(0.7),
 //!         stream: true,
 //!         tools: None,
+//!         disable_thinking: false,
 //!     };
 //!
 //!     let mut stream = provider.stream(request).await?;
@@ -272,6 +274,7 @@ impl AnthropicProvider {
         streaming: bool,
         max_tokens: u32,
         temperature: f32,
+        disable_thinking: bool,
     ) -> Result<AnthropicRequest> {
         let (system, anthropic_messages) = self.convert_messages(messages)?;
 
@@ -284,10 +287,19 @@ impl AnthropicProvider {
         // Convert tools if provided
         let anthropic_tools = tools.map(|t| self.convert_tools(t));
 
-        // Add thinking configuration if budget_tokens is set AND max_tokens is sufficient
+        // Add thinking configuration if budget_tokens is set AND max_tokens is sufficient AND not explicitly disabled
         // Anthropic requires: max_tokens > thinking.budget_tokens
         // We add 1024 as minimum buffer for actual response content
-        let thinking = self.thinking_budget_tokens.and_then(|budget| {
+        tracing::debug!("create_request_body called: max_tokens={}, disable_thinking={}, thinking_budget_tokens={:?}", max_tokens, disable_thinking, self.thinking_budget_tokens);
+
+        let thinking = if disable_thinking {
+            tracing::info!(
+                "Thinking mode explicitly disabled for this request (max_tokens={})",
+                max_tokens
+            );
+            None
+        } else {
+            self.thinking_budget_tokens.and_then(|budget| {
             let min_required = budget + 1024;
             if max_tokens > min_required {
                 Some(ThinkingConfig::enabled(budget))
@@ -299,7 +311,8 @@ impl AnthropicProvider {
                 );
                 None
             }
-        });
+            })
+        };
 
         let request = AnthropicRequest {
             model: self.model.clone(),
@@ -649,6 +662,7 @@ impl LLMProvider for AnthropicProvider {
             false,
             max_tokens,
             temperature,
+            request.disable_thinking,
         )?;
 
         debug!(
@@ -722,6 +736,7 @@ impl LLMProvider for AnthropicProvider {
             true,
             max_tokens,
             temperature,
+            request.disable_thinking,
         )?;
 
         debug!(
@@ -965,7 +980,7 @@ mod tests {
         let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
 
         let request_body = provider
-            .create_request_body(&messages, None, false, 1000, 0.5)
+            .create_request_body(&messages, None, false, 1000, 0.5, false)
             .unwrap();
 
         assert_eq!(request_body.model, "claude-3-haiku-20240307");
@@ -1071,7 +1086,7 @@ mod tests {
 
         let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
         let request_without = provider_without
-            .create_request_body(&messages, None, false, 1000, 0.5)
+            .create_request_body(&messages, None, false, 1000, 0.5, false)
             .unwrap();
         let json_without = serde_json::to_string(&request_without).unwrap();
         assert!(!json_without.contains("thinking"), "JSON should not contain 'thinking' field when not configured");
@@ -1090,7 +1105,7 @@ mod tests {
         .unwrap();
 
         let request_with = provider_with
-            .create_request_body(&messages, None, false, 20000, 0.5)
+            .create_request_body(&messages, None, false, 20000, 0.5, false)
             .unwrap();
         let json_with = serde_json::to_string(&request_with).unwrap();
         assert!(json_with.contains("thinking"), "JSON should contain 'thinking' field when configured");
@@ -1099,10 +1114,41 @@ mod tests {
 
         // Test WITH thinking parameter but INSUFFICIENT max_tokens - thinking should be disabled
         let request_insufficient = provider_with
-            .create_request_body(&messages, None, false, 5000, 0.5)  // Less than budget + 1024
+            .create_request_body(&messages, None, false, 5000, 0.5, false)  // Less than budget + 1024
             .unwrap();
         let json_insufficient = serde_json::to_string(&request_insufficient).unwrap();
         assert!(!json_insufficient.contains("thinking"), "JSON should NOT contain 'thinking' field when max_tokens is insufficient");
+    }
+
+    #[test]
+    fn test_disable_thinking_flag() {
+        // Test that disable_thinking=true prevents thinking even with sufficient max_tokens
+        let provider = AnthropicProvider::new(
+            "test-key".to_string(),
+            Some("claude-sonnet-4-5".to_string()),
+            Some(20000),
+            Some(0.5),
+            None,
+            None,
+            Some(10000), // With thinking budget
+        )
+        .unwrap();
+
+        let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
+        
+        // With disable_thinking=false, thinking should be enabled (max_tokens is sufficient)
+        let request_with_thinking = provider
+            .create_request_body(&messages, None, false, 20000, 0.5, false)
+            .unwrap();
+        let json_with = serde_json::to_string(&request_with_thinking).unwrap();
+        assert!(json_with.contains("thinking"), "JSON should contain 'thinking' field when not disabled");
+
+        // With disable_thinking=true, thinking should be disabled even with sufficient max_tokens
+        let request_without_thinking = provider
+            .create_request_body(&messages, None, false, 20000, 0.5, true)
+            .unwrap();
+        let json_without = serde_json::to_string(&request_without_thinking).unwrap();
+        assert!(!json_without.contains("thinking"), "JSON should NOT contain 'thinking' field when explicitly disabled");
     }
 
     #[test]

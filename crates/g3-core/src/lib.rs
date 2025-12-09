@@ -1494,8 +1494,18 @@ impl<W: UiWriter> Agent<W> {
         let available = model_limit
             .saturating_sub(current_usage)
             .saturating_sub(buffer);
-        // Use the smaller of available tokens or configured max_tokens
+        // Use the smaller of available tokens or configured max_tokens,
+        // but ensure we don't go below thinking budget floor for Anthropic
         let proposed_max_tokens = available.min(configured_max_tokens);
+        let proposed_max_tokens = if provider_name == "anthropic" {
+            if let Some(budget) = self.get_thinking_budget_tokens() {
+                proposed_max_tokens.max(budget + 1024)
+            } else {
+                proposed_max_tokens
+            }
+        } else {
+            proposed_max_tokens
+        };
 
         // Validate against thinking budget constraint
         let (adjusted, needs_reduction) = self.preflight_validate_max_tokens(provider_name, proposed_max_tokens);
@@ -2033,6 +2043,7 @@ impl<W: UiWriter> Agent<W> {
             temperature: Some(self.resolve_temperature(&provider_name)),
             stream: true, // Enable streaming
             tools,
+            disable_thinking: false,
         };
 
         // Time the LLM call with cancellation support and streaming
@@ -2484,12 +2495,26 @@ impl<W: UiWriter> Agent<W> {
 
         let provider = self.providers.get(None)?;
 
+        // Determine if we need to disable thinking mode for this request
+        // Anthropic requires: max_tokens > thinking.budget_tokens + 1024
+        let disable_thinking = self.get_thinking_budget_tokens().map_or(false, |budget| {
+            let minimum_for_thinking = budget + 1024;
+            let should_disable = summary_max_tokens <= minimum_for_thinking;
+            if should_disable {
+                tracing::warn!("Disabling thinking mode for summary: max_tokens ({}) <= minimum_for_thinking ({})", summary_max_tokens, minimum_for_thinking);
+            }
+            should_disable
+        });
+
+        tracing::debug!("Creating summary request: max_tokens={}, disable_thinking={}", summary_max_tokens, disable_thinking);
+
         let summary_request = CompletionRequest {
             messages: summary_messages,
             max_tokens: Some(summary_max_tokens),
             temperature: Some(self.resolve_temperature(provider.name())),
             stream: false,
             tools: None,
+            disable_thinking,
         };
 
         // Get the summary
@@ -3504,12 +3529,26 @@ impl<W: UiWriter> Agent<W> {
 
                 let provider = self.providers.get(None)?;
 
+                // Determine if we need to disable thinking mode for this request
+                // Anthropic requires: max_tokens > thinking.budget_tokens + 1024
+                let disable_thinking = self.get_thinking_budget_tokens().map_or(false, |budget| {
+                    let minimum_for_thinking = budget + 1024;
+                    let should_disable = summary_max_tokens <= minimum_for_thinking;
+                    if should_disable {
+                        tracing::warn!("Disabling thinking mode for summary: max_tokens ({}) <= minimum_for_thinking ({})", summary_max_tokens, minimum_for_thinking);
+                    }
+                    should_disable
+                });
+
+                tracing::debug!("Creating auto-summary request: max_tokens={}, disable_thinking={}", summary_max_tokens, disable_thinking);
+
                 let summary_request = CompletionRequest {
                     messages: summary_messages,
                     max_tokens: Some(summary_max_tokens),
                     temperature: Some(self.resolve_temperature(provider.name())),
                     stream: false,
                     tools: None,
+                    disable_thinking,
                 };
 
                 // Get the summary
