@@ -692,6 +692,7 @@ pub async fn run_coach_player_loop(
 /// 4. Run the refinement and implementation loop
 pub async fn run_planning_mode(
     codepath: Option<String>,
+    workspace: Option<std::path::PathBuf>,
     no_git: bool,
     config_path: Option<&str>,
 ) -> anyhow::Result<()> {
@@ -717,16 +718,22 @@ pub async fn run_planning_mode(
         anyhow::bail!("Codepath does not exist: {}", codepath.display());
     }
     
-    // Set workspace path EARLY for all logging (before provider initialization)
-    std::env::set_var("G3_WORKSPACE_PATH", codepath.display().to_string());
+    // Determine workspace directory (use workspace arg if provided, else use codepath)
+    let workspace_dir = workspace.unwrap_or_else(|| codepath.clone());
+    print_msg(&format!("📁 Workspace: {}", workspace_dir.display()));
+    
+    // Set G3_WORKSPACE_PATH environment variable EARLY for all logging
+    std::env::set_var("G3_WORKSPACE_PATH", workspace_dir.display().to_string());
+    eprintln!("[DEBUG] Set G3_WORKSPACE_PATH={}", workspace_dir.display());
     
     // Create logs directory and verify it exists
-    let logs_dir = codepath.join("logs");
+    let logs_dir = workspace_dir.join("logs");
     if !logs_dir.exists() {
         fs::create_dir_all(&logs_dir)
             .context("Failed to create logs directory")?;
     }
     print_msg(&format!("📁 Logs directory: {}", logs_dir.display()));
+    eprintln!("[DEBUG] Logs directory created/verified: {}", logs_dir.display());
     
     // Create the LLM provider for planning
     print_msg("🔧 Initializing planner provider...");
@@ -776,12 +783,17 @@ pub async fn run_planning_mode(
                 print_msg("\n🔄 Refinement phase - calling LLM...");
                 
                 let codepath_str = config.codepath.display().to_string();
+                let workspace_str = workspace_dir.display().to_string();
+                
+                eprintln!("[DEBUG] Calling refinement with codepath={}, workspace={}", 
+                          codepath_str, workspace_str);
                 
                 // Load config and call LLM with full tool execution capability
                 let g3_config = g3_config::Config::load(config.config_path.as_deref())?;
                 let response = llm::call_refinement_llm_with_tools(
                     &g3_config,
                     &codepath_str,
+                    &workspace_str,
                 ).await;
                 
                 match response {

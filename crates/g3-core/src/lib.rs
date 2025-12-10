@@ -59,9 +59,11 @@ fn get_todo_path() -> std::path::PathBuf {
 fn get_logs_dir() -> std::path::PathBuf {
     if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
         let logs_path = std::path::PathBuf::from(workspace_path).join("logs");
+        eprintln!("[DEBUG] get_logs_dir: Using G3_WORKSPACE_PATH, logs_path={}", logs_path.display());
         logs_path
     } else {
         let logs_path = std::env::current_dir().unwrap_or_default().join("logs");
+        eprintln!("[DEBUG] get_logs_dir: G3_WORKSPACE_PATH not set, using current dir, logs_path={}", logs_path.display());
         logs_path
     }
 }
@@ -4008,7 +4010,6 @@ impl<W: UiWriter> Agent<W> {
                             }
 
                             // Execute the tool with formatted output
-                            self.ui_writer.println(""); // New line before tool execution
 
                             // Skip printing tool call details for final_output
                             if tool_call.tool != "final_output" {
@@ -4205,7 +4206,6 @@ impl<W: UiWriter> Agent<W> {
                                 // The summary was already displayed via print_final_output
                                 // Don't add it to full_response to avoid duplicate printing
                                 // full_response is intentionally left empty/unchanged
-                                self.ui_writer.println("");
                                 let _ttft =
                                     first_token_time.unwrap_or_else(|| stream_start.elapsed());
 
@@ -4454,8 +4454,6 @@ impl<W: UiWriter> Agent<W> {
                                 // Return empty string to avoid duplication
                                 full_response = String::new();
 
-                                self.ui_writer.println("");
-                                
                                 // Save context window BEFORE returning
                                 self.save_context_window("completed");
                                 let _ttft =
@@ -4574,7 +4572,6 @@ impl<W: UiWriter> Agent<W> {
                             full_response.len()
                         );
                     }
-                    self.ui_writer.println("");
                 }
 
                 let _ttft = first_token_time.unwrap_or_else(|| stream_start.elapsed());

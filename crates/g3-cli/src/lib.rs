@@ -405,6 +405,7 @@ pub async fn run() -> Result<()> {
         let codepath = cli.codepath.clone();
         return g3_planner::run_planning_mode(
             codepath,
+            cli.workspace.clone(),
             cli.no_git,
             cli.config.as_deref(),
         )

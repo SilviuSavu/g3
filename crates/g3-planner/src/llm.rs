@@ -256,9 +256,8 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
             "{}".to_string()
         };
         
-        // Print on EXACTLY one line, no trailing newline, use println! with explicit single line format
-        println!("🔧 [{}] {}  {}", count, tool_name, args_display);
-        std::io::stdout().flush().ok();
+        // Print on EXACTLY one line using ui_writer.println
+        self.println(&format!("🔧 [{}] {}  {}", count, tool_name, args_display));
     }
     
     fn print_tool_arg(&self, _key: &str, _value: &str) {}
@@ -269,15 +268,17 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     fn print_tool_timing(&self, _duration_str: &str) {}
     
     fn print_agent_prompt(&self) {
-        // Clear any status line before agent response
-        print!("\r{:<80}\n", "");
+        // No-op - don't add extra blank lines
     }
     
     fn print_agent_response(&self, content: &str) {
-        // Display non-tool text messages from LLM
-        if !content.trim().is_empty() {
-            // Ensure we're on a fresh line, print content as-is, no buffering
-            print!("{}", content);
+        // Display non-tool text messages from LLM without adding extra newlines
+        let trimmed = content.trim_end();
+        if !trimmed.is_empty() {
+            // Strip ALL trailing whitespace and DON'T add any back.
+            // Tool headers already use println!() which adds their own newline.
+            // Adding newlines here causes cumulative blank lines between tool calls.
+            print!("{}", trimmed);
             std::io::stdout().flush().ok();
         }
     }
@@ -309,7 +310,11 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
 pub async fn call_refinement_llm_with_tools(
     config: &Config,
     codepath: &str,
+    workspace: &str,
 ) -> Result<String> {
+    eprintln!("[DEBUG] call_refinement_llm_with_tools: codepath={}, workspace={}", 
+              codepath, workspace);
+    
     // Build system message with codepath context
     let system_prompt = prompts::REFINE_REQUIREMENTS_SYSTEM_PROMPT
         .replace("<codepath>", codepath);
@@ -321,11 +326,21 @@ pub async fn call_refinement_llm_with_tools(
     let planner_config = config.for_planner()?;
     let ui_writer = PlannerUiWriter::new();
     
-    // Create project pointing to codepath as workspace
-    let workspace = std::path::PathBuf::from(codepath);
-    let project = Project::new(workspace.clone());
+    // CRITICAL FIX: Use the actual workspace directory, NOT codepath!
+    // The workspace is where logs should be written (e.g., /tmp/g3_test_workspace)
+    // The codepath is where the source code lives (e.g., ~/RustroverProjects/g3)
+    // Previous bug: was using codepath as workspace, causing logs to go to wrong location
+    let workspace_path = std::path::PathBuf::from(workspace);
+    eprintln!("[DEBUG] Creating Project with workspace_path={}", workspace_path.display());
+    
+    let project = Project::new(workspace_path.clone());
     project.ensure_workspace_exists()?;
     project.enter_workspace()?;
+    
+    // CRITICAL: Ensure logs directory exists BEFORE creating Agent
+    // This guarantees <workspace>/logs/ directory is ready for log writes
+    project.ensure_logs_dir()?;
+    eprintln!("[DEBUG] Logs directory created/verified: {}", project.logs_dir().display());
     
     // Create agent - not autonomous mode, just regular agent with tools
     let mut agent = Agent::new_with_readme_and_quiet(
@@ -335,6 +350,9 @@ pub async fn call_refinement_llm_with_tools(
         false, // not quiet
     )
     .await?;
+    
+    eprintln!("[DEBUG] Agent created, G3_WORKSPACE_PATH should be: {}", 
+              std::env::var("G3_WORKSPACE_PATH").unwrap_or_else(|_| "NOT SET".to_string()));
     
     // Execute the refinement task
     // The agent will have access to tools and execute them
