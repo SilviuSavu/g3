@@ -91,3 +91,17 @@
 >>
 2025-12-10 16:54:45  USER SKIPPED RECOVERY
 2025-12-10 16:55:05 - COMPLETED REQUIREMENTS (completed_requirements_2025-12-10_16-55-05.md,  completed_todo_2025-12-10_16-55-05.md)
+2025-12-10 16:55:24 - GIT COMMIT (Preserve planner history ordering and add regression guardrails)
+2025-12-10 17:02:30 - REFINING REQUIREMENTS (new_requirements.md)
+2025-12-10 17:05:46 - GIT HEAD (b3ac7746b94aa96c29e364a382a81716973b0217)
+2025-12-10 17:05:49 - START IMPLEMENTING (current_requirements.md)
+<<
+  Ensure `write_git_commit` is always called before any git commit and treated as a hard invariant.  
+  Confirm `append_entry` matches the described implementation, decide on flush semantics, and document that it’s not ...
+  Use git history to verify past regressions were due to call ordering, then update the external explanation accordingl...
+  Perform an end‑to‑end planner test in `/tmp/commit_test` and record commands plus the final `GIT COMMIT` history ...
+  Strengthen comments, tests, and helper APIs so planner‑mode commits cannot bypass the history‑before‑commit ord...
+>>
+2025-12-11 10:05:02  USER SKIPPED RECOVERY
+2025-12-11 10:05:08 - COMPLETED REQUIREMENTS (completed_requirements_2025-12-11_10-05-08.md,  completed_todo_2025-12-11_10-05-08.md)
+2025-12-11 10:05:39 - GIT COMMIT (Add explicit flush to append_entry and strengthen commit ordering docs)

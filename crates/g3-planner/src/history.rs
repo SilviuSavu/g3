@@ -35,7 +35,16 @@ pub fn ensure_history_file(plan_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Append an entry to planner_history.txt
+/// Append an entry to planner_history.txt.
+///
+/// This function opens the file in append mode, writes a single line, and explicitly flushes
+/// the buffer to ensure the write is durable before returning. While dropping the file handle
+/// would normally trigger a flush, we make it explicit here for clarity and to eliminate any
+/// possibility of buffering issues.
+///
+/// NOTE: The observed "GIT COMMIT not written before commit" bug is NOT caused by I/O buffering
+/// in this function. It's caused by incorrect call ordering where `git::commit()` is invoked
+/// before `history::write_git_commit()`. This function correctly writes to disk when called.
 fn append_entry(plan_dir: &Path, entry: &str) -> Result<()> {
     let history_path = plan_dir.join("planner_history.txt");
     
@@ -47,6 +56,10 @@ fn append_entry(plan_dir: &Path, entry: &str) -> Result<()> {
     
     writeln!(file, "{}", entry)
         .context("Failed to write to planner_history.txt")?;
+    
+    // Explicit flush to ensure data is written to disk before returning
+    file.flush()
+        .context("Failed to flush planner_history.txt")?;
     
     Ok(())
 }

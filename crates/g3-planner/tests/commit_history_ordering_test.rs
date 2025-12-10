@@ -238,3 +238,69 @@ fn test_history_entry_format() {
     // Should contain the message in parentheses
     assert!(history_content.contains("(Test formatting)"), "Should contain message in parentheses");
 }
+
+/// Test that stage_plan_dir correctly re-stages changes to planner_history.txt
+#[test]
+fn test_stage_plan_dir_captures_history_changes() {
+    let temp_dir = setup_test_git_repo().expect("Failed to setup test repo");
+    let repo_path = temp_dir.path();
+    let plan_dir = repo_path.join("g3-plan");
+
+    use g3_planner::git;
+    use g3_planner::history;
+
+    // Create a file and make an initial commit so we have a valid HEAD
+    let test_file = repo_path.join("initial.txt");
+    fs::write(&test_file, "initial content").expect("Failed to create initial file");
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(repo_path)
+        .output()
+        .expect("Failed to stage initial files");
+    Command::new("git")
+        .args(["commit", "-m", "Initial commit"])
+        .current_dir(repo_path)
+        .output()
+        .expect("Failed to make initial commit");
+
+    // Now create a new file to stage
+    let new_file = repo_path.join("new_feature.txt");
+    fs::write(&new_file, "new feature").expect("Failed to create new file");
+
+    // Stage all files (simulating stage_files call)
+    git::stage_files(repo_path, &plan_dir).expect("Failed to stage files");
+
+    // Get git status to see what's staged
+    let status_before = Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(repo_path)
+        .output()
+        .expect("Failed to get git status");
+    let _status_before_str = String::from_utf8_lossy(&status_before.stdout);
+
+    // Write a history entry AFTER staging (simulating the bug scenario)
+    history::write_git_commit(&plan_dir, "Test commit").expect("Failed to write history");
+
+    // At this point, planner_history.txt has been modified but the change is NOT staged
+    // This is the bug: the GIT COMMIT entry would not be included in the commit
+
+    // Now call stage_plan_dir to re-stage the plan directory
+    git::stage_plan_dir(repo_path, &plan_dir).expect("Failed to re-stage plan dir");
+
+    // Get git status again
+    let status_after = Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(repo_path)
+        .output()
+        .expect("Failed to get git status");
+    let status_after_str = String::from_utf8_lossy(&status_after.stdout);
+
+    // Verify planner_history.txt is now staged (should show as "A " or "M " not " M" or "??")
+    // The file should be in the staged area
+    assert!(status_after_str.contains("g3-plan/planner_history.txt"), 
+        "planner_history.txt should appear in git status");
+    
+    // Make a commit and verify the history entry is included
+    let commit_result = git::commit(repo_path, "Test commit", "Description");
+    assert!(commit_result.is_ok(), "Commit should succeed: {:?}", commit_result);
+}

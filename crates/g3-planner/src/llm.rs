@@ -242,10 +242,10 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
         // Format args for display (first 50 chars, must be safe char boundary)
         let args_display = if let Some(args) = tool_args {
             let args_str = serde_json::to_string(args).unwrap_or_else(|_| "{}".to_string());
-            if args_str.len() > 50 {
+            if args_str.len() > 100 {
                 // Use char_indices to safely truncate at char boundary
                 let truncate_idx = args_str.char_indices()
-                    .nth(50)
+                    .nth(100)
                     .map(|(idx, _)| idx)
                     .unwrap_or(args_str.len());
                 args_str[..truncate_idx].to_string()
@@ -257,7 +257,7 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
         };
         
         // Print on EXACTLY one line using ui_writer.println
-        self.println(&format!("🔧 [{}] {}  {}", count, tool_name, args_display));
+        self.println(&format!("🔧 [{}] \x1b[38;5;240m{}  {}\x1b[39m", count, tool_name, args_display));
     }
     
     fn print_tool_arg(&self, _key: &str, _value: &str) {}
@@ -270,7 +270,9 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     fn print_agent_prompt(&self) {
         // No-op - don't add extra blank lines
     }
-    
+
+    // NOTE: this is a partial response, so don't print newlines. Ideally we'd accumulate the
+    // message and only then print it.
     fn print_agent_response(&self, content: &str) {
         // Display non-tool text messages from LLM without adding extra newlines
         let trimmed = content.trim_end();

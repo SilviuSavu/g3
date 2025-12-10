@@ -308,6 +308,27 @@ pub fn stage_files(codepath: &Path, plan_dir: &Path) -> Result<StagingResult> {
     Ok(result)
 }
 
+/// Re-stage the g3-plan directory to capture any changes made after initial staging.
+///
+/// This is specifically needed because `planner_history.txt` is modified AFTER the initial
+/// `stage_files()` call (to write the GIT COMMIT entry) but BEFORE `git commit`.
+/// Without this re-staging, the GIT COMMIT entry would not be included in the commit.
+pub fn stage_plan_dir(codepath: &Path, plan_dir: &Path) -> Result<()> {
+    let plan_dir_str = plan_dir.to_string_lossy();
+    let add_output = Command::new("git")
+        .args(["add", &plan_dir_str])
+        .current_dir(codepath)
+        .output()
+        .context("Failed to re-stage g3-plan directory")?;
+
+    if !add_output.status.success() {
+        let stderr = String::from_utf8_lossy(&add_output.stderr);
+        anyhow::bail!("Failed to re-stage g3-plan directory: {}", stderr);
+    }
+
+    Ok(())
+}
+
 /// Result of staging operation
 #[derive(Debug, Default)]
 pub struct StagingResult {

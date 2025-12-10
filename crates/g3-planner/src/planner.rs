@@ -481,16 +481,15 @@ pub fn stage_and_commit(
         return Ok(());
     }
     
-    // CRITICAL INVARIANT: Write GIT COMMIT entry to planner_history.txt BEFORE executing git commit.
-    // This ordering is essential for several reasons:
-    // 1. Provides an audit trail even if the git commit fails (e.g., due to git config errors)
-    // 2. Allows post-mortem analysis when commits fail
-    // 3. Ensures the history file accurately reflects all attempted commits, not just successful ones
-    //
-    // NOTE: This invariant was accidentally violated in commit ff8b3e7 (2025-12-09) where the history
-    // write was placed AFTER the commit, then corrected in commit 633da0d the same day.
-    // DO NOT move this call to after git::commit() during refactoring.
+    // If you're modifying this function, ENSURE that:
+    // - history::write_git_commit() is called BEFORE git::commit()
+    // - No conditional logic can skip the history write if the commit proceeds
+    // - Tests in commit_history_ordering_test.rs continue to pass
     history::write_git_commit(&config.plan_dir(), summary)?;
+    
+    // Re-stage g3-plan directory to include the GIT COMMIT entry we just wrote
+    // This ensures planner_history.txt changes are included in the commit
+    git::stage_plan_dir(&config.codepath, &config.plan_dir())?;
     
     // Make commit
     print_msg("📝 Making git commit...");
