@@ -312,9 +312,6 @@ pub async fn call_refinement_llm_with_tools(
     codepath: &str,
     workspace: &str,
 ) -> Result<String> {
-    eprintln!("[DEBUG] call_refinement_llm_with_tools: codepath={}, workspace={}", 
-              codepath, workspace);
-    
     // Build system message with codepath context
     let system_prompt = prompts::REFINE_REQUIREMENTS_SYSTEM_PROMPT
         .replace("<codepath>", codepath);
@@ -331,17 +328,11 @@ pub async fn call_refinement_llm_with_tools(
     // The codepath is where the source code lives (e.g., ~/RustroverProjects/g3)
     // Previous bug: was using codepath as workspace, causing logs to go to wrong location
     let workspace_path = std::path::PathBuf::from(workspace);
-    eprintln!("[DEBUG] Creating Project with workspace_path={}", workspace_path.display());
-    
     let project = Project::new(workspace_path.clone());
     project.ensure_workspace_exists()?;
     project.enter_workspace()?;
     
-    // CRITICAL: Ensure logs directory exists BEFORE creating Agent
-    // This guarantees <workspace>/logs/ directory is ready for log writes
     project.ensure_logs_dir()?;
-    eprintln!("[DEBUG] Logs directory created/verified: {}", project.logs_dir().display());
-    
     // Create agent - not autonomous mode, just regular agent with tools
     let mut agent = Agent::new_with_readme_and_quiet(
         planner_config,
@@ -350,9 +341,6 @@ pub async fn call_refinement_llm_with_tools(
         false, // not quiet
     )
     .await?;
-    
-    eprintln!("[DEBUG] Agent created, G3_WORKSPACE_PATH should be: {}", 
-              std::env::var("G3_WORKSPACE_PATH").unwrap_or_else(|_| "NOT SET".to_string()));
     
     // Execute the refinement task
     // The agent will have access to tools and execute them

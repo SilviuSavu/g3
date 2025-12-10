@@ -59,11 +59,9 @@ fn get_todo_path() -> std::path::PathBuf {
 fn get_logs_dir() -> std::path::PathBuf {
     if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
         let logs_path = std::path::PathBuf::from(workspace_path).join("logs");
-        eprintln!("[DEBUG] get_logs_dir: Using G3_WORKSPACE_PATH, logs_path={}", logs_path.display());
         logs_path
     } else {
         let logs_path = std::env::current_dir().unwrap_or_default().join("logs");
-        eprintln!("[DEBUG] get_logs_dir: G3_WORKSPACE_PATH not set, using current dir, logs_path={}", logs_path.display());
         logs_path
     }
 }

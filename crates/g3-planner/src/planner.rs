@@ -724,7 +724,6 @@ pub async fn run_planning_mode(
     
     // Set G3_WORKSPACE_PATH environment variable EARLY for all logging
     std::env::set_var("G3_WORKSPACE_PATH", workspace_dir.display().to_string());
-    eprintln!("[DEBUG] Set G3_WORKSPACE_PATH={}", workspace_dir.display());
     
     // Create logs directory and verify it exists
     let logs_dir = workspace_dir.join("logs");
@@ -733,7 +732,6 @@ pub async fn run_planning_mode(
             .context("Failed to create logs directory")?;
     }
     print_msg(&format!("📁 Logs directory: {}", logs_dir.display()));
-    eprintln!("[DEBUG] Logs directory created/verified: {}", logs_dir.display());
     
     // Create the LLM provider for planning
     print_msg("🔧 Initializing planner provider...");
@@ -784,9 +782,6 @@ pub async fn run_planning_mode(
                 
                 let codepath_str = config.codepath.display().to_string();
                 let workspace_str = workspace_dir.display().to_string();
-                
-                eprintln!("[DEBUG] Calling refinement with codepath={}, workspace={}", 
-                          codepath_str, workspace_str);
                 
                 // Load config and call LLM with full tool execution capability
                 let g3_config = g3_config::Config::load(config.config_path.as_deref())?;
