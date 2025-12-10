@@ -58,9 +58,11 @@ fn get_todo_path() -> std::path::PathBuf {
 /// then falls back to "logs" in the current directory.
 fn get_logs_dir() -> std::path::PathBuf {
     if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
-        std::path::PathBuf::from(workspace_path).join("logs")
+        let logs_path = std::path::PathBuf::from(workspace_path).join("logs");
+        logs_path
     } else {
-        std::env::current_dir().unwrap_or_default().join("logs")
+        let logs_path = std::env::current_dir().unwrap_or_default().join("logs");
+        logs_path
     }
 }
 

@@ -6,6 +6,7 @@
 //! - Generating git commit messages
 
 use anyhow::{anyhow, Context, Result};
+use std::io::Write;
 use g3_config::Config;
 use g3_core::project::Project;
 use g3_core::Agent;
@@ -236,30 +237,27 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     }
     
     fn print_tool_header(&self, tool_name: &str, tool_args: Option<&serde_json::Value>) {
-        // Increment tool count and show on single line
         let count = self.tool_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
         
-        // Format args for display (first 50 chars)
+        // Format args for display (first 50 chars, must be safe char boundary)
         let args_display = if let Some(args) = tool_args {
             let args_str = serde_json::to_string(args).unwrap_or_else(|_| "{}".to_string());
             if args_str.len() > 50 {
-                // Truncate at char boundary
-                let truncated: String = args_str.chars().take(50).collect();
-                format!("{}", truncated)
+                // Use char_indices to safely truncate at char boundary
+                let truncate_idx = args_str.char_indices()
+                    .nth(50)
+                    .map(|(idx, _)| idx)
+                    .unwrap_or(args_str.len());
+                args_str[..truncate_idx].to_string()
             } else {
                 args_str
             }
         } else {
-            String::new()
+            "{}".to_string()
         };
         
-        // Print on single line with args
-        use std::io::Write;
-        if args_display.is_empty() {
-            println!("🔧 [{}] {}", count, tool_name);
-        } else {
-            println!("🔧 [{}] {}  {}", count, tool_name, args_display);
-        }
+        // Print on EXACTLY one line, no trailing newline, use println! with explicit single line format
+        println!("🔧 [{}] {}  {}", count, tool_name, args_display);
         std::io::stdout().flush().ok();
     }
     
@@ -278,7 +276,9 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
     fn print_agent_response(&self, content: &str) {
         // Display non-tool text messages from LLM
         if !content.trim().is_empty() {
-            println!("{}", content);
+            // Ensure we're on a fresh line, print content as-is, no buffering
+            print!("{}", content);
+            std::io::stdout().flush().ok();
         }
     }
     
