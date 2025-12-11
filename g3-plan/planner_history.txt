@@ -105,3 +105,15 @@
 2025-12-11 10:05:02  USER SKIPPED RECOVERY
 2025-12-11 10:05:08 - COMPLETED REQUIREMENTS (completed_requirements_2025-12-11_10-05-08.md,  completed_todo_2025-12-11_10-05-08.md)
 2025-12-11 10:05:39 - GIT COMMIT (Add explicit flush to append_entry and strengthen commit ordering docs)
+2025-12-11 14:28:56 - REFINING REQUIREMENTS (new_requirements.md)
+2025-12-11 14:32:53 - GIT HEAD (1a13fc5345dec72b7b97dcb6a397ac0b06cba3a2)
+2025-12-11 14:32:58 - START IMPLEMENTING (current_requirements.md)
+<<
+  Verify planning mode retry logic and coach response parsing. Document retry config location in .g3.toml under
+  [agent] section (max_retry_attempts, autonomous_max_retry_attempts). Note RetryConfig in retry.rs uses hardcoded max 3.
+  Add retry config examples to config.example.toml. Manual verification: test network errors trigger retries with backoff.
+  Coach feedback extraction uses multiple sources (SessionLog, NativeToolCall, etc) - verify non-fallback extraction.
+  Optional: add integration test for retry + feedback flow if issues found during manual testing.
+>>
+2025-12-11 14:55:22 - COMPLETED REQUIREMENTS (completed_requirements_2025-12-11_14-55-22.md,  completed_todo_2025-12-11_14-55-22.md)
+2025-12-11 14:56:27 - GIT COMMIT (Document retry config location and verify planning mode logic)

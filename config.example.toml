@@ -72,6 +72,31 @@ max_retry_attempts = 3
 autonomous_max_retry_attempts = 6
 allow_multiple_tool_calls = true
 
+# Retry Configuration for Planning/Autonomous Mode
+#
+# The retry infrastructure handles transient errors during LLM API calls:
+# - Rate limits (HTTP 429)
+# - Network errors (connection failures)
+# - Server errors (HTTP 5xx)
+# - Request timeouts
+# - Model capacity issues (model busy)
+#
+# Default retry behavior:
+# - max_retry_attempts: Used by default interactive mode (3 retries)
+# - autonomous_max_retry_attempts: Used by planning/autonomous mode (6 retries)
+#
+# Note: The retry logic uses exponential backoff with longer delays in
+# autonomous mode to handle rate limits gracefully.
+#
+# Example player retry config (in code):
+#   RetryConfig::planning("player")  # Creates: max_retries=3, is_autonomous=true
+#   RetryConfig::planning("player").with_max_retries(6)  # Override max retries
+#
+# Example coach retry config (in code):
+#   RetryConfig::planning("coach")   # Creates: max_retries=3, is_autonomous=true
+#   RetryConfig::planning("coach").with_max_retries(6)   # Override max retries
+#
+
 [computer_control]
 enabled = false  # Set to true to enable computer control (requires OS permissions)
 require_confirmation = true

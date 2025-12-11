@@ -574,6 +574,8 @@ pub async fn run_coach_player_loop(
     requirements_content: &str,
 ) -> Result<()> {
     use g3_core::project::Project;
+    use g3_core::retry::{execute_with_retry, RetryConfig, RetryResult};
+    use g3_core::feedback_extraction::{extract_coach_feedback, FeedbackExtractionConfig};
     use g3_core::Agent;
     
     let max_turns = planner_config.max_turns;
@@ -612,7 +614,7 @@ pub async fn run_coach_player_loop(
             planner_config.quiet,
         ).await?;
         
-        let player_prompt = if coach_feedback.is_empty() {
+        let player_prompt = if coach_feedback.is_empty() || turn == 1 {
             format!(
                 "You are G3 in implementation mode. Read and implement the following requirements:\n\n{}\n\nImplement this step by step. Write the todo list to: {}\n\nCreate all necessary files and code.",
                 requirements_content,
@@ -620,19 +622,42 @@ pub async fn run_coach_player_loop(
             )
         } else {
             format!(
-                "You are G3 in implementation mode. Address the following coach feedback:\n\n{}\n\nContext requirements:\n{}\n\nFix the issues mentioned above.",
+                "You are G3 in implementation mode. Address the following coach feedback:\n\n{}\n\nOriginal requirements:\n{}\n\nFix the issues mentioned above.",
                 coach_feedback,
                 requirements_content
             )
         };
         
-        let player_result = player_agent
-            .execute_task_with_timing(&player_prompt, None, false, false, false, true, None)
-            .await;
+        // Execute player task with retry logic
+        let player_retry_config = RetryConfig::planning("player");
+        let player_result = execute_with_retry(
+            &mut player_agent,
+            &player_prompt,
+            &player_retry_config,
+            false, // show_prompt
+            false, // show_code
+            None,  // discovery
+            |msg| print_msg(msg),
+        ).await;
         
         match player_result {
-            Ok(result) => print_msg(&format!("✅ Player completed: {} chars response", result.response.len())),
-            Err(e) => print_msg(&format!("⚠️  Player error: {}", e)),
+            RetryResult::Success(result) => {
+                print_msg(&format!("✅ Player completed: {} chars response", result.response.len()));
+            }
+            RetryResult::MaxRetriesReached(err) => {
+                print_msg(&format!("⚠️  Player failed after max retries: {}", err));
+                // Continue to coach phase anyway to get feedback
+            }
+            RetryResult::ContextLengthExceeded(err) => {
+                print_msg(&format!("⚠️  Player context length exceeded: {}", err));
+                // Continue to next turn
+                turn += 1;
+                continue;
+            }
+            RetryResult::Panic(e) => {
+                print_msg(&format!("💥 Player panic: {}", e));
+                return Err(e);
+            }
         }
         
         // Coach phase - review implementation
@@ -648,38 +673,59 @@ pub async fn run_coach_player_loop(
         ).await?;
         
         let coach_prompt = format!(
-            "You are G3 in coach mode. Review the implementation against these requirements:\n\n{}\n\nCheck:\n1. Are requirements implemented correctly?\n2. Does the code compile?\n3. What's missing?\n\nIf COMPLETE, respond with 'IMPLEMENTATION_APPROVED'.\nOtherwise, provide specific feedback for the player to fix.",
+            "You are G3 in coach mode. Review the implementation against these requirements:\n\n{}\n\nCheck:\n1. Are requirements implemented correctly?\n2. Does the code compile?\n3. What's missing?\n\nUse the final_output tool to provide your feedback.\nIf implementation is COMPLETE, include 'IMPLEMENTATION_APPROVED' in your feedback.\nOtherwise, provide specific feedback for the player to fix.",
             requirements_content
         );
         
-        let coach_result = coach_agent
-            .execute_task_with_timing(&coach_prompt, None, false, false, false, true, None)
-            .await;
+        // Execute coach task with retry logic
+        let coach_retry_config = RetryConfig::planning("coach");
+        let coach_result = execute_with_retry(
+            &mut coach_agent,
+            &coach_prompt,
+            &coach_retry_config,
+            false, // show_prompt
+            false, // show_code
+            None,  // discovery
+            |msg| print_msg(msg),
+        ).await;
         
         match coach_result {
-            Ok(result) => {
-                if result.response.contains("IMPLEMENTATION_APPROVED") || result.is_approved() {
+            RetryResult::Success(result) => {
+                // Extract feedback using the robust extraction module
+                let feedback_config = FeedbackExtractionConfig::default();
+                let extracted = extract_coach_feedback(&result, &coach_agent, &feedback_config);
+                
+                print_msg(&format!("📝 Coach feedback extracted from {:?}: {} chars", 
+                    extracted.source, extracted.content.len()));
+                
+                // Check for approval
+                if extracted.is_approved() || result.response.contains("IMPLEMENTATION_APPROVED") {
                     print_msg("✅ Coach approved implementation!");
                     return Ok(());
                 }
-                coach_feedback = result.response;
+                
+                coach_feedback = extracted.content;
+                
                 // Display first 25 lines of coach feedback
                 let lines: Vec<&str> = coach_feedback.lines().collect();
-                let display_lines = if lines.len() > 25 {
-                    let mut truncated: Vec<&str> = lines[..25].to_vec();
-                    truncated.push("...");
-                    truncated
-                } else {
-                    lines
-                };
-                print_msg(&format!("📝 Coach feedback ({} chars):", coach_feedback.len()));
-                for line in display_lines {
+                for line in lines.iter().take(25) {
                     print_msg(&format!("  {}", line));
                 }
+                if lines.len() > 25 {
+                    print_msg("  ...");
+                }
             }
-            Err(e) => {
-                print_msg(&format!("⚠️  Coach error: {}", e));
+            RetryResult::MaxRetriesReached(err) => {
+                print_msg(&format!("⚠️  Coach failed after max retries: {}", err));
                 coach_feedback = "Please review and fix any issues.".to_string();
+            }
+            RetryResult::ContextLengthExceeded(err) => {
+                print_msg(&format!("⚠️  Coach context length exceeded: {}", err));
+                coach_feedback = "Context window full. Please continue with current progress.".to_string();
+            }
+            RetryResult::Panic(e) => {
+                print_msg(&format!("💥 Coach panic: {}", e));
+                return Err(e);
             }
         }
         

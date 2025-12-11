@@ -1,10 +1,14 @@
 pub mod code_search;
 pub mod error_handling;
+pub mod feedback_extraction;
 pub mod project;
+pub mod retry;
 pub mod task_result;
 pub mod ui_writer;
 
 pub use task_result::TaskResult;
+pub use retry::{RetryConfig, RetryResult, execute_with_retry, retry_operation};
+pub use feedback_extraction::{ExtractedFeedback, FeedbackSource, FeedbackExtractionConfig, extract_coach_feedback};
 
 #[cfg(test)]
 mod task_result_comprehensive_tests;
