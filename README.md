@@ -176,10 +176,10 @@ Planning mode provides a structured workflow for requirements-driven development
 
 ```bash
 # Start planning mode for a codebase
-g3 --planning --codepath ~/my-project
+g3 --planning --codepath ~/my-project --workspace ~/g3_workspace
 
 # Without git operations (for repos not yet initialized)
-g3 --planning --codepath ~/my-project --no-git
+g3 --planning --codepath ~/my-project --no-git --workspace ~/g3_workspace
 ```
 
 Planning mode workflow:
