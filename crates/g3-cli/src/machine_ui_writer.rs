@@ -40,7 +40,7 @@ impl UiWriter for MachineUiWriter {
         println!("CONTEXT_THINNING: {}", message);
     }
 
-    fn print_tool_header(&self, tool_name: &str) {
+    fn print_tool_header(&self, tool_name: &str, _tool_args: Option<&serde_json::Value>) {
         println!("TOOL_CALL: {}", tool_name);
     }
 

@@ -170,6 +170,33 @@ g3 --autonomous
 g3 --chat
 ```
 
+### Planning Mode
+
+Planning mode provides a structured workflow for requirements-driven development with git integration:
+
+```bash
+# Start planning mode for a codebase
+g3 --planning --codepath ~/my-project --workspace ~/g3_workspace
+
+# Without git operations (for repos not yet initialized)
+g3 --planning --codepath ~/my-project --no-git --workspace ~/g3_workspace
+```
+
+Planning mode workflow:
+1. **Refine Requirements**: Write requirements in `<codepath>/g3-plan/new_requirements.md`, then let the LLM suggest improvements
+2. **Implement**: Once requirements are approved, they're renamed to `current_requirements.md` and the coach/player loop implements them
+3. **Complete**: After implementation, files are archived with timestamps (e.g., `completed_requirements_2025-01-15_10-30-00.md`)
+4. **Git Commit**: Staged files are committed with an LLM-generated commit message
+5. **Repeat**: Return to step 1 for the next iteration
+
+All planning artifacts are stored in `<codepath>/g3-plan/`:
+- `planner_history.txt` - Audit log of all planning activities
+- `new_requirements.md` / `current_requirements.md` - Active requirements
+- `todo.g3.md` - Implementation TODO list
+- `completed_*.md` - Archived requirements and todos
+
+See the configuration section for setting up different providers for the planner role.
+
 ```bash
 # Build the project
 cargo build --release

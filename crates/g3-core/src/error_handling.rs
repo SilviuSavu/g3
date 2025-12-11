@@ -129,26 +129,27 @@ impl ErrorContext {
             return;
         }
 
-        let logs_dir = std::path::Path::new("logs/errors");
+        let base_logs_dir = crate::logs_dir();
+        let logs_dir = base_logs_dir.join("errors");
         if !logs_dir.exists() {
-            if let Err(e) = std::fs::create_dir_all(logs_dir) {
+            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                 error!("Failed to create error logs directory: {}", e);
                 return;
             }
         }
 
-        let filename = format!(
-            "logs/errors/error_{}_{}.json",
+        let filename = logs_dir.join(format!(
+            "error_{}_{}.json",
             self.timestamp,
             self.session_id.as_deref().unwrap_or("unknown")
-        );
+        ));
 
         match serde_json::to_string_pretty(self) {
             Ok(json_content) => {
                 if let Err(e) = std::fs::write(&filename, json_content) {
-                    error!("Failed to save error context to {}: {}", filename, e);
+                    error!("Failed to save error context to {:?}: {}", &filename, e);
                 } else {
-                    info!("Error details saved to: {}", filename);
+                    info!("Error details saved to: {:?}", &filename);
                 }
             }
             Err(e) => {

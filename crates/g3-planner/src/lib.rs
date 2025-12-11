@@ -1,12 +1,24 @@
-//! g3-planner: Fast-discovery planner for G3 AI coding agent
+//! g3-planner: Planning mode and fast-discovery planner for G3 AI coding agent
 //!
-//! This crate provides functionality to generate initial discovery tool calls
-//! that are injected into the conversation before the first LLM turn.
+//! This crate provides:
+//! - Planning mode state machine and orchestration
+//! - Requirements refinement workflow
+//! - Git integration for planning commits
+//! - Planner history management
+//! - Fast-discovery functionality for codebase exploration
 
 mod code_explore;
+pub mod git;
+pub mod history;
+pub mod llm;
+pub mod planner;
 pub mod prompts;
+pub mod state;
 
 pub use code_explore::explore_codebase;
+pub use planner::{expand_codepath, PlannerConfig, PlannerResult};
+pub use state::{PlannerState, RecoveryInfo};
+pub use planner::run_planning_mode;
 
 use anyhow::Result;
 use chrono::Local;
@@ -184,12 +196,19 @@ pub fn extract_summary(response: &str) -> Option<String> {
 
 /// Write the codebase report to logs directory
 fn write_code_report(report: &str) -> Result<()> {
-    // Ensure logs directory exists
-    fs::create_dir_all("logs")?;
+    // Get logs directory from workspace path or current dir
+    let logs_dir = if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
+        std::path::PathBuf::from(workspace_path).join("logs")
+    } else {
+        std::env::current_dir().unwrap_or_default().join("logs")
+    };
+    
+    // Ensure logs directory exists  
+    fs::create_dir_all(&logs_dir)?;
 
     // Generate timestamp in same format as tool_calls log
     let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
-    let filename = format!("logs/code_report_{}.log", timestamp);
+    let filename = logs_dir.join(format!("code_report_{}.log", timestamp));
 
     // Write the report to file
     let mut file = OpenOptions::new()
@@ -206,12 +225,19 @@ fn write_code_report(report: &str) -> Result<()> {
 
 /// Write the discovery commands to logs directory
 fn write_discovery_commands(commands: &[String]) -> Result<()> {
+    // Get logs directory from workspace path or current dir
+    let logs_dir = if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
+        std::path::PathBuf::from(workspace_path).join("logs")
+    } else {
+        std::env::current_dir().unwrap_or_default().join("logs")
+    };
+    
     // Ensure logs directory exists
-    fs::create_dir_all("logs")?;
+    fs::create_dir_all(&logs_dir)?;
 
     // Generate timestamp in same format as tool_calls log
     let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
-    let filename = format!("logs/discovery_commands_{}.log", timestamp);
+    let filename = logs_dir.join(format!("discovery_commands_{}.log", timestamp));
 
     // Write the commands to file
     let mut file = OpenOptions::new()

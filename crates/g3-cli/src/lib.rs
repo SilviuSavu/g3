@@ -315,6 +315,10 @@ pub struct Cli {
     #[arg(long)]
     pub auto: bool,
 
+    /// Enable interactive chat mode (no autonomous runs)
+    #[arg(long)]
+    pub chat: bool,
+
     /// Enable machine-friendly output mode with JSON markers and stats
     #[arg(long)]
     pub machine: bool,
@@ -355,6 +359,18 @@ pub struct Cli {
     #[arg(long, default_value = "5")]
     pub flock_max_turns: usize,
 
+    /// Enable planning mode for requirements-driven development
+    #[arg(long, conflicts_with_all = ["autonomous", "auto", "chat"])]
+    pub planning: bool,
+
+    /// Path to the codebase to work on (for planning mode)
+    #[arg(long, value_name = "PATH")]
+    pub codepath: Option<String>,
+
+    /// Disable git operations in planning mode
+    #[arg(long)]
+    pub no_git: bool,
+
     /// Enable fast codebase discovery before first LLM turn
     #[arg(long, value_name = "PATH")]
     pub codebase_fast_start: Option<PathBuf>,
@@ -376,12 +392,25 @@ pub async fn run() -> Result<()> {
         )
         .await;
     }
-
     if cli.codebase_fast_start.is_some() {
         print!("codebase_fast_start is temporarily disabled.");
         exit(1);
     }
     // Otherwise, continue with normal mode
+
+    // Check if planning mode is enabled
+    if cli.planning {
+        // Expand ~ in codepath if provided
+        // The expand_codepath function in g3_planner handles tilde expansion
+        let codepath = cli.codepath.clone();
+        return g3_planner::run_planning_mode(
+            codepath,
+            cli.workspace.clone(),
+            cli.no_git,
+            cli.config.as_deref(),
+        )
+        .await;
+    }
 
     // Only initialize logging if not in retro mode
     if !cli.machine {

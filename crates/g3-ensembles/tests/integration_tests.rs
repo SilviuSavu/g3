@@ -6,6 +6,43 @@ use std::path::PathBuf;
 use std::process::Command;
 use tempfile::TempDir;
 
+/// Create a test config file with the new format
+fn create_test_config(temp_dir: &TempDir) -> PathBuf {
+    let config_path = temp_dir.path().join(".g3.toml");
+    let config_content = r#"
+[providers]
+default_provider = "databricks.default"
+
+[providers.databricks.default]
+host = "https://test.databricks.com"
+token = "test-token"
+model = "test-model"
+
+[agent]
+fallback_default_max_tokens = 8192
+enable_streaming = true
+timeout_seconds = 60
+auto_compact = true
+allow_multiple_tool_calls = false
+max_retry_attempts = 3
+autonomous_max_retry_attempts = 6
+
+[computer_control]
+enabled = false
+require_confirmation = true
+max_actions_per_second = 10
+
+[webdriver]
+enabled = false
+safari_port = 4444
+
+[macax]
+enabled = false
+"#;
+    fs::write(&config_path, config_content).expect("Failed to write config");
+    config_path
+}
+
 /// Helper to create a test git repository with flock-requirements.md
 fn create_test_project(name: &str) -> TempDir {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
@@ -73,11 +110,14 @@ fn create_test_project(name: &str) -> TempDir {
 #[test]
 fn test_flock_config_validation() {
     let temp_dir = TempDir::new().unwrap();
+    let config_path = create_test_config(&temp_dir);
     let project_path = temp_dir.path().to_path_buf();
     let workspace_path = temp_dir.path().join("workspace");
 
     // Should fail - not a git repo
-    let result = FlockConfig::new(project_path.clone(), workspace_path.clone(), 2);
+    let result = FlockConfig::new_with_config(
+        project_path.clone(), workspace_path.clone(), 2,
+        Some(config_path.to_str().unwrap()));
     assert!(result.is_err());
     assert!(result
         .unwrap_err()
@@ -92,7 +132,9 @@ fn test_flock_config_validation() {
         .expect("Failed to run git init");
 
     // Should fail - no flock-requirements.md
-    let result = FlockConfig::new(project_path.clone(), workspace_path.clone(), 2);
+    let result = FlockConfig::new_with_config(
+        project_path.clone(), workspace_path.clone(), 2,
+        Some(config_path.to_str().unwrap()));
     assert!(result.is_err());
     assert!(result
         .unwrap_err()
@@ -104,7 +146,9 @@ fn test_flock_config_validation() {
         .expect("Failed to write requirements");
 
     // Should succeed now
-    let result = FlockConfig::new(project_path, workspace_path, 2);
+    let result = FlockConfig::new_with_config(
+        project_path, workspace_path, 2,
+        Some(config_path.to_str().unwrap()));
     assert!(result.is_ok());
 }
 
@@ -112,11 +156,13 @@ fn test_flock_config_validation() {
 fn test_flock_config_builder() {
     let project_dir = create_test_project("builder-test");
     let workspace_dir = TempDir::new().unwrap();
+    let config_path = create_test_config(&workspace_dir);
 
-    let config = FlockConfig::new(
+    let config = FlockConfig::new_with_config(
         project_dir.path().to_path_buf(),
         workspace_dir.path().to_path_buf(),
         2,
+        Some(config_path.to_str().unwrap()),
     )
     .expect("Failed to create config")
     .with_max_turns(15)
@@ -131,11 +177,13 @@ fn test_flock_config_builder() {
 fn test_workspace_creation() {
     let project_dir = create_test_project("workspace-test");
     let workspace_dir = TempDir::new().unwrap();
+    let config_path = create_test_config(&workspace_dir);
 
-    let config = FlockConfig::new(
+    let config = FlockConfig::new_with_config(
         project_dir.path().to_path_buf(),
         workspace_dir.path().to_path_buf(),
         2,
+        Some(config_path.to_str().unwrap()),
     )
     .expect("Failed to create config");
 

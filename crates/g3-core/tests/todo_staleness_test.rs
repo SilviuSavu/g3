@@ -53,7 +53,7 @@ impl UiWriter for MockUiWriter {
             .push(format!("STATUS: {}", message));
     }
     fn print_context_thinning(&self, _message: &str) {}
-    fn print_tool_header(&self, _tool_name: &str) {}
+    fn print_tool_header(&self, _tool_name: &str, _tool_args: Option<&serde_json::Value>) {}
     fn print_tool_arg(&self, _key: &str, _value: &str) {}
     fn print_tool_output_header(&self) {}
     fn update_tool_output_line(&self, _line: &str) {}

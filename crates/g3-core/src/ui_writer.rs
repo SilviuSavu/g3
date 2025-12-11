@@ -21,7 +21,7 @@ pub trait UiWriter: Send + Sync {
     fn print_context_thinning(&self, message: &str);
 
     /// Print a tool execution header
-    fn print_tool_header(&self, tool_name: &str);
+    fn print_tool_header(&self, tool_name: &str, tool_args: Option<&serde_json::Value>);
 
     /// Print a tool argument
     fn print_tool_arg(&self, key: &str, value: &str);
@@ -81,7 +81,7 @@ impl UiWriter for NullUiWriter {
     fn print_system_prompt(&self, _prompt: &str) {}
     fn print_context_status(&self, _message: &str) {}
     fn print_context_thinning(&self, _message: &str) {}
-    fn print_tool_header(&self, _tool_name: &str) {}
+    fn print_tool_header(&self, _tool_name: &str, _tool_args: Option<&serde_json::Value>) {}
     fn print_tool_arg(&self, _key: &str, _value: &str) {}
     fn print_tool_output_header(&self) {}
     fn update_tool_output_line(&self, _line: &str) {}

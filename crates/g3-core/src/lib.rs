@@ -1,10 +1,14 @@
 pub mod code_search;
 pub mod error_handling;
+pub mod feedback_extraction;
 pub mod project;
+pub mod retry;
 pub mod task_result;
 pub mod ui_writer;
 
 pub use task_result::TaskResult;
+pub use retry::{RetryConfig, RetryResult, execute_with_retry, retry_operation};
+pub use feedback_extraction::{ExtractedFeedback, FeedbackSource, FeedbackExtractionConfig, extract_coach_feedback};
 
 #[cfg(test)]
 mod task_result_comprehensive_tests;
@@ -39,6 +43,41 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
+
+/// Get the path to the todo.g3.md file.
+/// 
+/// Checks for G3_TODO_PATH environment variable first (used by planning mode),
+/// then falls back to todo.g3.md in the current directory.
+fn get_todo_path() -> std::path::PathBuf {
+    if let Ok(custom_path) = std::env::var("G3_TODO_PATH") {
+        std::path::PathBuf::from(custom_path)
+    } else {
+        std::env::current_dir().unwrap_or_default().join("todo.g3.md")
+    }
+}
+
+/// Get the path to the logs directory.
+///
+/// Checks for G3_WORKSPACE_PATH environment variable first (used by planning mode),
+/// then falls back to "logs" in the current directory.
+fn get_logs_dir() -> std::path::PathBuf {
+    if let Ok(workspace_path) = std::env::var("G3_WORKSPACE_PATH") {
+        let logs_path = std::path::PathBuf::from(workspace_path).join("logs");
+        logs_path
+    } else {
+        let logs_path = std::env::current_dir().unwrap_or_default().join("logs");
+        logs_path
+    }
+}
+
+/// Public accessor for the logs directory path (for use by submodules)
+pub fn logs_dir() -> std::path::PathBuf {
+    get_logs_dir()
+}
+
+/// Environment variable name for workspace path
+/// Used to direct all logs to the workspace directory
+pub const G3_WORKSPACE_PATH_ENV: &str = "G3_WORKSPACE_PATH";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
@@ -1119,12 +1158,18 @@ impl<W: UiWriter> Agent<W> {
             vec![config.providers.default_provider.clone()]
         };
 
-        // Only register providers that are configured AND selected as the default provider
+        // Only register providers that are configured AND selected
         // This prevents unnecessary initialization of heavy providers like embedded models
 
-        // Register embedded provider if configured AND it's the default provider
-        if let Some(embedded_config) = &config.providers.embedded {
-            if providers_to_register.contains(&"embedded".to_string()) {
+        // Helper to check if a provider ref should be registered
+        let should_register = |provider_type: &str, config_name: &str| -> bool {
+            let full_ref = format!("{}.{}", provider_type, config_name);
+            providers_to_register.iter().any(|p| p == &full_ref || p.starts_with(&format!("{}.", provider_type)))
+        };
+
+        // Register embedded providers from HashMap
+        for (name, embedded_config) in &config.providers.embedded {
+            if should_register("embedded", name) {
                 let embedded_provider = g3_providers::EmbeddedProvider::new(
                     embedded_config.model_path.clone(),
                     embedded_config.model_type.clone(),
@@ -1138,10 +1183,11 @@ impl<W: UiWriter> Agent<W> {
             }
         }
 
-        // Register OpenAI provider if configured AND it's the default provider
-        if let Some(openai_config) = &config.providers.openai {
-            if providers_to_register.contains(&"openai".to_string()) {
-                let openai_provider = g3_providers::OpenAIProvider::new(
+        // Register OpenAI providers from HashMap
+        for (name, openai_config) in &config.providers.openai {
+            if should_register("openai", name) {
+                let openai_provider = g3_providers::OpenAIProvider::new_with_name(
+                    format!("openai.{}", name),
                     openai_config.api_key.clone(),
                     Some(openai_config.model.clone()),
                     openai_config.base_url.clone(),
@@ -1154,7 +1200,7 @@ impl<W: UiWriter> Agent<W> {
 
         // Register OpenAI-compatible providers (e.g., OpenRouter, Groq, etc.)
         for (name, openai_config) in &config.providers.openai_compatible {
-            if providers_to_register.contains(name) {
+            if should_register(name, "default") {
                 let openai_provider = g3_providers::OpenAIProvider::new_with_name(
                     name.clone(),
                     openai_config.api_key.clone(),
@@ -1167,10 +1213,11 @@ impl<W: UiWriter> Agent<W> {
             }
         }
 
-        // Register Anthropic provider if configured AND it's the default provider
-        if let Some(anthropic_config) = &config.providers.anthropic {
-            if providers_to_register.contains(&"anthropic".to_string()) {
-                let anthropic_provider = g3_providers::AnthropicProvider::new(
+        // Register Anthropic providers from HashMap
+        for (name, anthropic_config) in &config.providers.anthropic {
+            if should_register("anthropic", name) {
+                let anthropic_provider = g3_providers::AnthropicProvider::new_with_name(
+                    format!("anthropic.{}", name),
                     anthropic_config.api_key.clone(),
                     Some(anthropic_config.model.clone()),
                     anthropic_config.max_tokens,
@@ -1183,12 +1230,13 @@ impl<W: UiWriter> Agent<W> {
             }
         }
 
-        // Register Databricks provider if configured AND it's the default provider
-        if let Some(databricks_config) = &config.providers.databricks {
-            if providers_to_register.contains(&"databricks".to_string()) {
+        // Register Databricks providers from HashMap
+        for (name, databricks_config) in &config.providers.databricks {
+            if should_register("databricks", name) {
                 let databricks_provider = if let Some(token) = &databricks_config.token {
                     // Use token-based authentication
-                    g3_providers::DatabricksProvider::from_token(
+                    g3_providers::DatabricksProvider::from_token_with_name(
+                        format!("databricks.{}", name),
                         databricks_config.host.clone(),
                         token.clone(),
                         databricks_config.model.clone(),
@@ -1197,7 +1245,8 @@ impl<W: UiWriter> Agent<W> {
                     )?
                 } else {
                     // Use OAuth authentication
-                    g3_providers::DatabricksProvider::from_oauth(
+                    g3_providers::DatabricksProvider::from_oauth_with_name(
+                        format!("databricks.{}", name),
                         databricks_config.host.clone(),
                         databricks_config.model.clone(),
                         databricks_config.max_tokens,
@@ -1253,13 +1302,9 @@ impl<W: UiWriter> Agent<W> {
         }
 
         // Load existing TODO list if present (after system prompt and README)
-        let todo_path = std::env::current_dir().ok().map(|p| p.join("todo.g3.md"));
-        let initial_todo_content = if let Some(ref path) = todo_path {
-            if path.exists() {
-                std::fs::read_to_string(path).ok()
-            } else {
-                None
-            }
+        let todo_path = get_todo_path();
+        let initial_todo_content = if todo_path.exists() {
+            std::fs::read_to_string(&todo_path).ok()
         } else {
             None
         };
@@ -1304,13 +1349,8 @@ impl<W: UiWriter> Agent<W> {
             ui_writer,
             todo_content: std::sync::Arc::new(tokio::sync::RwLock::new({
                 // Initialize from TODO.md file if it exists
-                let todo_path = std::env::current_dir().ok().map(|p| p.join("todo.g3.md"));
-
-                if let Some(path) = todo_path {
-                    std::fs::read_to_string(&path).unwrap_or_default()
-                } else {
-                    String::new()
-                }
+                let todo_path = get_todo_path();
+                std::fs::read_to_string(&todo_path).unwrap_or_default()
             })),
             is_autonomous,
             quiet,
@@ -1386,22 +1426,40 @@ impl<W: UiWriter> Agent<W> {
 
     /// Get the configured max_tokens for a provider from top-level config
     fn provider_max_tokens(config: &Config, provider_name: &str) -> Option<u32> {
-        match provider_name {
-            "anthropic" => config.providers.anthropic.as_ref()?.max_tokens,
-            "openai" => config.providers.openai.as_ref()?.max_tokens,
-            "databricks" => config.providers.databricks.as_ref()?.max_tokens,
-            "embedded" => config.providers.embedded.as_ref()?.max_tokens,
+        // Parse provider reference (format: "provider_type.config_name")
+        let parts: Vec<&str> = provider_name.split('.').collect();
+        let (provider_type, config_name) = if parts.len() == 2 {
+            (parts[0], parts[1])
+        } else {
+            // Fallback for simple provider names - assume "default" config
+            (provider_name, "default")
+        };
+        
+        match provider_type {
+            "anthropic" => config.providers.anthropic.get(config_name)?.max_tokens,
+            "openai" => config.providers.openai.get(config_name)?.max_tokens,
+            "databricks" => config.providers.databricks.get(config_name)?.max_tokens,
+            "embedded" => config.providers.embedded.get(config_name)?.max_tokens,
             _ => None,
         }
     }
 
     /// Get the configured temperature for a provider from top-level config
     fn provider_temperature(config: &Config, provider_name: &str) -> Option<f32> {
-        match provider_name {
-            "anthropic" => config.providers.anthropic.as_ref()?.temperature,
-            "openai" => config.providers.openai.as_ref()?.temperature,
-            "databricks" => config.providers.databricks.as_ref()?.temperature,
-            "embedded" => config.providers.embedded.as_ref()?.temperature,
+        // Parse provider reference (format: "provider_type.config_name")
+        let parts: Vec<&str> = provider_name.split('.').collect();
+        let (provider_type, config_name) = if parts.len() == 2 {
+            (parts[0], parts[1])
+        } else {
+            // Fallback for simple provider names - assume "default" config
+            (provider_name, "default")
+        };
+        
+        match provider_type {
+            "anthropic" => config.providers.anthropic.get(config_name)?.temperature,
+            "openai" => config.providers.openai.get(config_name)?.temperature,
+            "databricks" => config.providers.databricks.get(config_name)?.temperature,
+            "embedded" => config.providers.embedded.get(config_name)?.temperature,
             _ => None,
         }
     }
@@ -1420,7 +1478,7 @@ impl<W: UiWriter> Agent<W> {
         // For Anthropic with thinking enabled, ensure max_tokens is sufficient
         // Anthropic requires: max_tokens > thinking.budget_tokens
         if provider_name == "anthropic" {
-            if let Some(budget) = self.get_thinking_budget_tokens() {
+            if let Some(budget) = self.get_thinking_budget_tokens(provider_name) {
                 let minimum_for_thinking = budget + 1024;
                 return base.max(minimum_for_thinking);
             }
@@ -1430,11 +1488,23 @@ impl<W: UiWriter> Agent<W> {
     }
 
     /// Get the thinking budget tokens for Anthropic provider, if configured
-    fn get_thinking_budget_tokens(&self) -> Option<u32> {
-        self.config
-            .providers
-            .anthropic
-            .as_ref()
+    fn get_thinking_budget_tokens(&self, provider_name: &str) -> Option<u32> {
+        // Parse provider reference (format: "provider_type.config_name")
+        let parts: Vec<&str> = provider_name.split('.').collect();
+        let (provider_type, config_name) = if parts.len() == 2 {
+            (parts[0], parts[1])
+        } else {
+            // Fallback for simple provider names - assume "default" config
+            (provider_name, "default")
+        };
+        
+        // Only Anthropic has thinking_budget_tokens
+        if provider_type != "anthropic" {
+            return None;
+        }
+        
+        self.config.providers.anthropic
+            .get(config_name)
             .and_then(|c| c.thinking_budget_tokens)
     }
 
@@ -1448,12 +1518,15 @@ impl<W: UiWriter> Agent<W> {
         provider_name: &str,
         proposed_max_tokens: u32,
     ) -> (u32, bool) {
-        // Only applies to Anthropic provider with thinking enabled
-        if provider_name != "anthropic" {
+        // Parse provider type from provider_name (format: "provider_type.config_name")
+        let provider_type = provider_name.split('.').next().unwrap_or(provider_name);
+        
+        // Only applies to Anthropic provider
+        if provider_type != "anthropic" {
             return (proposed_max_tokens, false);
         }
 
-        let budget_tokens = match self.get_thinking_budget_tokens() {
+        let budget_tokens = match self.get_thinking_budget_tokens(provider_name) {
             Some(budget) => budget,
             None => return (proposed_max_tokens, false), // No thinking enabled
         };
@@ -1498,7 +1571,7 @@ impl<W: UiWriter> Agent<W> {
         // but ensure we don't go below thinking budget floor for Anthropic
         let proposed_max_tokens = available.min(configured_max_tokens);
         let proposed_max_tokens = if provider_name == "anthropic" {
-            if let Some(budget) = self.get_thinking_budget_tokens() {
+            if let Some(budget) = self.get_thinking_budget_tokens(provider_name) {
                 proposed_max_tokens.max(budget + 1024)
             } else {
                 proposed_max_tokens
@@ -1702,14 +1775,23 @@ impl<W: UiWriter> Agent<W> {
         let provider_name = provider.name();
         let model_name = provider.model();
 
-        // Use provider-specific context length if available, otherwise fall back to agent config
-        let context_length = match provider_name {
-            "embedded" => {
+        // Parse provider name to get type and config name
+        let parts: Vec<&str> = provider_name.split('.').collect();
+        let (provider_type, config_name) = if parts.len() == 2 {
+            (parts[0], parts[1])
+        } else {
+            // Fallback for simple provider names
+            (provider_name, "default")
+        };
+
+        // Use provider-specific context length if available
+        let context_length = match provider_type {
+            "embedded" | "embedded." => {
                 // For embedded models, use the configured context_length or model-specific defaults
-                if let Some(embedded_config) = &config.providers.embedded {
+                if let Some(embedded_config) = config.providers.embedded.get(config_name) {
                     embedded_config.context_length.unwrap_or_else(|| {
                         // Model-specific defaults for embedded models
-                        match embedded_config.model_type.to_lowercase().as_str() {
+                        match &embedded_config.model_type.to_lowercase()[..] {
                             "codellama" => 16384, // CodeLlama supports 16k context
                             "llama" => 4096,      // Base Llama models
                             "mistral" => 8192,    // Mistral models
@@ -1722,11 +1804,11 @@ impl<W: UiWriter> Agent<W> {
                 }
             }
             "openai" => {
-                // gpt-5 has 400k window
-                if let Some(max_tokens) = Self::provider_max_tokens(config, "openai") {
+                // OpenAI models have varying context windows
+                if let Some(max_tokens) = Self::provider_max_tokens(config, provider_name) {
                     warnings.push(format!(
-                        "Context length falling back to max_tokens ({}) for provider=openai",
-                        max_tokens
+                        "Context length falling back to max_tokens ({}) for provider={}",
+                        max_tokens, provider_name
                     ));
                     max_tokens
                 } else {
@@ -1735,11 +1817,10 @@ impl<W: UiWriter> Agent<W> {
             }
             "anthropic" => {
                 // Claude models have large context windows
-                // Use configured max_tokens or fall back to default
-                if let Some(max_tokens) = Self::provider_max_tokens(config, "anthropic") {
+                if let Some(max_tokens) = Self::provider_max_tokens(config, provider_name) {
                     warnings.push(format!(
-                        "Context length falling back to max_tokens ({}) for provider=anthropic",
-                        max_tokens
+                        "Context length falling back to max_tokens ({}) for provider={}",
+                        max_tokens, provider_name
                     ));
                     max_tokens
                 } else {
@@ -1748,11 +1829,10 @@ impl<W: UiWriter> Agent<W> {
             }
             "databricks" => {
                 // Databricks models have varying context windows depending on the model
-                // Use configured max_tokens or fall back to model-specific defaults
-                if let Some(max_tokens) = Self::provider_max_tokens(config, "databricks") {
+                if let Some(max_tokens) = Self::provider_max_tokens(config, provider_name) {
                     warnings.push(format!(
-                        "Context length falling back to max_tokens ({}) for provider=databricks",
-                        max_tokens
+                        "Context length falling back to max_tokens ({}) for provider={}",
+                        max_tokens, provider_name
                     ));
                     max_tokens
                 } else if model_name.contains("claude") {
@@ -1779,18 +1859,19 @@ impl<W: UiWriter> Agent<W> {
 
         TOOL_LOG
             .get_or_init(|| {
-                if let Err(e) = std::fs::create_dir_all("logs") {
+                let logs_dir = get_logs_dir();
+                if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                     error!("Failed to create logs directory for tool log: {}", e);
                     return None;
                 }
 
                 let ts = Local::now().format("%Y%m%d_%H%M%S").to_string();
-                let path = format!("logs/tool_calls_{}.log", ts);
+                let path = logs_dir.join(format!("tool_calls_{}.log", ts));
 
                 match OpenOptions::new().create(true).append(true).open(&path) {
                     Ok(file) => Some(Mutex::new(file)),
                     Err(e) => {
-                        error!("Failed to open tool log file {}: {}", path, e);
+                        error!("Failed to open tool log file {:?}: {}", path, e);
                         None
                     }
                 }
@@ -1948,14 +2029,18 @@ impl<W: UiWriter> Agent<W> {
             // Check if we should use cache control (every 10 tool calls)
             // But only if we haven't already added 4 cache_control annotations
             let provider = self.providers.get(None)?;
-            if let Some(cache_config) = match provider.name() {
-                "anthropic" => self
-                    .config
-                    .providers
-                    .anthropic
-                    .as_ref()
-                    .and_then(|c| c.cache_config.as_ref())
-                    .and_then(|config| Self::parse_cache_control(config)),
+            let provider_name = provider.name();
+            let provider_type = provider_name.split('.').next().unwrap_or("");
+            let config_name = provider_name.split('.').nth(1).unwrap_or("default");
+            if let Some(cache_config) = match provider_type {
+                "anthropic" => {
+                    self.config
+                        .providers
+                        .anthropic
+                        .get(config_name)
+                        .and_then(|c| c.cache_config.as_ref())
+                        .and_then(|config| Self::parse_cache_control(config))
+                }
                 _ => None,
             } {
                 Message::with_cache_control_validated(
@@ -2145,9 +2230,9 @@ impl<W: UiWriter> Agent<W> {
             .as_secs();
 
         // Create logs directory if it doesn't exist
-        let logs_dir = std::path::Path::new("logs");
+        let logs_dir = get_logs_dir();
         if !logs_dir.exists() {
-            if let Err(e) = std::fs::create_dir_all(logs_dir) {
+            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                 error!("Failed to create logs directory: {}", e);
                 return;
             }
@@ -2155,9 +2240,9 @@ impl<W: UiWriter> Agent<W> {
 
         // Use session-based filename if we have a session ID, otherwise fall back to timestamp
         let filename = if let Some(ref session_id) = self.session_id {
-            format!("logs/g3_session_{}.json", session_id)
+            logs_dir.join(format!("g3_session_{}.json", session_id))
         } else {
-            format!("logs/g3_context_{}.json", timestamp)
+            logs_dir.join(format!("g3_context_{}.json", timestamp))
         };
 
         let context_data = serde_json::json!({
@@ -2174,8 +2259,8 @@ impl<W: UiWriter> Agent<W> {
 
         match serde_json::to_string_pretty(&context_data) {
             Ok(json_content) => {
-                if let Err(e) = std::fs::write(&filename, json_content) {
-                    error!("Failed to save context window to {}: {}", filename, e);
+                if let Err(e) = std::fs::write(&filename, &json_content) {
+                    error!("Failed to save context window to {:?}: {}", &filename, e);
                 }
             }
             Err(e) => {
@@ -2233,17 +2318,17 @@ impl<W: UiWriter> Agent<W> {
         };
 
         // Create logs directory if it doesn't exist
-        let logs_dir = std::path::Path::new("logs");
+        let logs_dir = get_logs_dir();
         if !logs_dir.exists() {
-            if let Err(e) = std::fs::create_dir_all(logs_dir) {
+            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                 error!("Failed to create logs directory: {}", e);
                 return;
             }
         }
 
         // Generate filename using same pattern as save_context_window
-        let filename = format!("logs/context_window_{}.txt", session_id);
-        let symlink_path = "logs/current_context_window";
+        let filename = logs_dir.join(format!("context_window_{}.txt", session_id));
+        let symlink_path = logs_dir.join("current_context_window");
 
         // Build the summary content
         let mut summary_lines = Vec::new();
@@ -2297,23 +2382,23 @@ impl<W: UiWriter> Agent<W> {
         let summary_content = summary_lines.join("");
         if let Err(e) = std::fs::write(&filename, summary_content) {
             error!(
-                "Failed to write context window summary to {}: {}",
-                filename, e
+                "Failed to write context window summary to {:?}: {}",
+                &filename, e
             );
             return;
         }
 
         // Update symlink
         // Remove old symlink if it exists
-        let _ = std::fs::remove_file(symlink_path);
+        let _ = std::fs::remove_file(&symlink_path);
 
         // Create new symlink
         #[cfg(unix)]
         {
             use std::os::unix::fs::symlink;
             let target = format!("context_window_{}.txt", session_id);
-            if let Err(e) = symlink(&target, symlink_path) {
-                error!("Failed to create symlink {}: {}", symlink_path, e);
+            if let Err(e) = symlink(&target, &symlink_path) {
+                error!("Failed to create symlink {:?}: {}", &symlink_path, e);
             }
         }
 
@@ -2321,13 +2406,13 @@ impl<W: UiWriter> Agent<W> {
         {
             use std::os::windows::fs::symlink_file;
             let target = format!("context_window_{}.txt", session_id);
-            if let Err(e) = symlink_file(&target, symlink_path) {
-                error!("Failed to create symlink {}: {}", symlink_path, e);
+            if let Err(e) = symlink_file(&target, &symlink_path) {
+                error!("Failed to create symlink {:?}: {}", &symlink_path, e);
             }
         }
 
         debug!(
-            "Context window summary written to {} ({} messages)",
+            "Context window summary written to {:?} ({} messages)",
             filename,
             self.context_window.conversation_history.len()
         );
@@ -2386,7 +2471,8 @@ impl<W: UiWriter> Agent<W> {
             .unwrap_or_default()
             .as_secs();
 
-        let filename = format!("logs/g3_session_{}.json", session_id);
+        let logs_dir = get_logs_dir();
+        let filename = logs_dir.join(format!("g3_session_{}.json", session_id));
 
         // Read existing session log
         let mut session_data: serde_json::Value = if std::path::Path::new(&filename).exists() {
@@ -2451,7 +2537,7 @@ impl<W: UiWriter> Agent<W> {
         // Apply provider-specific caps
         // For Anthropic with thinking enabled, we need max_tokens > thinking.budget_tokens
         // So we set a higher cap when thinking is configured
-        let anthropic_cap = match self.get_thinking_budget_tokens() {
+        let anthropic_cap = match self.get_thinking_budget_tokens(&provider_name) {
             Some(budget) => (budget + 2000).max(10_000), // At least budget + 2000 for response
             None => 10_000,
         };
@@ -2497,7 +2583,7 @@ impl<W: UiWriter> Agent<W> {
 
         // Determine if we need to disable thinking mode for this request
         // Anthropic requires: max_tokens > thinking.budget_tokens + 1024
-        let disable_thinking = self.get_thinking_budget_tokens().map_or(false, |budget| {
+        let disable_thinking = self.get_thinking_budget_tokens(provider.name()).map_or(false, |budget| {
             let minimum_for_thinking = budget + 1024;
             let should_disable = summary_max_tokens <= minimum_for_thinking;
             if should_disable {
@@ -3485,7 +3571,7 @@ impl<W: UiWriter> Agent<W> {
                 // Apply provider-specific caps
                 // For Anthropic with thinking enabled, we need max_tokens > thinking.budget_tokens
                 // So we set a higher cap when thinking is configured
-                let anthropic_cap = match self.get_thinking_budget_tokens() {
+                let anthropic_cap = match self.get_thinking_budget_tokens(&provider_name) {
                     Some(budget) => (budget + 2000).max(10_000), // At least budget + 2000 for response
                     None => 10_000,
                 };
@@ -3531,7 +3617,7 @@ impl<W: UiWriter> Agent<W> {
 
                 // Determine if we need to disable thinking mode for this request
                 // Anthropic requires: max_tokens > thinking.budget_tokens + 1024
-                let disable_thinking = self.get_thinking_budget_tokens().map_or(false, |budget| {
+                let disable_thinking = self.get_thinking_budget_tokens(provider.name()).map_or(false, |budget| {
                     let minimum_for_thinking = budget + 1024;
                     let should_disable = summary_max_tokens <= minimum_for_thinking;
                     if should_disable {
@@ -3926,12 +4012,11 @@ impl<W: UiWriter> Agent<W> {
                             }
 
                             // Execute the tool with formatted output
-                            self.ui_writer.println(""); // New line before tool execution
 
                             // Skip printing tool call details for final_output
                             if tool_call.tool != "final_output" {
                                 // Tool call header
-                                self.ui_writer.print_tool_header(&tool_call.tool);
+                                self.ui_writer.print_tool_header(&tool_call.tool, Some(&tool_call.args));
                                 if let Some(args_obj) = tool_call.args.as_object() {
                                     for (key, value) in args_obj {
                                         let value_str = match value {
@@ -4078,14 +4163,18 @@ impl<W: UiWriter> Agent<W> {
                                     && self.count_cache_controls_in_history() < 4
                                 {
                                     let provider = self.providers.get(None)?;
-                                    if let Some(cache_config) = match provider.name() {
-                                        "anthropic" => self
-                                            .config
-                                            .providers
-                                            .anthropic
-                                            .as_ref()
-                                            .and_then(|c| c.cache_config.as_ref())
-                                            .and_then(|config| Self::parse_cache_control(config)),
+                                    let provider_name = provider.name();
+                                    let provider_type = provider_name.split('.').next().unwrap_or("");
+                                    let config_name = provider_name.split('.').nth(1).unwrap_or("default");
+                                    if let Some(cache_config) = match provider_type {
+                                        "anthropic" => {
+                                            self.config
+                                                .providers
+                                                .anthropic
+                                                .get(config_name)
+                                                .and_then(|c| c.cache_config.as_ref())
+                                                .and_then(|config| Self::parse_cache_control(config))
+                                        }
                                         _ => None,
                                     } {
                                         Message::with_cache_control_validated(
@@ -4119,7 +4208,6 @@ impl<W: UiWriter> Agent<W> {
                                 // The summary was already displayed via print_final_output
                                 // Don't add it to full_response to avoid duplicate printing
                                 // full_response is intentionally left empty/unchanged
-                                self.ui_writer.println("");
                                 let _ttft =
                                     first_token_time.unwrap_or_else(|| stream_start.elapsed());
 
@@ -4368,8 +4456,6 @@ impl<W: UiWriter> Agent<W> {
                                 // Return empty string to avoid duplication
                                 full_response = String::new();
 
-                                self.ui_writer.println("");
-                                
                                 // Save context window BEFORE returning
                                 self.save_context_window("completed");
                                 let _ttft =
@@ -4488,7 +4574,6 @@ impl<W: UiWriter> Agent<W> {
                             full_response.len()
                         );
                     }
-                    self.ui_writer.println("");
                 }
 
                 let _ttft = first_token_time.unwrap_or_else(|| stream_start.elapsed());
@@ -5118,8 +5203,8 @@ impl<W: UiWriter> Agent<W> {
             }
             "todo_read" => {
                 debug!("Processing todo_read tool call");
-                // Read from todo.g3.md file in current workspace directory
-                let todo_path = std::env::current_dir()?.join("todo.g3.md");
+                // Read from todo.g3.md file (uses G3_TODO_PATH env var if set, else current dir)
+                let todo_path = get_todo_path();
 
                 if !todo_path.exists() {
                     // Also update in-memory content to stay in sync
@@ -5232,8 +5317,11 @@ impl<W: UiWriter> Agent<W> {
                         });
 
                         // If all todos are complete, delete the file instead of writing
-                        if !has_incomplete && (content_str.contains("- [x]") || content_str.contains("- [X]")) {
-                            let todo_path = std::env::current_dir()?.join("todo.g3.md");
+                        // EXCEPT in planner mode (G3_TODO_PATH is set) - preserve for rename to completed_todo_*.md
+                        let in_planner_mode = std::env::var("G3_TODO_PATH").is_ok();
+                        let todo_path = get_todo_path();
+                        
+                        if !in_planner_mode && !has_incomplete && (content_str.contains("- [x]") || content_str.contains("- [X]")) {
                             if todo_path.exists() {
                                 match std::fs::remove_file(&todo_path) {
                                     Ok(_) => {
@@ -5253,8 +5341,7 @@ impl<W: UiWriter> Agent<W> {
                             }
                         }
 
-                        // Write to todo.g3.md file in current workspace directory
-                        let todo_path = std::env::current_dir()?.join("todo.g3.md");
+                        // Write to todo.g3.md file (uses G3_TODO_PATH env var if set, else current dir)
 
                         match std::fs::write(&todo_path, content_str) {
                             Ok(_) => {

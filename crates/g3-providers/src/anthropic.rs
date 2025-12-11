@@ -120,6 +120,7 @@ const ANTHROPIC_VERSION: &str = "2023-06-01";
 #[derive(Debug, Clone)]
 pub struct AnthropicProvider {
     client: Client,
+    name: String,
     api_key: String,
     model: String,
     max_tokens: u32,
@@ -150,6 +151,40 @@ impl AnthropicProvider {
 
         Ok(Self {
             client,
+            name: "anthropic".to_string(),
+            api_key,
+            model,
+            max_tokens: max_tokens.unwrap_or(4096),
+            temperature: temperature.unwrap_or(0.1),
+            cache_config,
+            enable_1m_context: enable_1m_context.unwrap_or(false),
+            thinking_budget_tokens,
+        })
+    }
+
+    /// Create a new AnthropicProvider with a custom name (e.g., "anthropic.default")
+    pub fn new_with_name(
+        name: String,
+        api_key: String,
+        model: Option<String>,
+        max_tokens: Option<u32>,
+        temperature: Option<f32>,
+        cache_config: Option<String>,
+        enable_1m_context: Option<bool>,
+        thinking_budget_tokens: Option<u32>,
+    ) -> Result<Self> {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(300))
+            .build()
+            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
+
+        let model = model.unwrap_or_else(|| "claude-3-5-sonnet-20241022".to_string());
+
+        debug!("Initialized Anthropic provider '{}' with model: {}", name, model);
+
+        Ok(Self {
+            client,
+            name,
             api_key,
             model,
             max_tokens: max_tokens.unwrap_or(4096),
@@ -787,7 +822,7 @@ impl LLMProvider for AnthropicProvider {
     }
 
     fn name(&self) -> &str {
-        "anthropic"
+        &self.name
     }
 
     fn model(&self) -> &str {
