@@ -19,8 +19,18 @@ impl ChromeDriver {
         Self::with_port_headless(9515).await
     }
 
+    /// Create a new ChromeDriver instance with Chrome for Testing binary
+    pub async fn new_headless_with_binary(chrome_binary: &str) -> Result<Self> {
+        Self::with_port_headless_and_binary(9515, Some(chrome_binary)).await
+    }
+
     /// Create a new ChromeDriver instance with a custom port in headless mode
     pub async fn with_port_headless(port: u16) -> Result<Self> {
+        Self::with_port_headless_and_binary(port, None).await
+    }
+
+    /// Create a new ChromeDriver instance with a custom port and optional Chrome binary path
+    pub async fn with_port_headless_and_binary(port: u16, chrome_binary: Option<&str>) -> Result<Self> {
         let url = format!("http://localhost:{}", port);
 
         let mut caps = serde_json::Map::new();
@@ -41,6 +51,12 @@ impl ChromeDriver {
                 Value::String("--window-size=1920,1080".to_string()),
             ]),
         );
+
+        // If a custom Chrome binary is specified, use it
+        if let Some(binary) = chrome_binary {
+            chrome_options.insert("binary".to_string(), Value::String(binary.to_string()));
+        }
+
         caps.insert(
             "goog:chromeOptions".to_string(),
             Value::Object(chrome_options),

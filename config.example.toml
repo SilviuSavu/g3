@@ -110,6 +110,12 @@ chrome_port = 9515
 # Safari opens a visible browser window
 # Chrome headless runs in the background without a visible window
 browser = "chrome-headless"
+# Optional: Path to Chrome binary (e.g., Chrome for Testing)
+# If not set, ChromeDriver will use the default Chrome installation
+# Use this to avoid version mismatch issues between Chrome and ChromeDriver
+# Run: ./scripts/setup-chrome-for-testing.sh to install matching versions
+# chrome_binary = "/Users/yourname/.chrome-for-testing/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+# chrome_binary = "/Users/yourname/.chrome-for-testing/chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
 
 [macax]
 enabled = false

@@ -5605,8 +5605,13 @@ impl<W: UiWriter> Agent<W> {
                             // Wait before each attempt (200ms between retries, total max ~2s)
                             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                             
-                            // Try to connect to ChromeDriver in headless mode
-                            match g3_computer_control::ChromeDriver::with_port_headless(port).await {
+                            // Try to connect to ChromeDriver in headless mode (with optional custom binary)
+                            let driver_result = match &self.config.webdriver.chrome_binary {
+                                Some(binary) => g3_computer_control::ChromeDriver::with_port_headless_and_binary(port, Some(binary)).await,
+                                None => g3_computer_control::ChromeDriver::with_port_headless(port).await,
+                            };
+                            
+                            match driver_result {
                                 Ok(driver) => {
                                     let session = std::sync::Arc::new(tokio::sync::Mutex::new(WebDriverSession::Chrome(driver)));
                                     *self.webdriver_session.write().await = Some(session);
