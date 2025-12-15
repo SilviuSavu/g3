@@ -135,7 +135,7 @@ impl Default for MacAxConfig {
 impl Default for WebDriverConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             safari_port: 4444,
         }
     }
