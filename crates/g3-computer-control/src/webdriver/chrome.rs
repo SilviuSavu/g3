@@ -44,6 +44,8 @@ impl ChromeDriver {
         chrome_options.insert(
             "args".to_string(),
             Value::Array(vec![
+                // Use a unique temp directory to avoid conflicts with running Chrome instances
+                Value::String(format!("--user-data-dir=/tmp/g3-chrome-{}", std::process::id())),
                 Value::String("--headless=new".to_string()),
                 Value::String("--disable-gpu".to_string()),
                 Value::String("--no-sandbox".to_string()),
@@ -62,11 +64,16 @@ impl ChromeDriver {
             Value::Object(chrome_options),
         );
 
-        let client = ClientBuilder::native()
+        // Use a timeout for the connection attempt to avoid hanging indefinitely
+        let mut builder = ClientBuilder::native();
+        let connect_future = builder
             .capabilities(caps)
-            .connect(&url)
+            .connect(&url);
+        
+        let client = tokio::time::timeout(Duration::from_secs(30), connect_future)
             .await
-            .context("Failed to connect to ChromeDriver. Make sure ChromeDriver is running and Chrome is installed.")?;
+            .context("Connection to ChromeDriver timed out after 30 seconds")?
+            .context("Failed to connect to ChromeDriver")?;
 
         Ok(Self { client })
     }
