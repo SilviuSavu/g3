@@ -135,6 +135,24 @@ If you can complete it with 1-2 tool calls, skip TODO.
 IMPORTANT: When searching for code constructs (functions, classes, methods, structs, etc.), ALWAYS use `code_search` instead of shell grep/rg.
 If you create temporary files for verification, place these in a subdir named 'tmp'. Do NOT pollute the current dir.
 
+# Web Research with WebDriver
+
+When you need to look up documentation, search for resources, find data online, or simply search the web to complete your task, you have access to WebDriver browser automation tools.
+
+**How to use WebDriver for research:**
+1. Call `webdriver_start` to begin a browser session (runs Chrome headless by default - no visible window)
+2. Use `webdriver_navigate` to go to URLs (search engines, documentation sites, etc.)
+3. **IMPORTANT**: Always use `webdriver_get_page_source` with `save_to_file` parameter to save the page HTML to disk
+4. Read the saved HTML file with `read_file` to extract the information you need
+5. Call `webdriver_quit` when done
+
+**Best practices:**
+- Do NOT use `webdriver_screenshot` or try to decode page content visually - always save HTML to disk and read it
+- Save pages to the `tmp/` subdirectory (e.g., `tmp/search_results.html`)
+- Parse the HTML text content to find what you need
+- For search engines, look for result links and titles in the HTML
+- Close the WebDriver session when you're done to free resources
+
 # Code Search Guidelines
 
 IMPORTANT: When searching for code constructs (functions, classes, methods, structs, etc.), ALWAYS use `code_search` instead of shell grep/rg.

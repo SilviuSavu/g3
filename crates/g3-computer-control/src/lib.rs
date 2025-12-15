@@ -8,7 +8,9 @@ pub mod types;
 pub mod webdriver;
 
 // Re-export webdriver types for convenience
-pub use webdriver::{safari::SafariDriver, WebDriverController, WebElement};
+pub use webdriver::{
+    chrome::ChromeDriver, safari::SafariDriver, WebDriverController, WebElement,
+};
 
 // Re-export macax types for convenience
 pub use macax::{AXApplication, AXElement, MacAxController};

@@ -115,10 +115,24 @@ pub struct ComputerControlConfig {
     pub max_actions_per_second: u32,
 }
 
+/// Browser type for WebDriver
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WebDriverBrowser {
+    Safari,
+    #[serde(rename = "chrome-headless")]
+    #[default]
+    ChromeHeadless,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebDriverConfig {
     pub enabled: bool,
     pub safari_port: u16,
+    #[serde(default)]
+    pub chrome_port: u16,
+    #[serde(default)]
+    pub browser: WebDriverBrowser,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,6 +151,8 @@ impl Default for WebDriverConfig {
         Self {
             enabled: true,
             safari_port: 4444,
+            chrome_port: 9515,
+            browser: WebDriverBrowser::ChromeHeadless,
         }
     }
 }

@@ -343,6 +343,14 @@ pub struct Cli {
     #[arg(long)]
     pub webdriver: bool,
 
+    /// Use Chrome in headless mode for WebDriver (this is the default)
+    #[arg(long)]
+    pub chrome_headless: bool,
+
+    /// Use Safari for WebDriver (instead of headless Chrome)
+    #[arg(long)]
+    pub safari: bool,
+
     /// Enable flock mode - parallel multi-agent development
     #[arg(long, requires = "flock_workspace", requires = "segments")]
     pub project: Option<PathBuf>,
@@ -504,6 +512,18 @@ pub async fn run() -> Result<()> {
     // Apply webdriver flag override
     if cli.webdriver {
         config.webdriver.enabled = true;
+    }
+
+    // Apply chrome-headless flag override
+    if cli.chrome_headless {
+        config.webdriver.enabled = true;
+        config.webdriver.browser = g3_config::WebDriverBrowser::ChromeHeadless;
+    }
+
+    // Apply safari flag override
+    if cli.safari {
+        config.webdriver.enabled = true;
+        config.webdriver.browser = g3_config::WebDriverBrowser::Safari;
     }
 
     // Apply no-auto-compact flag override
@@ -774,6 +794,18 @@ async fn run_accumulative_mode(
                                 config.webdriver.enabled = true;
                             }
 
+                            // Apply chrome-headless flag override
+                            if cli.chrome_headless {
+                                config.webdriver.enabled = true;
+                                config.webdriver.browser = g3_config::WebDriverBrowser::ChromeHeadless;
+                            }
+
+                            // Apply safari flag override
+                            if cli.safari {
+                                config.webdriver.enabled = true;
+                                config.webdriver.browser = g3_config::WebDriverBrowser::Safari;
+                            }
+
                             // Apply no-auto-compact flag override
                             if cli.manual_compact {
                                 config.agent.auto_compact = false;
@@ -867,6 +899,18 @@ async fn run_accumulative_mode(
                 // Apply webdriver flag override
                 if cli.webdriver {
                     config.webdriver.enabled = true;
+                }
+
+                // Apply chrome-headless flag override
+                if cli.chrome_headless {
+                    config.webdriver.enabled = true;
+                    config.webdriver.browser = g3_config::WebDriverBrowser::ChromeHeadless;
+                }
+
+                // Apply safari flag override
+                if cli.safari {
+                    config.webdriver.enabled = true;
+                    config.webdriver.browser = g3_config::WebDriverBrowser::Safari;
                 }
 
                 // Apply no-auto-compact flag override

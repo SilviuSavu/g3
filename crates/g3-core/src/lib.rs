@@ -85,6 +85,109 @@ pub struct ToolCall {
     pub args: serde_json::Value, // Should be a JSON object with tool-specific arguments
 }
 
+/// Unified WebDriver session that can hold either Safari or Chrome driver
+pub enum WebDriverSession {
+    Safari(g3_computer_control::SafariDriver),
+    Chrome(g3_computer_control::ChromeDriver),
+}
+
+#[async_trait::async_trait]
+impl g3_computer_control::WebDriverController for WebDriverSession {
+    async fn navigate(&mut self, url: &str) -> anyhow::Result<()> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.navigate(url).await,
+            WebDriverSession::Chrome(driver) => driver.navigate(url).await,
+        }
+    }
+
+    async fn current_url(&self) -> anyhow::Result<String> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.current_url().await,
+            WebDriverSession::Chrome(driver) => driver.current_url().await,
+        }
+    }
+
+    async fn title(&self) -> anyhow::Result<String> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.title().await,
+            WebDriverSession::Chrome(driver) => driver.title().await,
+        }
+    }
+
+    async fn find_element(&mut self, selector: &str) -> anyhow::Result<g3_computer_control::WebElement> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.find_element(selector).await,
+            WebDriverSession::Chrome(driver) => driver.find_element(selector).await,
+        }
+    }
+
+    async fn find_elements(&mut self, selector: &str) -> anyhow::Result<Vec<g3_computer_control::WebElement>> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.find_elements(selector).await,
+            WebDriverSession::Chrome(driver) => driver.find_elements(selector).await,
+        }
+    }
+
+    async fn execute_script(&mut self, script: &str, args: Vec<serde_json::Value>) -> anyhow::Result<serde_json::Value> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.execute_script(script, args).await,
+            WebDriverSession::Chrome(driver) => driver.execute_script(script, args).await,
+        }
+    }
+
+    async fn page_source(&self) -> anyhow::Result<String> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.page_source().await,
+            WebDriverSession::Chrome(driver) => driver.page_source().await,
+        }
+    }
+
+    async fn screenshot(&mut self, path: &str) -> anyhow::Result<()> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.screenshot(path).await,
+            WebDriverSession::Chrome(driver) => driver.screenshot(path).await,
+        }
+    }
+
+    async fn close(&mut self) -> anyhow::Result<()> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.close().await,
+            WebDriverSession::Chrome(driver) => driver.close().await,
+        }
+    }
+
+    async fn quit(self) -> anyhow::Result<()> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.quit().await,
+            WebDriverSession::Chrome(driver) => driver.quit().await,
+        }
+    }
+}
+
+// Additional methods for WebDriverSession that aren't part of the WebDriverController trait
+impl WebDriverSession {
+    pub async fn back(&mut self) -> anyhow::Result<()> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.back().await,
+            WebDriverSession::Chrome(driver) => driver.back().await,
+        }
+    }
+
+    pub async fn forward(&mut self) -> anyhow::Result<()> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.forward().await,
+            WebDriverSession::Chrome(driver) => driver.forward().await,
+        }
+    }
+
+    pub async fn refresh(&mut self) -> anyhow::Result<()> {
+        match self {
+            WebDriverSession::Safari(driver) => driver.refresh().await,
+            WebDriverSession::Chrome(driver) => driver.refresh().await,
+        }
+    }
+}
+
 /// Options for fast-start discovery execution
 #[derive(Debug, Clone)]
 pub struct DiscoveryOptions<'a> {
@@ -1062,10 +1165,10 @@ pub struct Agent<W: UiWriter> {
     todo_content: std::sync::Arc<tokio::sync::RwLock<String>>,
     webdriver_session: std::sync::Arc<
         tokio::sync::RwLock<
-            Option<std::sync::Arc<tokio::sync::Mutex<g3_computer_control::SafariDriver>>>,
+            Option<std::sync::Arc<tokio::sync::Mutex<WebDriverSession>>>,
         >,
     >,
-    safaridriver_process: std::sync::Arc<tokio::sync::RwLock<Option<tokio::process::Child>>>,
+    webdriver_process: std::sync::Arc<tokio::sync::RwLock<Option<tokio::process::Child>>>,
     macax_controller:
         std::sync::Arc<tokio::sync::RwLock<Option<g3_computer_control::MacAxController>>>,
     tool_call_count: usize,
@@ -1356,7 +1459,7 @@ impl<W: UiWriter> Agent<W> {
             quiet,
             computer_controller,
             webdriver_session: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
-            safaridriver_process: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
+            webdriver_process: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
             macax_controller: {
                 std::sync::Arc::new(tokio::sync::RwLock::new(if macax_enabled {
                     Some(g3_computer_control::MacAxController::new()?)
@@ -3218,10 +3321,19 @@ impl<W: UiWriter> Agent<W> {
                 },
                 Tool {
                     name: "webdriver_get_page_source".to_string(),
-                    description: "Get the HTML source of the current page".to_string(),
+                    description: "Get the rendered HTML source of the current page. Returns the current DOM state after JavaScript execution.".to_string(),
                     input_schema: json!({
                         "type": "object",
-                        "properties": {},
+                        "properties": {
+                            "max_length": {
+                                "type": "integer",
+                                "description": "Maximum length of HTML to return (default: 10000, use 0 for no truncation)"
+                            },
+                            "save_to_file": {
+                                "type": "string",
+                                "description": "Optional file path to save the HTML instead of returning it inline"
+                            }
+                        },
                         "required": []
                     }),
                 },
@@ -5426,46 +5538,82 @@ impl<W: UiWriter> Agent<W> {
                 }
                 drop(session_guard);
 
-                // Note: Safari Remote Automation must be enabled before using WebDriver.
-                // Run this once: safaridriver --enable
-                // Or enable manually: Safari → Develop → Allow Remote Automation
+                // Determine which browser to use based on config
+                use g3_config::WebDriverBrowser;
+                match &self.config.webdriver.browser {
+                    WebDriverBrowser::Safari => {
+                        // Note: Safari Remote Automation must be enabled before using WebDriver.
+                        // Run this once: safaridriver --enable
+                        // Or enable manually: Safari → Develop → Allow Remote Automation
 
-                // Start safaridriver process
-                let port = self.config.webdriver.safari_port;
+                        let port = self.config.webdriver.safari_port;
 
-                let safaridriver_result = tokio::process::Command::new("safaridriver")
-                    .arg("--port")
-                    .arg(port.to_string())
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .spawn();
+                        let driver_result = tokio::process::Command::new("safaridriver")
+                            .arg("--port")
+                            .arg(port.to_string())
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .spawn();
 
-                let mut safaridriver_process = match safaridriver_result {
-                    Ok(process) => process,
-                    Err(e) => {
-                        return Ok(format!("❌ Failed to start safaridriver: {}\n\nMake sure safaridriver is installed.", e));
+                        let mut webdriver_process = match driver_result {
+                            Ok(process) => process,
+                            Err(e) => {
+                                return Ok(format!("❌ Failed to start safaridriver: {}\n\nMake sure safaridriver is installed.", e));
+                            }
+                        };
+
+                        // Wait for safaridriver to start up
+                        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+                        // Connect to SafariDriver
+                        match g3_computer_control::SafariDriver::with_port(port).await {
+                            Ok(driver) => {
+                                let session = std::sync::Arc::new(tokio::sync::Mutex::new(WebDriverSession::Safari(driver)));
+                                *self.webdriver_session.write().await = Some(session);
+                                *self.webdriver_process.write().await = Some(webdriver_process);
+
+                                Ok("✅ WebDriver session started successfully! Safari should open automatically.".to_string())
+                            }
+                            Err(e) => {
+                                let _ = webdriver_process.kill().await;
+                                Ok(format!("❌ Failed to connect to SafariDriver: {}\n\nThis might be because:\n  - Safari Remote Automation is not enabled (run: safaridriver --enable)\n  - Port {} is already in use\n  - Safari failed to start\n  - Network connectivity issue\n\nTo enable Remote Automation:\n  1. Run: safaridriver --enable (requires password, one-time setup)\n  2. Or manually: Safari → Develop → Allow Remote Automation", e, port))
+                            }
+                        }
                     }
-                };
+                    WebDriverBrowser::ChromeHeadless => {
+                        let port = self.config.webdriver.chrome_port;
 
-                // Wait for safaridriver to start up
-                tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+                        // Start chromedriver process
+                        let driver_result = tokio::process::Command::new("chromedriver")
+                            .arg(format!("--port={}", port))
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .spawn();
 
-                // Connect to SafariDriver
-                match g3_computer_control::SafariDriver::with_port(port).await {
-                    Ok(driver) => {
-                        let session = std::sync::Arc::new(tokio::sync::Mutex::new(driver));
-                        *self.webdriver_session.write().await = Some(session);
+                        let mut webdriver_process = match driver_result {
+                            Ok(process) => process,
+                            Err(e) => {
+                                return Ok(format!("❌ Failed to start chromedriver: {}\n\nMake sure chromedriver is installed and in your PATH.\n\nInstall with:\n  - macOS: brew install chromedriver\n  - Linux: apt install chromium-chromedriver\n  - Or download from: https://chromedriver.chromium.org/downloads", e));
+                            }
+                        };
 
-                        // Store the process handle
-                        *self.safaridriver_process.write().await = Some(safaridriver_process);
+                        // Wait for chromedriver to start up
+                        tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
 
-                        Ok("✅ WebDriver session started successfully! Safari should open automatically.".to_string())
-                    }
-                    Err(e) => {
-                        // Kill the safaridriver process if connection failed
-                        let _ = safaridriver_process.kill().await;
+                        // Connect to ChromeDriver in headless mode
+                        match g3_computer_control::ChromeDriver::with_port_headless(port).await {
+                            Ok(driver) => {
+                                let session = std::sync::Arc::new(tokio::sync::Mutex::new(WebDriverSession::Chrome(driver)));
+                                *self.webdriver_session.write().await = Some(session);
+                                *self.webdriver_process.write().await = Some(webdriver_process);
 
-                        Ok(format!("❌ Failed to connect to SafariDriver: {}\n\nThis might be because:\n  - Safari Remote Automation is not enabled (run: safaridriver --enable)\n  - Port {} is already in use\n  - Safari failed to start\n  - Network connectivity issue\n\nTo enable Remote Automation:\n  1. Run: safaridriver --enable (requires password, one-time setup)\n  2. Or manually: Safari → Develop → Allow Remote Automation", e, port))
+                                Ok("✅ WebDriver session started successfully! Chrome is running in headless mode (no visible window).".to_string())
+                            }
+                            Err(e) => {
+                                let _ = webdriver_process.kill().await;
+                                Ok(format!("❌ Failed to connect to ChromeDriver: {}\n\nThis might be because:\n  - Chrome is not installed\n  - ChromeDriver version doesn't match Chrome version\n  - Port {} is already in use\n\nMake sure Chrome and ChromeDriver are installed and compatible.", e, port))
+                            }
+                        }
                     }
                 }
             }
@@ -5756,6 +5904,19 @@ impl<W: UiWriter> Agent<W> {
                     );
                 }
 
+                // Extract optional parameters
+                let max_length = tool_call
+                    .args
+                    .get("max_length")
+                    .and_then(|v| v.as_u64())
+                    .map(|n| n as usize)
+                    .unwrap_or(10000);
+
+                let save_to_file = tool_call
+                    .args
+                    .get("save_to_file")
+                    .and_then(|v| v.as_str());
+
                 let session_guard = self.webdriver_session.read().await;
                 let session = match session_guard.as_ref() {
                     Some(s) => s.clone(),
@@ -5770,14 +5931,36 @@ impl<W: UiWriter> Agent<W> {
                 let driver = session.lock().await;
                 match driver.page_source().await {
                     Ok(source) => {
-                        // Truncate if too long
-                        if source.len() > 10000 {
+                        // If save_to_file is specified, write to file
+                        if let Some(file_path) = save_to_file {
+                            let expanded_path = shellexpand::tilde(file_path);
+                            let path_str = expanded_path.as_ref();
+
+                            // Create parent directories if needed
+                            if let Some(parent) = std::path::Path::new(path_str).parent() {
+                                if let Err(e) = std::fs::create_dir_all(parent) {
+                                    return Ok(format!("❌ Failed to create directories: {}", e));
+                                }
+                            }
+
+                            match std::fs::write(path_str, &source) {
+                                Ok(_) => Ok(format!(
+                                    "✅ Page source ({} chars) saved to: {}",
+                                    source.len(),
+                                    path_str
+                                )),
+                                Err(e) => Ok(format!("❌ Failed to write file: {}", e)),
+                            }
+                        } else if max_length > 0 && source.len() > max_length {
+                            // Truncate if max_length is set and source exceeds it
                             Ok(format!(
-                                "Page source ({} chars, truncated to 10000):\n{}...",
+                                "Page source ({} chars, truncated to {}):\n{}...",
                                 source.len(),
-                                &source[..10000]
+                                max_length,
+                                &source[..max_length]
                             ))
                         } else {
+                            // Return full source
                             Ok(format!("Page source ({} chars):\n{}", source.len(), source))
                         }
                     }
@@ -5918,7 +6101,7 @@ impl<W: UiWriter> Agent<W> {
 
                                 // Kill the safaridriver process
                                 if let Some(mut process) =
-                                    self.safaridriver_process.write().await.take()
+                                    self.webdriver_process.write().await.take()
                                 {
                                     if let Err(e) = process.kill().await {
                                         warn!("Failed to kill safaridriver process: {}", e);
@@ -6812,7 +6995,7 @@ impl<W: UiWriter> Drop for Agent<W> {
 
         // Try to kill safaridriver process if it's still running
         // We need to use try_lock since we can't await in Drop
-        if let Ok(mut process_guard) = self.safaridriver_process.try_write() {
+        if let Ok(mut process_guard) = self.webdriver_process.try_write() {
             if let Some(process) = process_guard.take() {
                 // Use blocking kill since we can't await in Drop
                 // This is a best-effort cleanup

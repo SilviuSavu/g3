@@ -105,6 +105,11 @@ max_actions_per_second = 5
 [webdriver]
 enabled = false
 safari_port = 4444
+chrome_port = 9515
+# Browser to use: "safari" or "chrome-headless" (default)
+# Safari opens a visible browser window
+# Chrome headless runs in the background without a visible window
+browser = "chrome-headless"
 
 [macax]
 enabled = false
