@@ -267,10 +267,17 @@ impl StreamingToolParser {
         if chunk.finished {
             self.message_stopped = true;
             debug!("Message finished, processing accumulated tool calls");
+            
+            // When stream finishes, do a final check for JSON tool calls in the accumulated buffer
+            if completed_tools.is_empty() && !self.text_buffer.is_empty() {
+                if let Some(json_tool) = self.try_parse_json_tool_call_from_buffer() {
+                    completed_tools.push(json_tool);
+                }
+            }
         }
 
-        // Fallback: Try to parse JSON tool calls from text if no native tool calls
-        if completed_tools.is_empty() && !chunk.content.is_empty() {
+        // Fallback: Try to parse JSON tool calls from current chunk content if no native tool calls
+        if completed_tools.is_empty() && !chunk.content.is_empty() && !chunk.finished {
             if let Some(json_tool) = self.try_parse_json_tool_call(&chunk.content) {
                 completed_tools.push(json_tool);
             }
@@ -386,6 +393,78 @@ impl StreamingToolParser {
                         }
                         _ => {}
                     }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Parse JSON tool call from the accumulated text buffer (called when stream finishes)
+    /// This is similar to try_parse_json_tool_call but operates on the full buffer
+    fn try_parse_json_tool_call_from_buffer(&mut self) -> Option<ToolCall> {
+        // Look for JSON tool call patterns in the accumulated buffer
+        let patterns = [
+            r#"{"tool":"#,
+            r#"{ "tool":"#,
+            r#"{"tool" :"#,
+            r#"{ "tool" :"#,
+        ];
+
+        // Find the last occurrence of a tool call pattern (most likely to be complete)
+        let mut best_start: Option<usize> = None;
+        for pattern in &patterns {
+            if let Some(pos) = self.text_buffer.rfind(pattern) {
+                if best_start.map_or(true, |best| pos > best) {
+                    best_start = Some(pos);
+                }
+            }
+        }
+
+        if let Some(start_pos) = best_start {
+            let json_text = &self.text_buffer[start_pos..];
+            debug!("Found potential JSON tool call at position {}: {:?}", start_pos, 
+                   if json_text.len() > 200 { &json_text[..200] } else { json_text });
+
+            // Try to find a complete JSON object
+            let mut brace_count = 0;
+            let mut in_string = false;
+            let mut escape_next = false;
+
+            for (i, ch) in json_text.char_indices() {
+                if escape_next {
+                    escape_next = false;
+                    continue;
+                }
+
+                match ch {
+                    '\\' => escape_next = true,
+                    '"' if !escape_next => in_string = !in_string,
+                    '{' if !in_string => brace_count += 1,
+                    '}' if !in_string => {
+                        brace_count -= 1;
+                        if brace_count == 0 {
+                            // Found complete JSON object
+                            let json_str = &json_text[..=i];
+                            debug!("Attempting to parse JSON tool call from buffer: {}", json_str);
+
+                            if let Ok(tool_call) = serde_json::from_str::<ToolCall>(json_str) {
+                                if let Some(args_obj) = tool_call.args.as_object() {
+                                    // Validate - check for message-like keys
+                                    let has_message_like_key = args_obj.keys().any(|key| {
+                                        key.len() > 100 || key.contains('\n')
+                                    });
+
+                                    if !has_message_like_key {
+                                        debug!("Successfully parsed JSON tool call from buffer: {:?}", tool_call);
+                                        return Some(tool_call);
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
