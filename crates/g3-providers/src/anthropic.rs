@@ -607,6 +607,8 @@ impl AnthropicProvider {
                                                     debug!("Receiver dropped, stopping stream");
                                                     return accumulated_usage;
                                                 }
+                                                // Clear tool calls after sending to prevent duplicates at message_stop
+                                                current_tool_calls.clear();
                                             }
                                         }
                                         "message_stop" => {
