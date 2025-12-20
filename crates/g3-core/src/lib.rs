@@ -3,12 +3,14 @@ pub mod error_handling;
 pub mod feedback_extraction;
 pub mod project;
 pub mod retry;
+pub mod session_continuation;
 pub mod task_result;
 pub mod ui_writer;
 
 pub use task_result::TaskResult;
 pub use retry::{RetryConfig, RetryResult, execute_with_retry, retry_operation};
 pub use feedback_extraction::{ExtractedFeedback, FeedbackSource, FeedbackExtractionConfig, extract_coach_feedback};
+pub use session_continuation::{SessionContinuation, load_continuation, save_continuation, clear_continuation, has_valid_continuation, get_session_dir, load_context_from_session_log};
 
 // Export agent prompt generation for CLI use
 pub use prompts::get_agent_system_prompt;
@@ -604,6 +606,23 @@ impl ContextWindow {
         } else {
             (self.used_tokens as f32 / self.total_tokens as f32) * 100.0
         }
+    }
+
+    /// Clear the conversation history while preserving system messages
+    /// Used by /clear command to start fresh
+    pub fn clear_conversation(&mut self) {
+        // Keep only system messages (system prompt, README, etc.)
+        let system_messages: Vec<Message> = self.conversation_history
+            .iter()
+            .filter(|m| matches!(m.role, MessageRole::System))
+            .cloned()
+            .collect();
+        
+        self.conversation_history = system_messages;
+        self.used_tokens = self.conversation_history.iter()
+            .map(|m| Self::estimate_tokens(&m.content))
+            .sum();
+        self.last_thinning_percentage = 0;
     }
 
     pub fn remaining_tokens(&self) -> u32 {
@@ -3074,6 +3093,133 @@ impl<W: UiWriter> Agent<W> {
         self.requirements_sha = Some(sha);
     }
 
+    /// Save a session continuation artifact
+    /// Called when final_output is invoked to enable session resumption
+    pub fn save_session_continuation(&self, final_output_summary: Option<String>) {
+        use crate::session_continuation::{save_continuation, SessionContinuation};
+        
+        let session_id = match &self.session_id {
+            Some(id) => id.clone(),
+            None => {
+                debug!("No session ID, skipping continuation save");
+                return;
+            }
+        };
+        
+        // Get the session log path
+        let logs_dir = get_logs_dir();
+        let session_log_path = logs_dir.join(format!("g3_session_{}.json", session_id));
+        
+        // Get current TODO content
+        let todo_snapshot = std::fs::read_to_string(get_todo_path()).ok();
+        
+        // Get working directory
+        let working_directory = std::env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| ".".to_string());
+        
+        let continuation = SessionContinuation::new(
+            session_id,
+            final_output_summary,
+            session_log_path.to_string_lossy().to_string(),
+            self.context_window.percentage_used(),
+            todo_snapshot,
+            working_directory,
+        );
+        
+        if let Err(e) = save_continuation(&continuation) {
+            error!("Failed to save session continuation: {}", e);
+        } else {
+            debug!("Saved session continuation artifact");
+        }
+    }
+    
+    /// Clear session state and continuation artifacts (for /clear command)
+    pub fn clear_session(&mut self) {
+        use crate::session_continuation::clear_continuation;
+        
+        // Clear the context window (keep system prompt)
+        self.context_window.clear_conversation();
+        
+        // Clear continuation artifacts
+        if let Err(e) = clear_continuation() {
+            error!("Failed to clear continuation artifacts: {}", e);
+        }
+        
+        info!("Session cleared");
+    }
+
+    /// Restore session from a continuation artifact
+    /// Returns true if full context was restored, false if only summary was used
+    pub fn restore_from_continuation(
+        &mut self,
+        continuation: &crate::session_continuation::SessionContinuation,
+    ) -> Result<bool> {
+        use std::path::PathBuf;
+        
+        let session_log_path = PathBuf::from(&continuation.session_log_path);
+        
+        // If context < 80%, try to restore full context
+        if continuation.can_restore_full_context() && session_log_path.exists() {
+            // Load the session log
+            let json = std::fs::read_to_string(&session_log_path)?;
+            let session_data: serde_json::Value = serde_json::from_str(&json)?;
+            
+            // Extract conversation history
+            if let Some(context_window) = session_data.get("context_window") {
+                if let Some(history) = context_window.get("conversation_history") {
+                    if let Some(messages) = history.as_array() {
+                        // Clear current conversation (keep system messages)
+                        self.context_window.clear_conversation();
+                        
+                        // Restore messages from session log (skip system messages as they're preserved)
+                        for msg in messages {
+                            let role_str = msg.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+                            let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                            
+                            let role = match role_str {
+                                "system" => continue, // Skip system messages, already preserved
+                                "assistant" => MessageRole::Assistant,
+                                _ => MessageRole::User,
+                            };
+                            
+                            self.context_window.add_message(Message {
+                                role,
+                                id: String::new(),
+                                content: content.to_string(),
+                                cache_control: None,
+                            });
+                        }
+                        
+                        info!("Restored full context from session log");
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        
+        // Fall back to using final_output summary + TODO
+        let mut context_msg = String::new();
+        if let Some(ref summary) = continuation.final_output_summary {
+            context_msg.push_str(&format!("Previous session summary:\n{}\n\n", summary));
+        }
+        if let Some(ref todo) = continuation.todo_snapshot {
+            context_msg.push_str(&format!("Current TODO state:\n{}\n", todo));
+        }
+        
+        if !context_msg.is_empty() {
+            self.context_window.add_message(Message {
+                role: MessageRole::User,
+                id: String::new(),
+                content: format!("[Session Resumed]\n\n{}", context_msg),
+                cache_control: None,
+            });
+        }
+        
+        info!("Restored session from summary");
+        Ok(false)
+    }
+
     async fn stream_completion(
         &mut self,
         request: CompletionRequest,
@@ -3731,8 +3877,7 @@ impl<W: UiWriter> Agent<W> {
         let mut any_tool_executed = false; // Track if ANY tool was executed across all iterations
         let mut auto_summary_attempts = 0; // Track auto-summary prompt attempts
         const MAX_AUTO_SUMMARY_ATTEMPTS: usize = 2; // Limit auto-summary retries
-        let mut last_action_was_tool = false; // Track if the last action was a tool call (vs text response)
-        let mut any_text_response = false; // Track if LLM ever provided a text response
+        let mut final_output_called = false; // Track if final_output was called
         let mut executed_tools_in_session: std::collections::HashSet<String> = std::collections::HashSet::new(); // Track executed tools to prevent duplicates
 
         // Check if we need to summarize before starting
@@ -4427,6 +4572,7 @@ impl<W: UiWriter> Agent<W> {
                             // Check if this was a final_output tool call
                             if tool_call.tool == "final_output" {
                                 // Save context window BEFORE returning so the session log includes final_output
+                                final_output_called = true;
                                 self.save_context_window("completed");
                                 
                                 // The summary was already displayed via print_final_output
@@ -4482,7 +4628,6 @@ impl<W: UiWriter> Agent<W> {
 
                             tool_executed = true;
                             any_tool_executed = true; // Track across all iterations
-                            last_action_was_tool = true; // Last action was a tool call
 
                             // Add to executed tools set to prevent re-execution in this session
                             executed_tools_in_session.insert(tool_key.clone());
@@ -4533,8 +4678,6 @@ impl<W: UiWriter> Agent<W> {
                                     self.ui_writer.print_agent_response(&filtered_content);
                                     self.ui_writer.flush();
                                     current_response.push_str(&filtered_content);
-                                    last_action_was_tool = false; // Text response received
-                                    any_text_response = true;
                                 }
                             }
                         }
@@ -4790,50 +4933,56 @@ impl<W: UiWriter> Agent<W> {
 
                 let has_response = !current_response.is_empty() || !full_response.is_empty();
 
-                if !has_response {
-                    if any_tool_executed && last_action_was_tool && !any_text_response {
-                        // Only auto-prompt for summary if:
-                        // 1. Tools were executed in previous iterations
-                        // 2. The last action was a tool call (not a text response)
-                        // 3. No text response was ever provided by the LLM
-                        if auto_summary_attempts < MAX_AUTO_SUMMARY_ATTEMPTS {
-                            // Auto-prompt for a summary by adding a follow-up message
-                            auto_summary_attempts += 1;
-                            warn!(
-                                "LLM stopped without final response after executing tools ({} iterations, auto-summary attempt {})",
-                                iteration_count, auto_summary_attempts
-                            );
-                            self.ui_writer.print_context_status(
-                                "\n🔄 Model stopped without response. Auto-prompting for summary...\n"
-                            );
-                            
-                            // Add a follow-up message asking for summary
-                            let summary_prompt = Message::new(
-                                MessageRole::User,
-                                "Please provide a brief summary of what was accomplished and any next steps.".to_string(),
-                            );
-                            self.context_window.add_message(summary_prompt);
-                            request.messages = self.context_window.conversation_history.clone();
-                            
-                            // Continue the loop to get the summary
-                            continue;
-                        } else {
-                            // Max auto-summary attempts reached, give up gracefully
-                            warn!(
-                                "Max auto-summary attempts ({}) reached, returning without summary",
-                                MAX_AUTO_SUMMARY_ATTEMPTS
-                            );
-                            self.ui_writer.print_agent_response(
-                                "\n⚠️ The model stopped without providing a final response after multiple attempts.\n"
-                            );
-                        }
-                    } else {
+                // Auto-continue if tools were executed but final_output was never called
+                // This is the simple rule: LLM must call final_output before returning control
+                if any_tool_executed && !final_output_called {
+                    if auto_summary_attempts < MAX_AUTO_SUMMARY_ATTEMPTS {
+                        auto_summary_attempts += 1;
                         warn!(
-                            "Loop exited without any response after {} iterations",
-                            iteration_count
+                            "LLM stopped without calling final_output after executing tools ({} iterations, auto-continue attempt {})",
+                            iteration_count, auto_summary_attempts
+                        );
+                        self.ui_writer.print_context_status(
+                            "\n🔄 Model stopped without calling final_output. Auto-continuing...\n"
+                        );
+                        
+                        // Add any text response to context before prompting for continuation
+                        if has_response {
+                            let response_text = if !current_response.is_empty() {
+                                current_response.clone()
+                            } else {
+                                full_response.clone()
+                            };
+                            if !response_text.trim().is_empty() {
+                                let assistant_msg = Message::new(
+                                    MessageRole::Assistant,
+                                    response_text.trim().to_string(),
+                                );
+                                self.context_window.add_message(assistant_msg);
+                            }
+                        }
+                        
+                        // Add a follow-up message asking for continuation
+                        let continue_prompt = Message::new(
+                            MessageRole::User,
+                            "Please continue until you are done. You **MUST** call `final_output` with a summary when done.".to_string(),
+                        );
+                        self.context_window.add_message(continue_prompt);
+                        request.messages = self.context_window.conversation_history.clone();
+                        
+                        // Continue the loop
+                        continue;
+                    } else {
+                        // Max attempts reached, give up gracefully
+                        warn!(
+                            "Max auto-continue attempts ({}) reached, returning without final_output",
+                            MAX_AUTO_SUMMARY_ATTEMPTS
+                        );
+                        self.ui_writer.print_agent_response(
+                            "\n⚠️ The model stopped without calling final_output after multiple attempts.\n"
                         );
                     }
-                } else {
+                } else if has_response {
                     // Only set full_response if it's empty (first iteration without tools)
                     // This prevents duplication when the agent responds without calling final_output
                     if full_response.is_empty() && !current_response.is_empty() {
@@ -5387,11 +5536,15 @@ impl<W: UiWriter> Agent<W> {
             "final_output" => {
                 if let Some(summary) = tool_call.args.get("summary") {
                     if let Some(summary_str) = summary.as_str() {
+                        // Save session continuation artifact
+                        self.save_session_continuation(Some(summary_str.to_string()));
                         Ok(summary_str.to_string())
                     } else {
+                        self.save_session_continuation(None);
                         Ok("✅ Turn completed".to_string())
                     }
                 } else {
+                    self.save_session_continuation(None);
                     Ok("✅ Turn completed".to_string())
                 }
             }

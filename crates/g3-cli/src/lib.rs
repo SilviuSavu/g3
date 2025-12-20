@@ -1384,6 +1384,54 @@ async fn run_interactive<W: UiWriter>(
 ) -> Result<()> {
     let output = SimpleOutput::new();
 
+    // Check for session continuation
+    if let Ok(Some(continuation)) = g3_core::load_continuation() {
+        output.print("");
+        output.print("🔄 Previous session detected!");
+        output.print(&format!(
+            "   Session: {}",
+            &continuation.session_id[..continuation.session_id.len().min(20)]
+        ));
+        output.print(&format!(
+            "   Context: {:.1}% used",
+            continuation.context_percentage
+        ));
+        if let Some(ref summary) = continuation.final_output_summary {
+            let preview: String = summary.chars().take(80).collect();
+            output.print(&format!("   Last output: {}...", preview));
+        }
+        output.print("");
+        output.print("Resume this session? [Y/n] ");
+        
+        // Read user input
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+        
+        if input.is_empty() || input == "y" || input == "yes" {
+            // Resume the session
+            match agent.restore_from_continuation(&continuation) {
+                Ok(true) => {
+                    output.print("✅ Full context restored from previous session");
+                }
+                Ok(false) => {
+                    output.print("✅ Session resumed with summary (context was > 80%)");
+                }
+                Err(e) => {
+                    output.print(&format!("⚠️ Could not restore session: {}", e));
+                    output.print("Starting fresh session instead.");
+                    // Clear the invalid continuation
+                    let _ = g3_core::clear_continuation();
+                }
+            }
+        } else {
+            // User declined, clear the continuation
+            output.print("🧹 Starting fresh session...");
+            let _ = g3_core::clear_continuation();
+        }
+        output.print("");
+    }
+
     output.print("");
     output.print("g3 programming agent");
     output.print("      >> what shall we build today?");
@@ -1527,6 +1575,7 @@ async fn run_interactive<W: UiWriter>(
                                 output.print("  /compact   - Trigger auto-summarization (compacts conversation history)");
                                 output.print("  /thinnify  - Trigger context thinning (replaces large tool results with file references)");
                                 output.print("  /skinnify  - Trigger full context thinning (like /thinnify but for entire context, not just first third)");
+                                output.print("  /clear     - Clear session and start fresh (discards continuation artifacts)");
                                 output.print(
                                     "  /readme    - Reload README.md and AGENTS.md from disk",
                                 );
@@ -1562,6 +1611,12 @@ async fn run_interactive<W: UiWriter>(
                             "/skinnify" => {
                                 let summary = agent.force_thin_all();
                                 println!("{}", summary);
+                                continue;
+                            }
+                            "/clear" => {
+                                output.print("🧹 Clearing session...");
+                                agent.clear_session();
+                                output.print("✅ Session cleared. Starting fresh.");
                                 continue;
                             }
                             "/readme" => {
@@ -1779,6 +1834,12 @@ async fn run_interactive_machine(
                             println!("{}", summary);
                             continue;
                         }
+                        "/clear" => {
+                            println!("COMMAND: clear");
+                            agent.clear_session();
+                            println!("RESULT: Session cleared");
+                            continue;
+                        }
                         "/readme" => {
                             println!("COMMAND: readme");
                             match agent.reload_readme() {
@@ -1801,7 +1862,7 @@ async fn run_interactive_machine(
                         }
                         "/help" => {
                             println!("COMMAND: help");
-                            println!("AVAILABLE_COMMANDS: /compact /thinnify /skinnify /readme /stats /help");
+                            println!("AVAILABLE_COMMANDS: /compact /thinnify /skinnify /clear /readme /stats /help");
                             continue;
                         }
                         _ => {
