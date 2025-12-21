@@ -1373,6 +1373,7 @@ dependencies = [
  "hex",
  "indicatif",
  "ratatui",
+ "regex",
  "rustyline",
  "serde",
  "serde_json",

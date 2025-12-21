@@ -35,50 +35,18 @@ pub struct LogParser;
 impl LogParser {
     /// Parse logs from a workspace directory
     pub fn parse_logs(workspace: &Path) -> Result<Vec<LogEntry>> {
-        let logs_dir = workspace.join("logs");
-
-        if !logs_dir.exists() {
-            return Ok(Vec::new());
-        }
-
         let mut entries = Vec::new();
 
-        // Read all JSON log files
-        for entry in fs::read_dir(&logs_dir).context("Failed to read logs directory")? {
-            let entry = entry?;
-            let path = entry.path();
+        // Try new .g3/sessions/ directory first
+        let g3_sessions_dir = workspace.join(".g3").join("sessions");
+        if g3_sessions_dir.exists() {
+            Self::parse_sessions_dir(&g3_sessions_dir, &mut entries)?;
+        }
 
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(json) = serde_json::from_str::<Value>(&content) {
-                        // Try to parse as a log session
-                        if let Some(messages) = json.get("messages").and_then(|m| m.as_array()) {
-                            for msg in messages {
-                                entries.push(LogEntry {
-                                    timestamp: msg
-                                        .get("timestamp")
-                                        .and_then(|t| t.as_str())
-                                        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                                        .map(|dt| dt.with_timezone(&Utc)),
-                                    role: msg
-                                        .get("role")
-                                        .and_then(|r| r.as_str())
-                                        .map(String::from),
-                                    content: msg
-                                        .get("content")
-                                        .and_then(|c| c.as_str())
-                                        .map(String::from),
-                                    tool_calls: msg
-                                        .get("tool_calls")
-                                        .and_then(|tc| tc.as_array())
-                                        .map(|arr| arr.clone()),
-                                    raw: msg.clone(),
-                                });
-                            }
-                        }
-                    }
-                }
-            }
+        // Also check old logs/ directory for backwards compatibility
+        let logs_dir = workspace.join("logs");
+        if logs_dir.exists() {
+            Self::parse_logs_dir(&logs_dir, &mut entries)?;
         }
 
         // Sort by timestamp
@@ -90,6 +58,76 @@ impl LogParser {
         });
 
         Ok(entries)
+    }
+
+    /// Parse logs from the new .g3/sessions/ directory structure
+    fn parse_sessions_dir(sessions_dir: &Path, entries: &mut Vec<LogEntry>) -> Result<()> {
+        for session_entry in fs::read_dir(sessions_dir).context("Failed to read sessions directory")? {
+            let session_entry = session_entry?;
+            let session_path = session_entry.path();
+            
+            if session_path.is_dir() {
+                // Look for session.json in each session directory
+                let session_file = session_path.join("session.json");
+                if session_file.exists() {
+                    Self::parse_session_file(&session_file, entries)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Parse logs from the old logs/ directory structure
+    fn parse_logs_dir(logs_dir: &Path, entries: &mut Vec<LogEntry>) -> Result<()> {
+        // Read all JSON log files
+        for entry in fs::read_dir(&logs_dir).context("Failed to read logs directory")? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                Self::parse_session_file(&path, entries)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Parse a single session JSON file
+    fn parse_session_file(path: &Path, entries: &mut Vec<LogEntry>) -> Result<()> {
+        if let Ok(content) = fs::read_to_string(path) {
+            if let Ok(json) = serde_json::from_str::<Value>(&content) {
+                // Try to parse as a log session - check both "messages" and "context_window.conversation_history"
+                let messages = json.get("messages").and_then(|m| m.as_array())
+                    .or_else(|| json.get("context_window")
+                        .and_then(|cw| cw.get("conversation_history"))
+                        .and_then(|ch| ch.as_array()));
+                
+                if let Some(messages) = messages {
+                    for msg in messages {
+                        entries.push(LogEntry {
+                            timestamp: msg
+                                .get("timestamp")
+                                .and_then(|t| t.as_str())
+                                .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                                .map(|dt| dt.with_timezone(&Utc)),
+                            role: msg
+                                .get("role")
+                                .and_then(|r| r.as_str())
+                                .map(String::from),
+                            content: msg
+                                .get("content")
+                                .and_then(|c| c.as_str())
+                                .map(String::from),
+                            tool_calls: msg
+                                .get("tool_calls")
+                                .and_then(|tc| tc.as_array())
+                                .map(|arr| arr.clone()),
+                            raw: msg.clone(),
+                        });
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Extract chat messages from log entries

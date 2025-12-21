@@ -19,11 +19,6 @@ pub use prompts::get_agent_system_prompt;
 mod task_result_comprehensive_tests;
 use crate::ui_writer::UiWriter;
 
-// Make fixed_filter_json public so it can be accessed from g3-cli
-pub mod fixed_filter_json;
-#[cfg(test)]
-mod fixed_filter_tests;
-
 #[cfg(test)]
 mod tilde_expansion_tests;
 
@@ -32,7 +27,6 @@ mod error_handling_test;
 mod prompts;
 
 use anyhow::Result;
-use chrono::Local;
 use g3_computer_control::WebDriverController;
 use g3_config::Config;
 use g3_execution::CodeExecutor;
@@ -42,9 +36,7 @@ use prompts::{get_system_prompt_for_native, SYSTEM_PROMPT_FOR_NON_NATIVE_TOOL_US
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::fs::OpenOptions;
 use std::io::Write;
-use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -83,6 +75,52 @@ pub fn logs_dir() -> std::path::PathBuf {
 /// Environment variable name for workspace path
 /// Used to direct all logs to the workspace directory
 pub const G3_WORKSPACE_PATH_ENV: &str = "G3_WORKSPACE_PATH";
+
+/// Get the base .g3 directory path
+/// This is the root for all g3 session data in the current workspace
+pub fn get_g3_dir() -> std::path::PathBuf {
+    if let Ok(workspace_path) = std::env::var(G3_WORKSPACE_PATH_ENV) {
+        std::path::PathBuf::from(workspace_path).join(".g3")
+    } else {
+        std::env::current_dir().unwrap_or_default().join(".g3")
+    }
+}
+
+/// Get the session directory for a specific session ID
+/// Returns .g3/session/<session_id>/
+pub fn get_session_logs_dir(session_id: &str) -> std::path::PathBuf {
+    get_g3_dir().join("sessions").join(session_id)
+}
+
+/// Ensure the session directory exists for a specific session ID
+/// Creates .g3/session/<session_id>/ and subdirectories
+pub fn ensure_session_dir(session_id: &str) -> std::io::Result<std::path::PathBuf> {
+    let session_dir = get_session_logs_dir(session_id);
+    std::fs::create_dir_all(&session_dir)?;
+    
+    // Create subdirectories
+    std::fs::create_dir_all(session_dir.join("thinned"))?;
+    
+    Ok(session_dir)
+}
+
+/// Get the thinned content directory for a session
+/// Returns .g3/session/<session_id>/thinned/
+pub fn get_thinned_dir(session_id: &str) -> std::path::PathBuf {
+    get_session_logs_dir(session_id).join("thinned")
+}
+
+/// Get the path to the session.json file for a session
+/// Returns .g3/session/<session_id>/session.json
+pub fn get_session_file(session_id: &str) -> std::path::PathBuf {
+    get_session_logs_dir(session_id).join("session.json")
+}
+
+/// Get the path to the context summary file for a session
+/// Returns .g3/session/<session_id>/context_summary.txt
+pub fn get_context_summary_file(session_id: &str) -> std::path::PathBuf {
+    get_session_logs_dir(session_id).join("context_summary.txt")
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
@@ -733,7 +771,8 @@ Format this as a detailed but concise summary that can be used to resume the con
 
     /// Perform context thinning: scan first third of conversation and replace large tool results
     /// Returns a summary message about what was thinned
-    pub fn thin_context(&mut self) -> (String, usize) {
+    /// If session_id is provided, thinned content is saved to .g3/session/<session_id>/thinned/
+    pub fn thin_context(&mut self, session_id: Option<&str>) -> (String, usize) {
         let current_percentage = self.percentage_used() as u32;
         let current_threshold = (current_percentage / 10) * 10;
 
@@ -748,15 +787,28 @@ Format this as a detailed but concise summary that can be used to resume the con
         let mut tool_call_leaned_count = 0;
         let mut chars_saved = 0;
 
-        // Create ~/tmp directory if it doesn't exist
-        let tmp_dir = shellexpand::tilde("~/tmp").to_string();
-        if let Err(e) = std::fs::create_dir_all(&tmp_dir) {
-            warn!("Failed to create ~/tmp directory: {}", e);
-            return (
-                "⚠️  Context thinning failed: could not create ~/tmp directory".to_string(),
-                0,
-            );
-        }
+        // Determine output directory: use session dir if available, otherwise ~/tmp
+        let tmp_dir = if let Some(sid) = session_id {
+            let thinned_dir = get_thinned_dir(sid);
+            if let Err(e) = std::fs::create_dir_all(&thinned_dir) {
+                warn!("Failed to create thinned directory: {}", e);
+                return (
+                    "⚠️  Context thinning failed: could not create thinned directory".to_string(),
+                    0,
+                );
+            }
+            thinned_dir.to_string_lossy().to_string()
+        } else {
+            let fallback_dir = shellexpand::tilde("~/tmp").to_string();
+            if let Err(e) = std::fs::create_dir_all(&fallback_dir) {
+                warn!("Failed to create ~/tmp directory: {}", e);
+                return (
+                    "⚠️  Context thinning failed: could not create ~/tmp directory".to_string(),
+                    0,
+                );
+            }
+            fallback_dir
+        };
 
         // Scan the first third of messages
         for i in 0..first_third_end {
@@ -970,7 +1022,8 @@ Format this as a detailed but concise summary that can be used to resume the con
     /// Perform context thinning on the ENTIRE conversation history (not just first third)
     /// This is the "skinnify" variant that processes all messages
     /// Returns a summary message about what was thinned
-    pub fn thin_context_all(&mut self) -> (String, usize) {
+    /// If session_id is provided, thinned content is saved to .g3/session/<session_id>/thinned/
+    pub fn thin_context_all(&mut self, session_id: Option<&str>) -> (String, usize) {
         let current_percentage = self.percentage_used() as u32;
 
         // Calculate the total messages - process ALL of them
@@ -980,15 +1033,28 @@ Format this as a detailed but concise summary that can be used to resume the con
         let mut tool_call_leaned_count = 0;
         let mut chars_saved = 0;
 
-        // Create ~/tmp directory if it doesn't exist
-        let tmp_dir = shellexpand::tilde("~/tmp").to_string();
-        if let Err(e) = std::fs::create_dir_all(&tmp_dir) {
-            warn!("Failed to create ~/tmp directory: {}", e);
-            return (
-                "⚠️  Context skinnifying failed: could not create ~/tmp directory".to_string(),
-                0,
-            );
-        }
+        // Determine output directory: use session dir if available, otherwise ~/tmp
+        let tmp_dir = if let Some(sid) = session_id {
+            let thinned_dir = get_thinned_dir(sid);
+            if let Err(e) = std::fs::create_dir_all(&thinned_dir) {
+                warn!("Failed to create thinned directory: {}", e);
+                return (
+                    "⚠️  Context skinnifying failed: could not create thinned directory".to_string(),
+                    0,
+                );
+            }
+            thinned_dir.to_string_lossy().to_string()
+        } else {
+            let fallback_dir = shellexpand::tilde("~/tmp").to_string();
+            if let Err(e) = std::fs::create_dir_all(&fallback_dir) {
+                warn!("Failed to create ~/tmp directory: {}", e);
+                return (
+                    "⚠️  Context skinnifying failed: could not create ~/tmp directory".to_string(),
+                    0,
+                );
+            }
+            fallback_dir
+        };
 
         // Scan ALL messages (not just first third)
         for i in 0..total_messages {
@@ -1825,7 +1891,7 @@ impl<W: UiWriter> Agent<W> {
 
         // Step 1: Try thinnify (first third of context)
         self.ui_writer.print_context_status("🥒 Step 1: Trying thinnify...\n");
-        let (thin_msg, thin_saved) = self.context_window.thin_context();
+        let (thin_msg, thin_saved) = self.context_window.thin_context(self.session_id.as_deref());
         self.thinning_events.push(thin_saved);
         self.ui_writer.print_context_thinning(&thin_msg);
 
@@ -1843,7 +1909,7 @@ impl<W: UiWriter> Agent<W> {
 
         // Step 2: Try skinnify (entire context)
         self.ui_writer.print_context_status("🦴 Step 2: Trying skinnify...\n");
-        let (skinny_msg, skinny_saved) = self.context_window.thin_context_all();
+        let (skinny_msg, skinny_saved) = self.context_window.thin_context_all(self.session_id.as_deref());
         self.thinning_events.push(skinny_saved);
         self.ui_writer.print_context_thinning(&skinny_msg);
 
@@ -1887,7 +1953,7 @@ impl<W: UiWriter> Agent<W> {
 
         // Step 1: Try thinnify (first third of context)
         self.ui_writer.print_context_status("🥒 Step 1: Trying thinnify...\n");
-        let (thin_msg, thin_saved) = self.context_window.thin_context();
+        let (thin_msg, thin_saved) = self.context_window.thin_context(self.session_id.as_deref());
         self.thinning_events.push(thin_saved);
         self.ui_writer.print_context_thinning(&thin_msg);
 
@@ -1904,7 +1970,7 @@ impl<W: UiWriter> Agent<W> {
 
         // Step 2: Try skinnify (entire context)
         self.ui_writer.print_context_status("🦴 Step 2: Trying skinnify...\n");
-        let (skinny_msg, skinny_saved) = self.context_window.thin_context_all();
+        let (skinny_msg, skinny_saved) = self.context_window.thin_context_all(self.session_id.as_deref());
         self.thinning_events.push(skinny_saved);
         self.ui_writer.print_context_thinning(&skinny_msg);
 
@@ -2066,60 +2132,6 @@ impl<W: UiWriter> Agent<W> {
         Ok(context_length)
     }
 
-    fn tool_log_handle() -> Option<&'static Mutex<std::fs::File>> {
-        static TOOL_LOG: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
-
-        TOOL_LOG
-            .get_or_init(|| {
-                let logs_dir = get_logs_dir();
-                if let Err(e) = std::fs::create_dir_all(&logs_dir) {
-                    error!("Failed to create logs directory for tool log: {}", e);
-                    return None;
-                }
-
-                let ts = Local::now().format("%Y%m%d_%H%M%S").to_string();
-                let path = logs_dir.join(format!("tool_calls_{}.log", ts));
-
-                match OpenOptions::new().create(true).append(true).open(&path) {
-                    Ok(file) => Some(Mutex::new(file)),
-                    Err(e) => {
-                        error!("Failed to open tool log file {:?}: {}", path, e);
-                        None
-                    }
-                }
-            })
-            .as_ref()
-    }
-
-    fn log_tool_call(&self, tool_call: &ToolCall, response: &str) {
-        if let Some(handle) = Self::tool_log_handle() {
-            let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-            let args_str = serde_json::to_string(&tool_call.args)
-                .unwrap_or_else(|_| "<unserializable>".to_string());
-
-            fn sanitize(s: &str) -> String {
-                s.replace('\n', "\\n")
-            }
-            fn truncate(s: &str, limit: usize) -> String {
-                s.chars().take(limit).collect()
-            }
-
-            let args_snippet = truncate(&sanitize(&args_str), 80);
-            let response_snippet = truncate(&sanitize(response), 80);
-
-            let tool_field = format!("{:<15}", tool_call.tool);
-            let line = format!(
-                "{}  {}  {} 🟩 {}\n",
-                timestamp, tool_field, args_snippet, response_snippet
-            );
-
-            if let Ok(mut file) = handle.lock() {
-                let _ = file.write_all(line.as_bytes());
-                let _ = file.flush();
-            }
-        }
-    }
-
     pub fn get_provider_info(&self) -> Result<(String, String)> {
         let provider = self.providers.get(None)?;
         Ok((provider.name().to_string(), provider.model().to_string()))
@@ -2226,7 +2238,7 @@ impl<W: UiWriter> Agent<W> {
     ) -> Result<TaskResult> {
         // Reset the JSON tool call filter state at the start of each new task
         // This prevents the filter from staying in suppression mode between user interactions
-        fixed_filter_json::reset_fixed_json_tool_state();
+        self.ui_writer.reset_json_filter();
 
         // Validate that the system prompt is the first message (critical invariant)
         self.validate_system_prompt_is_first();
@@ -2441,19 +2453,21 @@ impl<W: UiWriter> Agent<W> {
             .unwrap_or_default()
             .as_secs();
 
-        // Create logs directory if it doesn't exist
-        let logs_dir = get_logs_dir();
-        if !logs_dir.exists() {
+        // Use new .g3/session/<session_id>/ structure if we have a session ID
+        let filename = if let Some(ref session_id) = self.session_id {
+            // Ensure session directory exists
+            if let Err(e) = ensure_session_dir(session_id) {
+                error!("Failed to create session directory: {}", e);
+                return;
+            }
+            get_session_file(session_id)
+        } else {
+            // Fallback to old logs/ directory for sessions without ID
+            let logs_dir = get_logs_dir();
             if let Err(e) = std::fs::create_dir_all(&logs_dir) {
                 error!("Failed to create logs directory: {}", e);
                 return;
             }
-        }
-
-        // Use session-based filename if we have a session ID, otherwise fall back to timestamp
-        let filename = if let Some(ref session_id) = self.session_id {
-            logs_dir.join(format!("g3_session_{}.json", session_id))
-        } else {
             logs_dir.join(format!("g3_context_{}.json", timestamp))
         };
 
@@ -2529,18 +2543,15 @@ impl<W: UiWriter> Agent<W> {
             None => return,
         };
 
-        // Create logs directory if it doesn't exist
-        let logs_dir = get_logs_dir();
-        if !logs_dir.exists() {
-            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
-                error!("Failed to create logs directory: {}", e);
-                return;
-            }
+        // Ensure session directory exists
+        if let Err(e) = ensure_session_dir(session_id) {
+            error!("Failed to create session directory: {}", e);
+            return;
         }
 
-        // Generate filename using same pattern as save_context_window
-        let filename = logs_dir.join(format!("context_window_{}.txt", session_id));
-        let symlink_path = logs_dir.join("current_context_window");
+        // Use new .g3/session/<session_id>/ structure
+        let filename = get_context_summary_file(session_id);
+        let symlink_path = get_g3_dir().join("sessions").join("current_context_window");
 
         // Build the summary content
         let mut summary_lines = Vec::new();
@@ -2851,7 +2862,7 @@ impl<W: UiWriter> Agent<W> {
     /// Manually trigger context thinning regardless of thresholds
     pub fn force_thin(&mut self) -> String {
         info!("Manual context thinning triggered");
-        let (message, chars_saved) = self.context_window.thin_context();
+        let (message, chars_saved) = self.context_window.thin_context(self.session_id.as_deref());
         self.thinning_events.push(chars_saved);
         message
     }
@@ -2860,7 +2871,7 @@ impl<W: UiWriter> Agent<W> {
     /// Unlike force_thin which only processes the first third, this processes all messages
     pub fn force_thin_all(&mut self) -> String {
         info!("Manual full context skinnifying triggered");
-        let (message, chars_saved) = self.context_window.thin_context_all();
+        let (message, chars_saved) = self.context_window.thin_context_all(self.session_id.as_deref());
         self.thinning_events.push(chars_saved);
         message
     }
@@ -3106,9 +3117,8 @@ impl<W: UiWriter> Agent<W> {
             }
         };
         
-        // Get the session log path
-        let logs_dir = get_logs_dir();
-        let session_log_path = logs_dir.join(format!("g3_session_{}.json", session_id));
+        // Get the session log path (now in .g3/sessions/<session_id>/session.json)
+        let session_log_path = get_session_file(&session_id);
         
         // Get current TODO content
         let todo_snapshot = std::fs::read_to_string(get_todo_path()).ok();
@@ -3889,7 +3899,7 @@ impl<W: UiWriter> Agent<W> {
                     self.context_window.percentage_used() as u32
                 ));
 
-                let (thin_summary, chars_saved) = self.context_window.thin_context();
+                let (thin_summary, chars_saved) = self.context_window.thin_context(self.session_id.as_deref());
                 self.thinning_events.push(chars_saved);
                 self.ui_writer.print_context_thinning(&thin_summary);
 
@@ -4289,7 +4299,7 @@ impl<W: UiWriter> Agent<W> {
                                 );
                                 let mut modified_tool_call = tool_call.clone();
                                 modified_tool_call.tool = prefixed_tool_name;
-                                self.log_tool_call(&modified_tool_call, &warning_msg);
+                                debug!("{}", warning_msg);
                                 continue; // Skip execution of duplicate
                             }
 
@@ -4308,7 +4318,7 @@ impl<W: UiWriter> Agent<W> {
                                 // Log to tool log with red prefix
                                 let mut modified_tool_call = tool_call.clone();
                                 modified_tool_call.tool = prefixed_tool_name;
-                                self.log_tool_call(&modified_tool_call, &warning_msg);
+                                debug!("{}", warning_msg);
                                 continue; // Skip execution of duplicate
                             }
 
@@ -4323,7 +4333,7 @@ impl<W: UiWriter> Agent<W> {
                             // Check if we should thin the context BEFORE executing the tool
                             if self.context_window.should_thin() {
                                 let (thin_summary, chars_saved) =
-                                    self.context_window.thin_context();
+                                    self.context_window.thin_context(self.session_id.as_deref());
                                 self.thinning_events.push(chars_saved);
                                 // Print the thinning summary to the user
                                 self.ui_writer.print_context_thinning(&thin_summary);
@@ -4348,7 +4358,7 @@ impl<W: UiWriter> Agent<W> {
 
                             // Filter out JSON tool calls from the display
                             let filtered_content =
-                                fixed_filter_json::fixed_filter_json_tool_calls(&clean_content);
+                                self.ui_writer.filter_json_tool_calls(&clean_content);
                             let final_display_content = filtered_content.trim();
 
                             // Display any new content before tool execution
@@ -4634,7 +4644,7 @@ impl<W: UiWriter> Agent<W> {
 
                             // Reset the JSON tool call filter state after each tool execution
                             // This ensures the filter doesn't stay in suppression mode for subsequent streaming content
-                            fixed_filter_json::reset_fixed_json_tool_state();
+                            self.ui_writer.reset_json_filter();
 
                             // Reset parser for next iteration - this clears the text buffer
                             parser.reset();
@@ -4667,7 +4677,7 @@ impl<W: UiWriter> Agent<W> {
 
                             if !clean_content.is_empty() {
                                 let filtered_content =
-                                    fixed_filter_json::fixed_filter_json_tool_calls(&clean_content);
+                                    self.ui_writer.filter_json_tool_calls(&clean_content);
 
                                 if !filtered_content.is_empty() {
                                     if !response_started {
@@ -4712,9 +4722,7 @@ impl<W: UiWriter> Agent<W> {
                                         .replace("<</SYS>>", "");
 
                                     let filtered_text =
-                                        fixed_filter_json::fixed_filter_json_tool_calls(
-                                            &clean_text,
-                                        );
+                                        self.ui_writer.filter_json_tool_calls(&clean_text);
 
                                     // Only use this if we truly have nothing else
                                     if !filtered_text.trim().is_empty() && full_response.is_empty()
@@ -5074,7 +5082,7 @@ impl<W: UiWriter> Agent<W> {
             Ok(s) => s.clone(),
             Err(e) => format!("ERROR: {}", e),
         };
-        self.log_tool_call(tool_call, &log_str);
+        debug!("Tool {} completed: {}", tool_call.tool, &log_str.chars().take(100).collect::<String>());
         result
     }
 
@@ -6878,7 +6886,7 @@ impl<W: UiWriter> Agent<W> {
     }
 }
 
-// Note: JSON tool call filtering is now handled by fixed_filter_json::fixed_filter_json_tool_calls
+// Note: JSON tool call filtering is now handled by UiWriter::filter_json_tool_calls (implemented in g3-cli)
 
 // Apply unified diff to an input string with optional [start, end) bounds
 pub fn apply_unified_diff_to_string(

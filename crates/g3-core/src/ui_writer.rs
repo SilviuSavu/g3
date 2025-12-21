@@ -69,6 +69,18 @@ pub trait UiWriter: Send + Sync {
     /// Print the final output summary with markdown formatting
     /// Shows a spinner while formatting, then renders the markdown
     fn print_final_output(&self, summary: &str);
+
+    /// Filter JSON tool calls from streaming content for display.
+    /// This is a UI concern - the raw content should be preserved for logging.
+    /// Default implementation passes through unchanged.
+    fn filter_json_tool_calls(&self, content: &str) -> String {
+        content.to_string()
+    }
+
+    /// Reset the JSON tool call filter state.
+    /// Called at the start of a new response to clear any partial state.
+    /// Default implementation does nothing.
+    fn reset_json_filter(&self) {}
 }
 
 /// A no-op implementation for when UI output is not needed

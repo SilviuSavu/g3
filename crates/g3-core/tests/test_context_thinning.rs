@@ -69,7 +69,7 @@ fn test_thin_context_basic() {
 
     // Trigger thinning at 50%
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     println!("Thinning summary: {}", summary);
 
@@ -130,7 +130,7 @@ fn test_thin_write_file_tool_calls() {
 
     // Trigger thinning at 50%
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     println!("Thinning summary: {}", summary);
 
@@ -190,7 +190,7 @@ fn test_thin_str_replace_tool_calls() {
 
     // Trigger thinning at 50%
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     println!("Thinning summary: {}", summary);
 
@@ -224,7 +224,7 @@ fn test_thin_context_no_large_results() {
     }
 
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     // Should report no large results found
     assert!(summary.contains("no large tool results or tool calls found"));
@@ -253,7 +253,7 @@ fn test_thin_context_only_affects_first_third() {
     }
 
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     // First third is 4 messages (indices 0-3), so only indices 1 and 3 should be thinned
     // That's 2 tool results

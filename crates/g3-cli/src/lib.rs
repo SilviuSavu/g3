@@ -1,3 +1,6 @@
+// JSON tool call filtering for display (moved from g3-core)
+pub mod fixed_filter_json;
+
 use anyhow::Result;
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use std::time::{Duration, Instant};
@@ -152,9 +155,16 @@ fn extract_coach_feedback_from_logs(
         .get_session_id()
         .ok_or_else(|| anyhow::anyhow!("Coach agent has no session ID"))?;
 
-    // Construct the log file path for this specific coach session
-    let logs_dir = std::path::Path::new("logs");
-    let log_file_path = logs_dir.join(format!("g3_session_{}.json", session_id));
+    // Try new .g3/sessions/<session_id>/session.json path first
+    let log_file_path = g3_core::get_session_file(&session_id);
+    
+    // Fall back to old logs/ path if new path doesn't exist
+    let log_file_path = if log_file_path.exists() {
+        log_file_path
+    } else {
+        let logs_dir = std::path::Path::new("logs");
+        logs_dir.join(format!("g3_session_{}.json", session_id))
+    };
 
     // Read the coach agent's specific log file
     if log_file_path.exists() {
@@ -2001,7 +2011,7 @@ fn handle_execution_error(e: &anyhow::Error, input: &str, output: &SimpleOutput,
     // If it's a stream error, provide helpful guidance
     if e.to_string().contains("No response received") || e.to_string().contains("timed out") {
         output.print("💡 This may be a temporary issue. Please try again or check the logs for more details.");
-        output.print("   Log files are saved in the 'logs/' directory.");
+        output.print("   Log files are saved in the '.g3/sessions/' directory.");
     }
 }
 
@@ -2468,7 +2478,7 @@ async fn run_autonomous(
         let coach_config = base_config.for_coach()?;
 
         // Reset filter suppression state before creating coach agent
-        g3_core::fixed_filter_json::reset_fixed_json_tool_state();
+        crate::fixed_filter_json::reset_fixed_json_tool_state();
 
         let ui_writer = ConsoleUiWriter::new();
         let mut coach_agent =

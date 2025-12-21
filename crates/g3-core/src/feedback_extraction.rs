@@ -139,8 +139,16 @@ fn try_extract_from_session_log(
     session_id: &str,
     config: &FeedbackExtractionConfig,
 ) -> Option<String> {
-    let logs_path = config.logs_dir.clone().unwrap_or_else(logs_dir);
-    let log_file_path = logs_path.join(format!("g3_session_{}.json", session_id));
+    // Try new .g3/sessions/<session_id>/session.json path first
+    let log_file_path = crate::get_session_file(session_id);
+    
+    // Fall back to old logs/ path if new path doesn't exist
+    let log_file_path = if log_file_path.exists() {
+        log_file_path
+    } else {
+        let logs_path = config.logs_dir.clone().unwrap_or_else(logs_dir);
+        logs_path.join(format!("g3_session_{}.json", session_id))
+    };
 
     if !log_file_path.exists() {
         debug!("Session log file not found: {:?}", log_file_path);
@@ -275,8 +283,16 @@ fn try_extract_from_conversation_history(
     session_id: &str,
     config: &FeedbackExtractionConfig,
 ) -> Option<String> {
-    let logs_path = config.logs_dir.clone().unwrap_or_else(logs_dir);
-    let log_file_path = logs_path.join(format!("g3_session_{}.json", session_id));
+    // Try new .g3/sessions/<session_id>/session.json path first
+    let log_file_path = crate::get_session_file(session_id);
+    
+    // Fall back to old logs/ path if new path doesn't exist
+    let log_file_path = if log_file_path.exists() {
+        log_file_path
+    } else {
+        let logs_path = config.logs_dir.clone().unwrap_or_else(logs_dir);
+        logs_path.join(format!("g3_session_{}.json", session_id))
+    };
 
     if !log_file_path.exists() {
         return None;

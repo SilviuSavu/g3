@@ -30,7 +30,7 @@ fn test_todo_read_results_not_thinned() {
 
     // Trigger thinning at 50%
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     println!("Thinning summary: {}", summary);
 
@@ -87,7 +87,7 @@ fn test_todo_write_results_not_thinned() {
 
     // Trigger thinning at 50%
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     println!("Thinning summary: {}", summary);
 
@@ -135,7 +135,7 @@ fn test_non_todo_results_still_thinned() {
 
     // Trigger thinning at 50%
     context.used_tokens = 5000;
-    let (summary, _chars_saved) = context.thin_context();
+    let (summary, _chars_saved) = context.thin_context(None);
 
     println!("Thinning summary: {}", summary);
 
@@ -185,7 +185,7 @@ fn test_todo_read_with_spaces_in_tool_name() {
 
     // Trigger thinning
     context.used_tokens = 5000;
-    let (_summary, _chars_saved) = context.thin_context();
+    let (_summary, _chars_saved) = context.thin_context(None);
 
     // Verify TODO result was not thinned
     let first_third_end = context.conversation_history.len() / 3;

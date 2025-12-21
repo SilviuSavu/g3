@@ -1,3 +1,4 @@
+use crate::fixed_filter_json::{fixed_filter_json_tool_calls, reset_fixed_json_tool_state};
 use g3_core::ui_writer::UiWriter;
 use std::io::{self, Write};
 use termimad::MadSkin;
@@ -349,5 +350,15 @@ impl UiWriter for ConsoleUiWriter {
         // Print a footer separator
         println!();
         println!("\x1b[1;35m━━━━━━━━━━━━━━━\x1b[0m");
+    }
+
+    fn filter_json_tool_calls(&self, content: &str) -> String {
+        // Apply JSON tool call filtering for display
+        fixed_filter_json_tool_calls(content)
+    }
+
+    fn reset_json_filter(&self) {
+        // Reset the filter state for a new response
+        reset_fixed_json_tool_state();
     }
 }

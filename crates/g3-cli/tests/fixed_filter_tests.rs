@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod fixed_filter_tests {
-    use crate::fixed_filter_json::{fixed_filter_json_tool_calls, reset_fixed_json_tool_state};
+    use g3_cli::fixed_filter_json::{fixed_filter_json_tool_calls, reset_fixed_json_tool_state};
     use regex::Regex;
 
     /// Test that regular text without tool calls passes through unchanged.
