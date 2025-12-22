@@ -12,7 +12,7 @@ use crate::{logs_dir, Agent, TaskResult};
 use crate::ui_writer::UiWriter;
 use serde_json::Value;
 use std::path::PathBuf;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 /// Result of feedback extraction with source information
 #[derive(Debug, Clone)]
@@ -103,21 +103,21 @@ where
     // Try session log first (most reliable)
     if let Some(session_id) = agent.get_session_id() {
         if let Some(feedback) = try_extract_from_session_log(&session_id, config) {
-            info!("Extracted coach feedback from session log: {} chars", feedback.len());
+            debug!("Extracted coach feedback from session log: {} chars", feedback.len());
             return ExtractedFeedback::new(feedback, FeedbackSource::SessionLog);
         }
     }
 
     // Try native tool call JSON parsing
     if let Some(feedback) = try_extract_from_native_tool_call(&coach_result.response) {
-        info!("Extracted coach feedback from native tool call: {} chars", feedback.len());
+        debug!("Extracted coach feedback from native tool call: {} chars", feedback.len());
         return ExtractedFeedback::new(feedback, FeedbackSource::NativeToolCall);
     }
 
     // Try conversation history
     if let Some(session_id) = agent.get_session_id() {
         if let Some(feedback) = try_extract_from_conversation_history(&session_id, config) {
-            info!("Extracted coach feedback from conversation history: {} chars", feedback.len());
+            debug!("Extracted coach feedback from conversation history: {} chars", feedback.len());
             return ExtractedFeedback::new(feedback, FeedbackSource::ConversationHistory);
         }
     }
@@ -125,7 +125,7 @@ where
     // Try TaskResult parsing
     let extracted = coach_result.extract_final_output();
     if !extracted.is_empty() {
-        info!("Extracted coach feedback from task result: {} chars", extracted.len());
+        debug!("Extracted coach feedback from task result: {} chars", extracted.len());
         return ExtractedFeedback::new(extracted, FeedbackSource::TaskResultResponse);
     }
 

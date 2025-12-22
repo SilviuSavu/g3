@@ -328,7 +328,7 @@ impl AnthropicProvider {
         tracing::debug!("create_request_body called: max_tokens={}, disable_thinking={}, thinking_budget_tokens={:?}", max_tokens, disable_thinking, self.thinking_budget_tokens);
 
         let thinking = if disable_thinking {
-            tracing::info!(
+            tracing::debug!(
                 "Thinking mode explicitly disabled for this request (max_tokens={})",
                 max_tokens
             );

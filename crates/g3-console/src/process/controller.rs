@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use sysinfo::{Pid, Process, Signal, System};
-use tracing::{debug, info};
+use tracing::debug;
 
 pub struct ProcessController {
     system: System,
@@ -26,7 +26,7 @@ impl ProcessController {
         self.system.refresh_processes();
 
         if let Some(process) = self.system.process(sysinfo_pid) {
-            info!("Killing process {} ({})", pid, process.name());
+            debug!("Killing process {} ({})", pid, process.name());
 
             // Try SIGTERM first
             if process.kill_with(Signal::Term).is_some() {
@@ -107,7 +107,7 @@ impl ProcessController {
             });
         }
 
-        info!("Launching g3: {:?}", cmd);
+        debug!("Launching g3: {:?}", cmd);
 
         // Spawn and wait for the intermediate process to exit
         let mut child = cmd.spawn().context("Failed to spawn g3 process")?;
@@ -120,7 +120,7 @@ impl ProcessController {
 
         // The actual g3 process is now running as orphan
         // We need to scan for it by matching workspace and recent start time
-        info!(
+        debug!(
             "Scanning for newly launched g3 process in workspace: {}",
             workspace
         );
@@ -171,7 +171,7 @@ impl ProcessController {
             found
         } else {
             // If we couldn't find it, try one more refresh after a longer delay
-            info!("Process not found on first scan, trying again...");
+            debug!("Process not found on first scan, trying again...");
             std::thread::sleep(std::time::Duration::from_millis(2000));
             self.system.refresh_processes();
 
@@ -204,7 +204,7 @@ impl ProcessController {
             retry_found.unwrap_or(intermediate_pid)
         };
 
-        info!("Launched g3 process with PID {}", pid);
+        debug!("Launched g3 process with PID {}", pid);
 
         // Store launch params for restart
         let params = LaunchParams {

@@ -64,7 +64,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 use crate::{
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
@@ -166,7 +166,7 @@ impl DatabricksProvider {
             .build()
             .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
 
-        info!(
+        debug!(
             "Initialized Databricks provider with model: {} on host: {}",
             model, host
         );
@@ -196,7 +196,7 @@ impl DatabricksProvider {
             .build()
             .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
 
-        info!("Initialized Databricks provider '{}' with model: {} on host: {}", name, model, host);
+        debug!("Initialized Databricks provider '{}' with model: {} on host: {}", name, model, host);
 
         Ok(Self {
             client,
@@ -220,7 +220,7 @@ impl DatabricksProvider {
             .build()
             .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
 
-        info!(
+        debug!(
             "Initialized Databricks provider with OAuth for model: {} on host: {}",
             model, host
         );
@@ -249,7 +249,7 @@ impl DatabricksProvider {
             .build()
             .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
 
-        info!("Initialized Databricks provider '{}' with OAuth for model: {} on host: {}", name, model, host);
+        debug!("Initialized Databricks provider '{}' with OAuth for model: {} on host: {}", name, model, host);
 
         Ok(Self {
             client,
@@ -857,7 +857,7 @@ impl LLMProvider for DatabricksProvider {
             if status == reqwest::StatusCode::FORBIDDEN
                 && (error_text.contains("Invalid Token") || error_text.contains("invalid_token"))
             {
-                info!("Received 403 Invalid Token error, attempting to refresh OAuth token");
+                debug!("Received 403 Invalid Token error, attempting to refresh OAuth token");
 
                 // Try to refresh the token if we're using OAuth
                 if let DatabricksAuth::OAuth { .. } = &provider_clone.auth {
@@ -867,7 +867,7 @@ impl LLMProvider for DatabricksProvider {
                     // Try to get a new token (will attempt refresh or new OAuth flow)
                     match provider_clone.auth.get_token().await {
                         Ok(_new_token) => {
-                            info!("Successfully refreshed OAuth token, retrying request");
+                            debug!("Successfully refreshed OAuth token, retrying request");
 
                             // Retry the request with the new token
                             response = provider_clone
@@ -1038,7 +1038,7 @@ impl LLMProvider for DatabricksProvider {
             if status == reqwest::StatusCode::FORBIDDEN
                 && (error_text.contains("Invalid Token") || error_text.contains("invalid_token"))
             {
-                info!("Received 403 Invalid Token error, attempting to refresh OAuth token");
+                debug!("Received 403 Invalid Token error, attempting to refresh OAuth token");
 
                 // Try to refresh the token if we're using OAuth
                 if let DatabricksAuth::OAuth { .. } = &provider_clone.auth {
@@ -1048,7 +1048,7 @@ impl LLMProvider for DatabricksProvider {
                     // Try to get a new token (will attempt refresh or new OAuth flow)
                     match provider_clone.auth.get_token().await {
                         Ok(_new_token) => {
-                            info!("Successfully refreshed OAuth token, retrying streaming request");
+                            debug!("Successfully refreshed OAuth token, retrying streaming request");
 
                             // Retry the request with the new token
                             response = provider_clone

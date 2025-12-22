@@ -3,7 +3,7 @@ use axum::{http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use tracing::{error, info};
+use tracing::{debug, error};
 
 pub async fn get_state() -> Result<Json<ConsoleState>, StatusCode> {
     let state = ConsoleState::load();
@@ -15,7 +15,7 @@ pub async fn save_state(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     match state.save() {
         Ok(_) => {
-            info!("Console state saved successfully");
+            debug!("Console state saved successfully");
             Ok(Json(serde_json::json!({
                 "status": "saved"
             })))

@@ -10,7 +10,7 @@ use crate::ui_writer::UiWriter;
 use crate::{Agent, DiscoveryOptions, TaskResult};
 use anyhow::Result;
 use std::time::Instant;
-use tracing::{info, warn};
+use tracing::{debug, warn};
 
 /// Configuration for retry behavior
 #[derive(Debug, Clone)]
@@ -142,7 +142,7 @@ where
         match result {
             Ok(task_result) => {
                 if retry_count > 0 {
-                    info!(
+                    debug!(
                         "{} task succeeded after {} retries (elapsed: {:?})",
                         config.role_name,
                         retry_count,
@@ -259,7 +259,7 @@ where
         match operation().await {
             Ok(result) => {
                 if retry_count > 0 {
-                    info!(
+                    debug!(
                         "Operation '{}' succeeded after {} retries",
                         operation_name, retry_count
                     );

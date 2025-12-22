@@ -24,7 +24,7 @@ impl MacOSController {
     pub fn new() -> Result<Self> {
         let ocr = Box::new(DefaultOCR::new()?);
         let ocr_name = ocr.name().to_string();
-        tracing::info!("Initialized macOS controller with OCR engine: {}", ocr_name);
+        tracing::debug!("Initialized macOS controller with OCR engine: {}", ocr_name);
         Ok(Self {
             ocr_engine: ocr,
             ocr_name,
@@ -155,7 +155,7 @@ impl ComputerController for MacOSController {
                             // 1. At layer 0 (normal windows, not menu bar)
                             // 2. Have real bounds (width and height >= 100)
                             if layer == 0 && has_real_bounds {
-                                tracing::info!("Found valid window: ID {} for app '{}' (layer={}, bounds valid)", id, owner, layer);
+                                tracing::debug!("Found valid window: ID {} for app '{}' (layer={}, bounds valid)", id, owner, layer);
                                 found_window_id = Some((id as u32, owner.clone()));
                                 break;
                             } else {
@@ -178,7 +178,7 @@ impl ComputerController for MacOSController {
         let (cg_window_id, matched_owner) = cg_window_id.ok_or_else(|| {
             anyhow::anyhow!("Could not find window for application '{}'. Use list_windows to see available windows.", app_name)
         })?;
-        tracing::info!(
+        tracing::debug!(
             "Taking screenshot of window ID {} for app '{}'",
             cg_window_id,
             matched_owner
@@ -468,7 +468,7 @@ impl MacOSController {
 
                             // Only accept windows with real bounds (>= 100x100 pixels)
                             if w >= 100 && h >= 100 {
-                                tracing::info!("Found valid window bounds for '{}': x={}, y={}, w={}, h={} (layer={})", owner, x, y, w, h, layer);
+                                tracing::debug!("Found valid window bounds for '{}': x={}, y={}, w={}, h={} (layer={})", owner, x, y, w, h, layer);
                                 return Ok((x, y, w, h));
                             } else {
                                 tracing::debug!(

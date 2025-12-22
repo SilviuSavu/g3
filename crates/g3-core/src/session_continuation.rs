@@ -6,7 +6,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 /// Version of the session continuation format
 const CONTINUATION_VERSION: &str = "1.0";
@@ -89,7 +89,7 @@ pub fn save_continuation(continuation: &SessionContinuation) -> Result<PathBuf> 
     let json = serde_json::to_string_pretty(continuation)?;
     std::fs::write(&latest_path, &json)?;
     
-    info!("Saved session continuation to {:?}", latest_path);
+    debug!("Saved session continuation to {:?}", latest_path);
     Ok(latest_path)
 }
 
@@ -113,7 +113,7 @@ pub fn load_continuation() -> Result<Option<SessionContinuation>> {
         );
     }
     
-    info!("Loaded session continuation from {:?}", latest_path);
+    debug!("Loaded session continuation from {:?}", latest_path);
     Ok(Some(continuation))
 }
 
@@ -131,7 +131,7 @@ pub fn clear_continuation() -> Result<()> {
                 debug!("Removed session file: {:?}", path);
             }
         }
-        info!("Cleared session continuation artifacts");
+        debug!("Cleared session continuation artifacts");
     }
     
     Ok(())

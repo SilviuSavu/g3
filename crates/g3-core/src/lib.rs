@@ -39,7 +39,7 @@ use serde_json::json;
 use std::io::Write;
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 /// Get the path to the todo.g3.md file.
 /// 
@@ -2778,7 +2778,7 @@ impl<W: UiWriter> Agent<W> {
     /// Manually trigger context summarization regardless of context window size
     /// Returns Ok(true) if summarization was successful, Ok(false) if it failed
     pub async fn force_summarize(&mut self) -> Result<bool> {
-        info!("Manual summarization triggered");
+        debug!("Manual summarization triggered");
 
         self.ui_writer.print_context_status(&format!(
             "\n🗜️ Manual summarization requested (current usage: {}%)...",
@@ -2896,7 +2896,7 @@ impl<W: UiWriter> Agent<W> {
 
     /// Manually trigger context thinning regardless of thresholds
     pub fn force_thin(&mut self) -> String {
-        info!("Manual context thinning triggered");
+        debug!("Manual context thinning triggered");
         let (message, chars_saved) = self.context_window.thin_context(self.session_id.as_deref());
         self.thinning_events.push(chars_saved);
         message
@@ -2905,7 +2905,7 @@ impl<W: UiWriter> Agent<W> {
     /// Manually trigger context thinning for the ENTIRE context window
     /// Unlike force_thin which only processes the first third, this processes all messages
     pub fn force_thin_all(&mut self) -> String {
-        info!("Manual full context skinnifying triggered");
+        debug!("Manual full context skinnifying triggered");
         let (message, chars_saved) = self.context_window.thin_context_all(self.session_id.as_deref());
         self.thinning_events.push(chars_saved);
         message
@@ -2914,7 +2914,7 @@ impl<W: UiWriter> Agent<W> {
     /// Reload README.md and AGENTS.md and replace the first system message
     /// Returns Ok(true) if README was found and reloaded, Ok(false) if no README was present initially
     pub fn reload_readme(&mut self) -> Result<bool> {
-        info!("Manual README reload triggered");
+        debug!("Manual README reload triggered");
 
         // Check if the second message in conversation history is a system message with README content
         // (The first message should always be the system prompt)
@@ -2957,7 +2957,7 @@ impl<W: UiWriter> Agent<W> {
             // Replace the second message (README) with the new content
             if let Some(first_msg) = self.context_window.conversation_history.get_mut(1) {
                 first_msg.content = combined_content;
-                info!("README content reloaded successfully");
+                debug!("README content reloaded successfully");
                 Ok(true)
             } else {
                 Ok(false)
@@ -3191,7 +3191,7 @@ impl<W: UiWriter> Agent<W> {
             error!("Failed to clear continuation artifacts: {}", e);
         }
         
-        info!("Session cleared");
+        debug!("Session cleared");
     }
 
     /// Restore session from a continuation artifact
@@ -3236,7 +3236,7 @@ impl<W: UiWriter> Agent<W> {
                             });
                         }
                         
-                        info!("Restored full context from session log");
+                        debug!("Restored full context from session log");
                         return Ok(true);
                     }
                 }
@@ -3261,7 +3261,7 @@ impl<W: UiWriter> Agent<W> {
             });
         }
         
-        info!("Restored session from summary");
+        debug!("Restored session from summary");
         Ok(false)
     }
 
@@ -3871,7 +3871,7 @@ impl<W: UiWriter> Agent<W> {
             match provider.stream(request.clone()).await {
                 Ok(stream) => {
                     if attempt > 1 {
-                        info!("Stream started successfully after {} attempts", attempt);
+                        debug!("Stream started successfully after {} attempts", attempt);
                     }
                     debug!("Stream started successfully");
                     debug!(
@@ -6559,7 +6559,7 @@ impl<W: UiWriter> Agent<W> {
                         let driver = mutex.into_inner();
                         match driver.quit().await {
                             Ok(_) => {
-                                info!("WebDriver session closed successfully");
+                                debug!("WebDriver session closed successfully");
 
                                 // Kill the safaridriver process
                                 if let Some(mut process) =
@@ -6568,7 +6568,7 @@ impl<W: UiWriter> Agent<W> {
                                     if let Err(e) = process.kill().await {
                                         warn!("Failed to kill safaridriver process: {}", e);
                                     } else {
-                                        info!("Safaridriver process terminated");
+                                        debug!("Safaridriver process terminated");
                                     }
                                 }
 

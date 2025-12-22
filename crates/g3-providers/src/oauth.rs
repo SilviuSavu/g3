@@ -392,7 +392,7 @@ pub async fn get_oauth_token_async(
                             if let Err(e) = token_cache.save_token(&new_token) {
                                 tracing::warn!("Failed to save refreshed token: {}", e);
                             }
-                            tracing::info!("Successfully refreshed token");
+                            tracing::debug!("Successfully refreshed token");
                             return Ok(new_token.access_token);
                         }
                         Err(e) => {
