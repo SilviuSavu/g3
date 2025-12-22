@@ -534,7 +534,8 @@ impl StreamingToolParser {
 
     /// Find the end position (byte index) of a complete JSON object in the text
     /// Returns None if no complete JSON object is found
-    fn find_complete_json_object_end(text: &str) -> Option<usize> {
+    /// Find the end position (byte index) of a complete JSON object in the text
+    pub fn find_complete_json_object_end(text: &str) -> Option<usize> {
         let mut brace_count = 0;
         let mut in_string = false;
         let mut escape_next = false;
