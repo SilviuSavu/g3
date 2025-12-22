@@ -4218,12 +4218,6 @@ impl<W: UiWriter> Agent<W> {
                                 completed_tools.into_iter().take(1).collect()
                             };
 
-                        // Mark tool calls as consumed so has_unexecuted_tool_call() won't
-                        // return true for tools we're about to execute
-                        if !tools_to_process.is_empty() {
-                            parser.mark_tool_calls_consumed();
-                        }
-
                         // Helper function to check if two tool calls are duplicates
                         let are_duplicates = |tc1: &ToolCall, tc2: &ToolCall| -> bool {
                             tc1.tool == tc2.tool && tc1.args == tc2.args
