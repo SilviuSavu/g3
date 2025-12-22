@@ -63,6 +63,19 @@ G3 includes robust error handling with automatic retry logic:
 - **Error Persistence**: Saves detailed error logs to `logs/errors/` for post-mortem analysis
 - **Graceful Degradation**: Non-recoverable errors are logged with full context before terminating
 
+### Tool Call Duplicate Detection
+
+G3 includes intelligent duplicate detection to prevent the LLM from accidentally calling the same tool twice in a row:
+- **Sequential Duplicate Prevention**: Only immediately sequential identical tool calls are blocked
+- **Text Separation Allowed**: If there's any text between tool calls, they're not considered duplicates
+- **Session-Wide Reuse**: Tools can be called multiple times throughout a session - only back-to-back duplicates are prevented
+
+This catches cases where the LLM "stutters" and outputs the same tool call twice, while still allowing legitimate re-use of tools.
+
+### Timing Footer
+
+After each response, G3 displays a timing footer showing elapsed time, time to first token, token usage (from the LLM, not estimated), and current context window usage percentage. The token and context info is displayed dimmed for a clean interface.
+
 ## Key Features
 
 ### Intelligent Context Management
@@ -118,7 +131,7 @@ These commands give you fine-grained control over context management, allowing y
 - **HTTP Client**: Reqwest for API communications
 - **Serialization**: Serde for JSON handling
 - **CLI Framework**: Clap for command-line parsing
-- **Logging**: Tracing for structured logging
+- **Logging**: Tracing for structured logging (INFO logs converted to DEBUG for cleaner CLI output)
 - **Local Models**: llama.cpp with Metal acceleration support
 
 ## Use Cases
