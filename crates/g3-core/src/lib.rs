@@ -205,6 +205,7 @@ impl g3_computer_control::WebDriverController for WebDriverSession {
             WebDriverSession::Chrome(driver) => driver.quit().await,
         }
     }
+
 }
 
 // Additional methods for WebDriverSession that aren't part of the WebDriverController trait
@@ -3925,6 +3926,7 @@ impl<W: UiWriter> Agent<W> {
         const MAX_AUTO_SUMMARY_ATTEMPTS: usize = 5; // Limit auto-summary retries (increased from 2 for better recovery)
         let mut final_output_called = false; // Track if final_output was called
         // Note: Session-level duplicate tracking was removed - we only prevent sequential duplicates (DUP IN CHUNK, DUP IN MSG)
+        let mut turn_accumulated_usage: Option<g3_providers::Usage> = None; // Track token usage for timing footer
 
         // Check if we need to summarize before starting
         if self.context_window.should_summarize() {
@@ -4170,6 +4172,7 @@ impl<W: UiWriter> Agent<W> {
                         // Capture usage data if available
                         if let Some(ref usage) = chunk.usage {
                             accumulated_usage = Some(usage.clone());
+                            turn_accumulated_usage = Some(usage.clone());
                             debug!(
                                 "Received usage data - prompt: {}, completion: {}, total: {}",
                                 usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
@@ -4866,11 +4869,17 @@ impl<W: UiWriter> Agent<W> {
 
                                 // Add timing if needed
                                 let final_response = if show_timing {
+                                    let turn_tokens = turn_accumulated_usage.as_ref().map(|u| u.total_tokens);
+                                    let timing_footer = Self::format_timing_footer(
+                                        stream_start.elapsed(),
+                                        _ttft,
+                                        turn_tokens,
+                                        self.context_window.percentage_used(),
+                                    );
                                     format!(
-                                        "{}\n\n⏱️ {} | 💭 {}",
+                                        "{}\n\n{}",
                                         full_response,
-                                        Self::format_duration(stream_start.elapsed()),
-                                        Self::format_duration(_ttft)
+                                        timing_footer
                                     )
                                 } else {
                                     full_response
@@ -5119,11 +5128,17 @@ impl<W: UiWriter> Agent<W> {
                 
                 // Add timing if needed
                 let final_response = if show_timing {
+                    let turn_tokens = turn_accumulated_usage.as_ref().map(|u| u.total_tokens);
+                    let timing_footer = Self::format_timing_footer(
+                        stream_start.elapsed(),
+                        _ttft,
+                        turn_tokens,
+                        self.context_window.percentage_used(),
+                    );
                     format!(
-                        "{}\n\n⏱️ {} | 💭 {}",
+                        "{}\n\n{}",
                         full_response,
-                        Self::format_duration(stream_start.elapsed()),
-                        Self::format_duration(_ttft)
+                        timing_footer
                     )
                 } else {
                     full_response
@@ -5140,11 +5155,17 @@ impl<W: UiWriter> Agent<W> {
 
         // Add timing if needed
         let final_response = if show_timing {
+            let turn_tokens = turn_accumulated_usage.as_ref().map(|u| u.total_tokens);
+            let timing_footer = Self::format_timing_footer(
+                stream_start.elapsed(),
+                _ttft,
+                turn_tokens,
+                self.context_window.percentage_used(),
+            );
             format!(
-                "{}\n\n⏱️ {} | 💭 {}",
+                "{}\n\n{}",
                 full_response,
-                Self::format_duration(stream_start.elapsed()),
-                Self::format_duration(_ttft)
+                timing_footer
             )
         } else {
             full_response
@@ -6975,6 +6996,23 @@ impl<W: UiWriter> Agent<W> {
             let minutes = total_ms / 60_000;
             let remaining_seconds = (total_ms % 60_000) as f64 / 1000.0;
             format!("{}m {:.1}s", minutes, remaining_seconds)
+        }
+    }
+
+    /// Format the timing footer with optional token usage info
+    fn format_timing_footer(
+        elapsed: Duration,
+        ttft: Duration,
+        turn_tokens: Option<u32>,
+        context_percentage: f32,
+    ) -> String {
+        let timing = format!("⏱️ {} | 💭 {}", Self::format_duration(elapsed), Self::format_duration(ttft));
+        
+        // Add token usage info if available (dimmed)
+        if let Some(tokens) = turn_tokens {
+            format!("{}  \x1b[2m{}tk | {:.0}% ctx\x1b[0m", timing, tokens, context_percentage)
+        } else {
+            format!("{}  \x1b[2m{:.0}% ctx\x1b[0m", timing, context_percentage)
         }
     }
 }
