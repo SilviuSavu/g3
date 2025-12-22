@@ -3923,7 +3923,7 @@ impl<W: UiWriter> Agent<W> {
         let mut auto_summary_attempts = 0; // Track auto-summary prompt attempts
         const MAX_AUTO_SUMMARY_ATTEMPTS: usize = 5; // Limit auto-summary retries (increased from 2 for better recovery)
         let mut final_output_called = false; // Track if final_output was called
-        let mut executed_tools_in_session: std::collections::HashSet<String> = std::collections::HashSet::new(); // Track executed tools to prevent duplicates
+        // Note: Session-level duplicate tracking was removed - we only prevent sequential duplicates (DUP IN CHUNK, DUP IN MSG)
 
         // Check if we need to summarize before starting
         if self.context_window.should_summarize() {
@@ -4224,77 +4224,51 @@ impl<W: UiWriter> Agent<W> {
                         };
 
                         // De-duplicate tool calls and track duplicates
-                        let mut seen_in_chunk: Vec<ToolCall> = Vec::new();
+                        let mut last_tool_in_chunk: Option<ToolCall> = None;
                         let mut deduplicated_tools: Vec<(ToolCall, Option<String>)> = Vec::new();
 
                         for tool_call in tools_to_process {
                             let mut duplicate_type = None;
 
-                            // Check for duplicates in current chunk
-                            if seen_in_chunk
-                                .iter()
-                                .any(|tc| are_duplicates(tc, &tool_call))
-                            {
+                            // Check for IMMEDIATELY SEQUENTIAL duplicate in current chunk
+                            // Only the immediately previous tool call counts as a duplicate
+                            if let Some(ref last_tool) = last_tool_in_chunk {
+                                if are_duplicates(last_tool, &tool_call) {
                                 duplicate_type = Some("DUP IN CHUNK".to_string());
+                                }
                             } else {
-                                // Check for duplicate against previous message in history
-                                // Look at the last assistant message that contains tool calls
+                                // Check for IMMEDIATELY SEQUENTIAL duplicate against previous message
+                                // Only mark as duplicate if the LAST tool call in the previous message
+                                // matches AND there's no significant text after it
                                 let mut found_in_prev = false;
                                 for msg in self.context_window.conversation_history.iter().rev() {
                                     if matches!(msg.role, MessageRole::Assistant) {
-                                        // Try to parse tool calls from the message content
-                                        if msg.content.contains(r#"\"tool\""#) {
-                                            // Simple JSON extraction for tool calls
-                                            let content = &msg.content;
-                                            let mut start_idx = 0;
-                                            while let Some(tool_start) =
-                                                content[start_idx..].find(r#"{\"tool\""#)
-                                            {
-                                                let tool_start = start_idx + tool_start;
-                                                // Find the end of this JSON object
-                                                let mut brace_count = 0;
-                                                let mut in_string = false;
-                                                let mut escape_next = false;
-                                                let mut end_idx = tool_start;
-
-                                                for (i, ch) in content[tool_start..].char_indices()
-                                                {
-                                                    if escape_next {
-                                                        escape_next = false;
-                                                        continue;
-                                                    }
-                                                    if ch == '\\' && in_string {
-                                                        escape_next = true;
-                                                        continue;
-                                                    }
-                                                    if ch == '"' && !escape_next {
-                                                        in_string = !in_string;
-                                                    }
-                                                    if !in_string {
-                                                        if ch == '{' {
-                                                            brace_count += 1;
-                                                        } else if ch == '}' {
-                                                            brace_count -= 1;
-                                                            if brace_count == 0 {
-                                                                end_idx = tool_start + i + 1;
-                                                                break;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-
-                                                if end_idx > tool_start {
-                                                    let tool_json = &content[tool_start..end_idx];
-                                                    if let Ok(prev_tool) =
-                                                        serde_json::from_str::<ToolCall>(tool_json)
-                                                    {
+                                        // Find the LAST tool call in the message
+                                        let content = &msg.content;
+                                        
+                                        // Look for the last occurrence of a tool call pattern
+                                        if let Some(last_tool_start) = content.rfind(r#"{"tool""#)
+                                            .or_else(|| content.rfind(r#"{ "tool""#))
+                                        {
+                                            // Find the end of this JSON object
+                                            if let Some(end_offset) = StreamingToolParser::find_complete_json_object_end(&content[last_tool_start..]) {
+                                                let end_idx = last_tool_start + end_offset + 1;
+                                                let tool_json = &content[last_tool_start..end_idx];
+                                                
+                                                // Check if there's any non-whitespace text after this tool call
+                                                let text_after = content[end_idx..].trim();
+                                                let has_text_after = !text_after.is_empty();
+                                                
+                                                // Only consider it a duplicate if:
+                                                // 1. The tool call matches
+                                                // 2. There's no text after it (it was the last thing in the message)
+                                                if !has_text_after {
+                                                    if let Ok(prev_tool) = serde_json::from_str::<ToolCall>(tool_json) {
                                                         if are_duplicates(&prev_tool, &tool_call) {
                                                             found_in_prev = true;
-                                                            break;
                                                         }
                                                     }
                                                 }
-                                                start_idx = end_idx;
                                             }
                                         }
                                         // Only check the most recent assistant message
@@ -4307,13 +4281,8 @@ impl<W: UiWriter> Agent<W> {
                                 }
                             }
 
-                            // Add to seen list if not a duplicate in chunk
-                            if duplicate_type
-                                .as_ref()
-                                .map_or(true, |s| s != "DUP IN CHUNK")
-                            {
-                                seen_in_chunk.push(tool_call.clone());
-                            }
+                            // Track the last tool call for sequential duplicate detection
+                            last_tool_in_chunk = Some(tool_call.clone());
 
                             deduplicated_tools.push((tool_call, duplicate_type));
                         }
@@ -4321,22 +4290,11 @@ impl<W: UiWriter> Agent<W> {
                         // Process each tool call
                         for (tool_call, duplicate_type) in deduplicated_tools {
                             debug!("Processing completed tool call: {:?}", tool_call);
+                            
+                            // Mark that we detected a tool call - this prevents content from being printed
+                            // even if the tool is skipped as a duplicate
+                            tool_executed = true;
 
-                            // Check if this tool was already executed in this session
-                            let tool_key = format!("{}:{}", tool_call.tool, serde_json::to_string(&tool_call.args).unwrap_or_default());
-                            if executed_tools_in_session.contains(&tool_key) {
-                                // Log the duplicate with red prefix
-                                let prefixed_tool_name = format!("🟥 {} DUP IN SESSION", tool_call.tool);
-                                let warning_msg = format!(
-                                    "⚠️ Duplicate tool call detected (already executed in session): Skipping {} with args {}",
-                                    tool_call.tool,
-                                    serde_json::to_string(&tool_call.args).unwrap_or_else(|_| "<unserializable>".to_string())
-                                );
-                                let mut modified_tool_call = tool_call.clone();
-                                modified_tool_call.tool = prefixed_tool_name;
-                                debug!("{}", warning_msg);
-                                continue; // Skip execution of duplicate
-                            }
 
                             // If it's a duplicate, log it and return a warning
                             if let Some(dup_type) = &duplicate_type {
@@ -4678,8 +4636,6 @@ impl<W: UiWriter> Agent<W> {
                             // This gives the LLM fresh attempts since it's making progress
                             auto_summary_attempts = 0;
 
-                            // Add to executed tools set to prevent re-execution in this session
-                            executed_tools_in_session.insert(tool_key.clone());
 
                             // Reset the JSON tool call filter state after each tool execution
                             // This ensures the filter doesn't stay in suppression mode for subsequent streaming content
