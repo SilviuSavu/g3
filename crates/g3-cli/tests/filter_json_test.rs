@@ -381,4 +381,171 @@ More text"#;
             "Failed to handle truncated JSON followed by complete JSON"
         );
     }
+
+    // ============================================================================
+    // Edge Case Tests - These test the bugs that were fixed in the rewrite
+    // ============================================================================
+
+    /// CRITICAL: Test that closing braces inside JSON strings don't break filtering.
+    /// This was the main bug in the original implementation.
+    #[test]
+    fn test_brace_inside_json_string_value() {
+        reset_json_tool_state();
+
+        // The } inside "echo }" should NOT cause premature exit from suppression
+        let input = r#"Text before
+{"tool": "shell", "args": {"command": "echo }"}}
+Text after"#;
+
+        let result = filter_json_tool_calls(input);
+        let expected = "Text before\n\nText after";
+        assert_eq!(
+            result, expected,
+            "Brace inside string value caused premature suppression exit"
+        );
+    }
+
+    /// Test multiple braces inside string values.
+    #[test]
+    fn test_multiple_braces_in_string() {
+        reset_json_tool_state();
+
+        let input = r#"Before
+{"tool": "shell", "args": {"command": "echo {{{}}}"}}
+After"#;
+
+        let result = filter_json_tool_calls(input);
+        let expected = "Before\n\nAfter";
+        assert_eq!(result, expected);
+    }
+
+    /// Test escaped quotes followed by braces in strings.
+    #[test]
+    fn test_escaped_quotes_with_braces() {
+        reset_json_tool_state();
+
+        let input = r#"Before
+{"tool": "shell", "args": {"command": "echo \"test}\" done"}}
+After"#;
+
+        let result = filter_json_tool_calls(input);
+        let expected = "Before\n\nAfter";
+        assert_eq!(result, expected);
+    }
+
+    /// Test braces in strings across streaming chunks.
+    #[test]
+    fn test_brace_in_string_across_chunks() {
+        reset_json_tool_state();
+
+        // The } appears in a separate chunk while we're inside a string
+        let chunks = vec![
+            "Before\n",
+            r#"{"tool": "shell", "args": {"command": "echo "#,
+            r#"}"}}"#,
+            "\nAfter",
+        ];
+
+        let mut results = Vec::new();
+        for chunk in chunks {
+            results.push(filter_json_tool_calls(chunk));
+        }
+
+        let final_result: String = results.join("");
+        let expected = "Before\n\nAfter";
+        assert_eq!(
+            final_result, expected,
+            "Brace in string across chunks caused incorrect filtering"
+        );
+    }
+
+    /// Test complex nested JSON with braces in multiple string values.
+    #[test]
+    fn test_complex_nested_with_string_braces() {
+        reset_json_tool_state();
+
+        let input = r#"Start
+{"tool": "write_file", "args": {"path": "test.json", "content": "{\"key\": \"value with } brace\"}"}}
+End"#;
+
+        let result = filter_json_tool_calls(input);
+        let expected = "Start\n\nEnd";
+        assert_eq!(result, expected);
+    }
+
+    /// Test the real-world case from jsonfilter_err - str_replace with diff containing braces
+    #[test]
+    fn test_str_replace_with_diff_content() {
+        reset_json_tool_state();
+
+        // This is a real case where str_replace tool call wasn't being filtered
+        // The diff content contains braces in the code being replaced
+        let input = r#"{"tool": "str_replace", "args": {"diff":"--- a/crates/g3-cli/src/ui_writer_impl.rs\n+++ b/crates/g3-cli/src/ui_writer_impl.rs\n@@ -355,11 +355,11 @@\n     fn filter_json_tool_calls(&self, content: &str) -> String {\n         // Apply JSON tool call filtering for display\n-        fixed_filter_json_tool_calls(content)\n+        filter_json_tool_calls(content)\n     }\n \n     fn reset_json_filter(&self) {\n         // Reset the filter state for a new response\n-        reset_fixed_json_tool_state();\n+        reset_json_tool_state();\n     }\n }","file_path":"crates/g3-cli/src/ui_writer_impl.rs"}}"#;
+
+        let result = filter_json_tool_calls(input);
+        
+        // The entire tool call should be filtered out
+        assert!(
+            result.is_empty() || result.trim().is_empty(),
+            "str_replace tool call was not filtered out. Got: {:?}",
+            result
+        );
+    }
+
+    /// Test tool call that appears after other content (from jsonfilter_err)
+    /// The filter requires tool calls to start at the beginning of a line
+    #[test]
+    fn test_tool_call_after_other_content() {
+        reset_json_tool_state();
+
+        // This simulates the jsonfilter_err case where a read_file result
+        // is followed by a str_replace tool call
+        let input = r#"┌─ read_file | ./crates/g3-cli/src/ui_writer_impl.rs [13000..13300]
+│     }
+│ (11 lines)
+└─ ⚡️ 1ms
+
+{"tool": "str_replace", "args": {"diff":"--- a/file.rs\n+++ b/file.rs\n-old\n+new","file_path":"file.rs"}}"#;
+
+        let result = filter_json_tool_calls(input);
+        
+        // The tool call starts on its own line after the read_file output,
+        // so it should be filtered out. Only the read_file output should remain.
+        let expected = r#"┌─ read_file | ./crates/g3-cli/src/ui_writer_impl.rs [13000..13300]
+│     }
+│ (11 lines)
+└─ ⚡️ 1ms
+
+"#;
+        assert_eq!(
+            result, expected,
+            "Tool call after other content was not filtered correctly"
+        );
+    }
+
+    /// Test case from jsonfilter_err2 - tool call at line start should be filtered,
+    /// but tool call patterns inside string values should be preserved
+    #[test]
+    fn test_tool_call_with_nested_tool_pattern_in_string() {
+        reset_json_tool_state();
+
+        // From jsonfilter_err2: A shell tool call that contains another tool call
+        // pattern inside its command string (a heredoc with code that references tool calls)
+        // The outer shell tool call starts at line beginning -> should be filtered
+        // The inner str_replace pattern is inside a string -> should NOT trigger filtering
+        let input = "Let me create a test case:\n\n{\"tool\": \"shell\", \"args\": {\"command\":\"cat file.rs\\nlet x = r#\\\"{\\\"tool\\\": \\\"test\\\"}\\\"#;\"}}\n\nDone.";
+
+        let result = filter_json_tool_calls(input);
+        
+        // The shell tool call starts at line beginning, so it should be filtered out
+        // Only the surrounding text should remain
+        // Note: The tool call is on its own line, so filtering leaves an empty line
+        let expected = "Let me create a test case:\n\n\n\nDone.";
+        
+        assert_eq!(
+            result, expected,
+            "Tool call with nested pattern was not filtered correctly. Got: {:?}",
+            result
+        );
+    }
 }
