@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use tracing::info;
+use tracing::debug;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsoleState {
@@ -42,7 +42,7 @@ impl ConsoleState {
 
     pub fn save(&self) -> anyhow::Result<()> {
         let config_path = Self::config_path();
-        info!("Saving console state to: {:?}", config_path);
+        debug!("Saving console state to: {:?}", config_path);
 
         // Create parent directory if it doesn't exist
         if let Some(parent) = config_path.parent() {
@@ -51,7 +51,7 @@ impl ConsoleState {
 
         let content = serde_json::to_string_pretty(self)?;
         fs::write(&config_path, content)?;
-        info!("Console state saved successfully to: {:?}", config_path);
+        debug!("Console state saved successfully to: {:?}", config_path);
 
         Ok(())
     }

@@ -12,7 +12,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 pub struct EmbeddedProvider {
     session: Arc<Mutex<LlamaSession>>,
@@ -32,7 +32,7 @@ impl EmbeddedProvider {
         gpu_layers: Option<u32>,
         threads: Option<u32>,
     ) -> Result<Self> {
-        info!("Loading embedded model from: {}", model_path);
+        debug!("Loading embedded model from: {}", model_path);
 
         // Expand tilde in path
         let expanded_path = shellexpand::tilde(&model_path);
@@ -41,7 +41,7 @@ impl EmbeddedProvider {
         // If model doesn't exist and it's the default Qwen model, offer to download it
         if !model_path_buf.exists() {
             if model_path.contains("qwen2.5-7b-instruct-q3_k_m.gguf") {
-                info!("Model file not found. Attempting to download Qwen 2.5 7B model...");
+                debug!("Model file not found. Attempting to download Qwen 2.5 7B model...");
                 Self::download_qwen_model(&model_path_buf)?;
             } else {
                 anyhow::bail!("Model file not found: {}", model_path_buf.display());
@@ -55,14 +55,14 @@ impl EmbeddedProvider {
 
         if let Some(gpu_layers) = gpu_layers {
             params.n_gpu_layers = gpu_layers;
-            info!("Using {} GPU layers", gpu_layers);
+            debug!("Using {} GPU layers", gpu_layers);
         }
 
         let context_size = context_length.unwrap_or(4096);
-        info!("Using context length: {}", context_size);
+        debug!("Using context length: {}", context_size);
 
         // Load the model
-        info!("Loading model...");
+        debug!("Loading model...");
         let model = LlamaModel::load_from_file(model_path, params)
             .map_err(|e| anyhow::anyhow!("Failed to load model: {}", e))?;
 
@@ -79,7 +79,7 @@ impl EmbeddedProvider {
             .create_session(session_params)
             .map_err(|e| anyhow::anyhow!("Failed to create session: {}", e))?;
 
-        info!("Successfully loaded {} model", model_type);
+        debug!("Successfully loaded {} model", model_type);
 
         Ok(Self {
             session: Arc::new(Mutex::new(session)),
@@ -330,7 +330,7 @@ impl EmbeddedProvider {
             Ok(inner_result) => match inner_result {
                 Ok(task_result) => match task_result {
                     Ok((text, token_count)) => {
-                        info!(
+                        debug!(
                             "Completed generation: {} tokens (dynamic limit was {})",
                             token_count, dynamic_max_tokens
                         );
@@ -448,9 +448,9 @@ impl EmbeddedProvider {
             fs::create_dir_all(parent)?;
         }
 
-        info!("Downloading Qwen 2.5 7B model (Q3_K_M quantization, ~3.5GB)...");
-        info!("This is a one-time download that may take several minutes depending on your connection.");
-        info!("Downloading to: {}", model_path.display());
+        debug!("Downloading Qwen 2.5 7B model (Q3_K_M quantization, ~3.5GB)...");
+        debug!("This is a one-time download that may take several minutes depending on your connection.");
+        debug!("Downloading to: {}", model_path.display());
 
         // Use curl with progress bar for download
         let output = Command::new("curl")
@@ -497,7 +497,7 @@ impl EmbeddedProvider {
             );
         }
 
-        info!("Successfully downloaded Qwen 2.5 7B model ({}MB)", size_mb);
+        debug!("Successfully downloaded Qwen 2.5 7B model ({}MB)", size_mb);
         Ok(())
     }
 }

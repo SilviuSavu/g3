@@ -267,7 +267,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::{debug, error};
 
 use g3_core::error_handling::{classify_error, ErrorType, RecoverableError};
 mod simple_output;
@@ -2693,7 +2693,7 @@ Remember: Be clear in your review and concise in your feedback. APPROVE iff the 
             extract_coach_feedback_from_logs(&coach_result, &coach_agent, &output)?;
 
         // Log the size of the feedback for debugging
-        info!(
+        debug!(
             "Coach feedback extracted: {} characters (from {} total)",
             coach_feedback_text.len(),
             coach_result.response.len()

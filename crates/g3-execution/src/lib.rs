@@ -3,7 +3,7 @@ use regex::Regex;
 use std::io::Write;
 use std::process::Command;
 use tempfile::NamedTempFile;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 
 /// Expand tilde (~) in a path to the user's home directory
 fn expand_tilde(path: &str) -> String {
@@ -72,7 +72,7 @@ impl CodeExecutor {
         }
 
         for (language, code) in code_blocks {
-            info!("Executing {} code", language);
+            debug!("Executing {} code", language);
 
             if show_code {
                 results.push(format!("📋 Running {} code:", language));
@@ -459,7 +459,7 @@ pub fn is_cargo_llvm_cov_installed() -> Result<bool> {
 
 /// Install llvm-tools-preview via rustup
 pub fn install_llvm_tools() -> Result<()> {
-    info!("Installing llvm-tools-preview...");
+    debug!("Installing llvm-tools-preview...");
     let output = Command::new("rustup")
         .args(&["component", "add", "llvm-tools-preview"])
         .output()?;
@@ -469,13 +469,13 @@ pub fn install_llvm_tools() -> Result<()> {
         anyhow::bail!("Failed to install llvm-tools-preview: {}", stderr);
     }
 
-    info!("✅ llvm-tools-preview installed successfully");
+    debug!("✅ llvm-tools-preview installed successfully");
     Ok(())
 }
 
 /// Install cargo-llvm-cov via cargo install
 pub fn install_cargo_llvm_cov() -> Result<()> {
-    info!("Installing cargo-llvm-cov... (this may take a few minutes)");
+    debug!("Installing cargo-llvm-cov... (this may take a few minutes)");
     let output = Command::new("cargo")
         .args(&["install", "cargo-llvm-cov"])
         .output()?;
@@ -485,7 +485,7 @@ pub fn install_cargo_llvm_cov() -> Result<()> {
         anyhow::bail!("Failed to install cargo-llvm-cov: {}", stderr);
     }
 
-    info!("✅ cargo-llvm-cov installed successfully");
+    debug!("✅ cargo-llvm-cov installed successfully");
     Ok(())
 }
 
@@ -496,20 +496,20 @@ pub fn ensure_coverage_tools_installed() -> Result<bool> {
 
     // Check and install llvm-tools-preview
     if !is_llvm_tools_installed()? {
-        info!("llvm-tools-preview not found, installing...");
+        debug!("llvm-tools-preview not found, installing...");
         install_llvm_tools()?;
         already_installed = false;
     } else {
-        info!("✅ llvm-tools-preview is already installed");
+        debug!("✅ llvm-tools-preview is already installed");
     }
 
     // Check and install cargo-llvm-cov
     if !is_cargo_llvm_cov_installed()? {
-        info!("cargo-llvm-cov not found, installing...");
+        debug!("cargo-llvm-cov not found, installing...");
         install_cargo_llvm_cov()?;
         already_installed = false;
     } else {
-        info!("✅ cargo-llvm-cov is already installed");
+        debug!("✅ cargo-llvm-cov is already installed");
     }
 
     Ok(already_installed)

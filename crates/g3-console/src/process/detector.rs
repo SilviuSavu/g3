@@ -3,7 +3,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::path::PathBuf;
 use sysinfo::{Pid, Process, System};
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 pub struct ProcessDetector {
     system: System,
@@ -17,7 +17,7 @@ impl ProcessDetector {
     }
 
     pub fn detect_instances(&mut self) -> Result<Vec<Instance>> {
-        info!("Scanning for g3 processes...");
+        debug!("Scanning for g3 processes...");
         // Refresh all processes to ensure we catch newly started ones
         // Using refresh_all() instead of just refresh_processes() to ensure
         // we get complete information about new processes
@@ -37,7 +37,7 @@ impl ProcessDetector {
             }
         }
 
-        info!("Detected {} g3 instances", instances.len());
+        debug!("Detected {} g3 instances", instances.len());
         Ok(instances)
     }
 

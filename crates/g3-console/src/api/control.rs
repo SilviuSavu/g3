@@ -3,7 +3,7 @@ use crate::process::ProcessController;
 use axum::{extract::State, http::StatusCode, Json};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::{debug, error};
 
 pub type ControllerState = Arc<Mutex<ProcessController>>;
 
@@ -22,7 +22,7 @@ pub async fn kill_instance(
 
     match controller.kill_process(pid) {
         Ok(_) => {
-            info!("Successfully killed process {}", pid);
+            debug!("Successfully killed process {}", pid);
             Ok(Json(serde_json::json!({
                 "status": "terminating"
             })))
@@ -38,7 +38,7 @@ pub async fn restart_instance(
     State(controller): State<ControllerState>,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<LaunchResponse>, StatusCode> {
-    info!("Restarting instance: {}", id);
+    debug!("Restarting instance: {}", id);
 
     // Extract PID from instance ID (format: pid_timestamp)
     let pid: u32 = id
@@ -81,7 +81,7 @@ pub async fn launch_instance(
     State(controller): State<ControllerState>,
     Json(request): Json<LaunchRequest>,
 ) -> Result<Json<LaunchResponse>, (StatusCode, Json<serde_json::Value>)> {
-    info!("Launching new g3 instance: {:?}", request);
+    debug!("Launching new g3 instance: {:?}", request);
 
     // Validate binary path if provided
     if let Some(ref binary_path) = request.g3_binary_path {
@@ -149,7 +149,7 @@ pub async fn launch_instance(
     ) {
         Ok(pid) => {
             let id = format!("{}_{}", pid, chrono::Utc::now().timestamp());
-            info!("Successfully launched g3 instance with PID {}", pid);
+            debug!("Successfully launched g3 instance with PID {}", pid);
             Ok(Json(LaunchResponse {
                 id,
                 status: "starting".to_string(),

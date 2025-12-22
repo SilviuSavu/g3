@@ -9,7 +9,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tracing::{error, info, warn};
+use tracing::{debug, error, warn};
 
 /// Base delay for exponential backoff (in milliseconds)
 const BASE_RETRY_DELAY_MS: u64 = 1000;
@@ -149,7 +149,7 @@ impl ErrorContext {
                 if let Err(e) = std::fs::write(&filename, json_content) {
                     error!("Failed to save error context to {:?}: {}", &filename, e);
                 } else {
-                    info!("Error details saved to: {:?}", &filename);
+                    debug!("Error details saved to: {:?}", &filename);
                 }
             }
             Err(e) => {
@@ -328,7 +328,7 @@ where
         match operation().await {
             Ok(result) => {
                 if attempt > 1 {
-                    info!(
+                    debug!(
                         "Operation '{}' succeeded after {} attempts",
                         operation_name, attempt
                     );
@@ -357,7 +357,7 @@ where
 
                         // Special handling for token limit errors
                         if matches!(recoverable_type, RecoverableError::TokenLimit) {
-                            info!("Token limit error detected. Consider triggering summarization.");
+                            debug!("Token limit error detected. Consider triggering summarization.");
                         }
 
                         tokio::time::sleep(delay).await;

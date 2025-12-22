@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use crate::status::{FlockStatus, SegmentState, SegmentStatus};
@@ -174,7 +174,7 @@ impl FlockMode {
 
     /// Run flock mode
     pub async fn run(&mut self) -> Result<()> {
-        info!(
+        debug!(
             "Starting flock mode with {} segments",
             self.config.num_segments
         );
@@ -625,7 +625,7 @@ async fn run_segment(
     status_file: PathBuf,
     session_id: String,
 ) -> Result<SegmentStatus> {
-    info!(
+    debug!(
         "Starting segment {} in {}",
         segment_id,
         segment_dir.display()

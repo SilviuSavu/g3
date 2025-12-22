@@ -16,7 +16,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
-use tracing::{info, Level};
+use tracing::{debug, Level};
 use tracing_subscriber;
 
 #[derive(Parser, Debug)]
@@ -84,12 +84,12 @@ async fn main() -> anyhow::Result<()> {
         .layer(CorsLayer::permissive());
 
     let addr = format!("{}:{}", args.host, args.port);
-    info!("Starting g3-console on http://{}", addr);
+    debug!("Starting g3-console on http://{}", addr);
 
     // Auto-open browser if requested
     if args.open {
         let url = format!("http://{}", addr);
-        info!("Opening browser to {}", url);
+        debug!("Opening browser to {}", url);
         let _ = open::that(&url);
     }
 
