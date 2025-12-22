@@ -1,13 +1,25 @@
-// FINAL CORRECTED implementation of filter_json_tool_calls function according to specification
-// 1. Detect tool call start with regex '\w*{\w*"tool"\w*:\w*"' on the very next newline
-// 2. Enter suppression mode and use brace counting to find complete JSON
-// 3. Only elide JSON content between first '{' and last '}' (inclusive)
-// 4. Return everything else as the final filtered string
-
 //! JSON tool call filtering for streaming LLM responses.
 //!
 //! This module filters out JSON tool calls from LLM output streams while preserving
 //! regular text content. It uses a state machine to handle streaming chunks.
+//!
+//! # Design
+//!
+//! The filter detects tool calls by looking for JSON objects that start with `{"tool":`
+//! at the beginning of a line. It uses brace counting to find the complete JSON object
+//! and removes it from the output stream.
+//!
+//! # Known Edge Cases
+//!
+//! 1. **Brace counting without string awareness in main loop**: The main filtering loop
+//!    counts braces without considering whether they're inside JSON strings. This can
+//!    cause premature exit from suppression mode if a string contains `}`.
+//!
+//! 2. **Tool calls not at line start**: Tool calls that don't start at the beginning
+//!    of a line (after optional whitespace) won't be detected.
+//!
+//! 3. **Streaming chunk boundaries**: If a tool call pattern is split across chunks
+//!    (e.g., `{"to` in one chunk and `ol":` in the next), detection may fail.
 
 use regex::Regex;
 use std::cell::RefCell;
@@ -15,12 +27,12 @@ use tracing::debug;
 
 // Thread-local state for tracking JSON tool call suppression
 thread_local! {
-    static FIXED_JSON_TOOL_STATE: RefCell<FixedJsonToolState> = RefCell::new(FixedJsonToolState::new());
+    static JSON_TOOL_STATE: RefCell<JsonToolState> = RefCell::new(JsonToolState::new());
 }
 
 /// Internal state for tracking JSON tool call filtering across streaming chunks.
 #[derive(Debug, Clone)]
-struct FixedJsonToolState {
+struct JsonToolState {
     /// True when actively suppressing a confirmed tool call
     suppression_mode: bool,
     /// True when buffering potential JSON (saw { but not yet confirmed as tool call)
@@ -33,7 +45,7 @@ struct FixedJsonToolState {
     potential_json_start: Option<usize>, // Where the potential JSON started
 }
 
-impl FixedJsonToolState {
+impl JsonToolState {
     fn new() -> Self {
         Self {
             suppression_mode: false,
@@ -57,18 +69,22 @@ impl FixedJsonToolState {
     }
 }
 
-// FINAL CORRECTED implementation according to specification
-
 /// Filters JSON tool calls from streaming LLM content.
 ///
 /// Processes content chunks and removes JSON tool calls while preserving regular text.
 /// Maintains state across calls to handle tool calls spanning multiple chunks.
-pub fn fixed_filter_json_tool_calls(content: &str) -> String {
+///
+/// # Arguments
+/// * `content` - A chunk of streaming content from the LLM
+///
+/// # Returns
+/// The filtered content with JSON tool calls removed
+pub fn filter_json_tool_calls(content: &str) -> String {
     if content.is_empty() {
         return String::new();
     }
 
-    FIXED_JSON_TOOL_STATE.with(|state| {
+    JSON_TOOL_STATE.with(|state| {
         let mut state = state.borrow_mut();
 
         // Add new content to buffer
@@ -87,7 +103,7 @@ pub fn fixed_filter_json_tool_calls(content: &str) -> String {
                             debug!("JSON tool call completed - exiting suppression mode");
 
                             // Extract the complete result with JSON filtered out
-                            let result = extract_fixed_content(
+                            let result = extract_content_without_json(
                                 &state.buffer,
                                 state.json_start_in_buffer.unwrap_or(0),
                             );
@@ -107,7 +123,7 @@ pub fn fixed_filter_json_tool_calls(content: &str) -> String {
                 }
             }
             
-            // CRITICAL FIX: After counting braces, if still in suppression mode,
+            // After counting braces, if still in suppression mode,
             // check if a new tool call pattern appears. This handles truncated JSON
             // followed by complete JSON.
             if state.suppression_mode {
@@ -171,7 +187,7 @@ pub fn fixed_filter_json_tool_calls(content: &str) -> String {
                                 state.brace_depth -= 1;
                                 if state.brace_depth <= 0 {
                                     debug!("JSON tool call completed immediately");
-                                    let result = extract_fixed_content(&state.buffer, json_start);
+                                    let result = extract_content_without_json(&state.buffer, json_start);
                                     let new_content = if result.len() > state.content_returned_up_to {
                                         result[state.content_returned_up_to..].to_string()
                                     } else {
@@ -267,7 +283,7 @@ pub fn fixed_filter_json_tool_calls(content: &str) -> String {
                             state.brace_depth -= 1;
                             if state.brace_depth <= 0 {
                                 debug!("JSON tool call completed in same chunk");
-                                let result = extract_fixed_content(&state.buffer, json_start);
+                                let result = extract_content_without_json(&state.buffer, json_start);
                                 let content_after = if result.len() > json_start {
                                     &result[json_start..]
                                 } else {
@@ -362,7 +378,7 @@ pub fn fixed_filter_json_tool_calls(content: &str) -> String {
                             if state.brace_depth <= 0 {
                                 // JSON is complete in this chunk
                                 debug!("JSON tool call completed in same chunk");
-                                let result = extract_fixed_content(&buffer_clone, json_start);
+                                let result = extract_content_without_json(&buffer_clone, json_start);
 
                                 // Return content before JSON plus content after JSON
                                 let content_after_json = if result.len() > json_start {
@@ -387,8 +403,6 @@ pub fn fixed_filter_json_tool_calls(content: &str) -> String {
         }
 
         // No JSON tool call detected, return only the new content we haven't returned yet
-        
-
         if state.buffer.len() > state.content_returned_up_to {
             let result = state.buffer[state.content_returned_up_to..].to_string();
             state.content_returned_up_to = state.buffer.len();
@@ -410,7 +424,7 @@ pub fn fixed_filter_json_tool_calls(content: &str) -> String {
 /// # Arguments
 /// * `full_content` - The full content buffer
 /// * `json_start` - Position where the JSON tool call begins
-fn extract_fixed_content(full_content: &str, json_start: usize) -> String {
+fn extract_content_without_json(full_content: &str, json_start: usize) -> String {
     // Find the end of the JSON using proper brace counting with string handling
     let mut brace_depth = 0;
     let mut json_end = json_start;
@@ -455,8 +469,8 @@ fn extract_fixed_content(full_content: &str, json_start: usize) -> String {
 ///
 /// Call this between independent filtering sessions to ensure clean state.
 /// This is particularly important in tests and when starting new conversations.
-pub fn reset_fixed_json_tool_state() {
-    FIXED_JSON_TOOL_STATE.with(|state| {
+pub fn reset_json_tool_state() {
+    JSON_TOOL_STATE.with(|state| {
         let mut state = state.borrow_mut();
         state.reset();
     });

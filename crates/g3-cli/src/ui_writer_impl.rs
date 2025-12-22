@@ -1,4 +1,4 @@
-use crate::fixed_filter_json::{fixed_filter_json_tool_calls, reset_fixed_json_tool_state};
+use crate::filter_json::{filter_json_tool_calls, reset_json_tool_state};
 use g3_core::ui_writer::UiWriter;
 use std::io::{self, Write};
 use termimad::MadSkin;
@@ -354,11 +354,11 @@ impl UiWriter for ConsoleUiWriter {
 
     fn filter_json_tool_calls(&self, content: &str) -> String {
         // Apply JSON tool call filtering for display
-        fixed_filter_json_tool_calls(content)
+        filter_json_tool_calls(content)
     }
 
     fn reset_json_filter(&self) {
         // Reset the filter state for a new response
-        reset_fixed_json_tool_state();
+        reset_json_tool_state();
     }
 }

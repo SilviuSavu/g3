@@ -1,5 +1,5 @@
 // JSON tool call filtering for display (moved from g3-core)
-pub mod fixed_filter_json;
+pub mod filter_json;
 
 use anyhow::Result;
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
@@ -2478,7 +2478,7 @@ async fn run_autonomous(
         let coach_config = base_config.for_coach()?;
 
         // Reset filter suppression state before creating coach agent
-        crate::fixed_filter_json::reset_fixed_json_tool_state();
+        crate::filter_json::reset_json_tool_state();
 
         let ui_writer = ConsoleUiWriter::new();
         let mut coach_agent =
