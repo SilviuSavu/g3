@@ -68,6 +68,18 @@ fn main() {
         dylib_dst.display()
     );
 
+    // Re-sign the dylib with ad-hoc signature to fix code signing issues on Apple Silicon
+    // This is necessary because incremental compilation can invalidate signatures
+    let codesign_status = Command::new("codesign")
+        .args(&["-f", "-s", "-", dylib_dst.to_str().unwrap()])
+        .status();
+
+    if let Ok(status) = codesign_status {
+        if !status.success() {
+            println!("cargo:warning=Failed to codesign libVisionBridge.dylib (non-fatal)");
+        }
+    }
+
     // Add rpath so the dylib can be found at runtime
     println!("cargo:rustc-link-arg=-Wl,-rpath,@executable_path");
     println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path");

@@ -531,6 +531,113 @@ impl StreamingToolParser {
         self.message_stopped
     }
 
+    /// Check if the text buffer contains an incomplete JSON tool call
+    /// This detects cases where the LLM started emitting a tool call but the stream ended
+    /// before the JSON was complete (truncated output)
+    pub fn has_incomplete_tool_call(&self) -> bool {
+        let patterns = [
+            r#"{"tool":"#,
+            r#"{ "tool":"#,
+            r#"{"tool" :"#,
+            r#"{ "tool" :"#,
+        ];
+
+        // Find the last occurrence of a tool call pattern
+        let mut best_start: Option<usize> = None;
+        for pattern in &patterns {
+            if let Some(pos) = self.text_buffer.rfind(pattern) {
+                if best_start.map_or(true, |best| pos > best) {
+                    best_start = Some(pos);
+                }
+            }
+        }
+
+        if let Some(start_pos) = best_start {
+            // Check if we can parse a complete JSON object from this position
+            // If NOT complete, it's an incomplete tool call
+            let json_text = &self.text_buffer[start_pos..];
+            !Self::is_complete_json_object(json_text)
+        } else {
+            false
+        }
+    }
+
+    /// Check if the text buffer contains an unexecuted tool call
+    /// This detects cases where the LLM emitted a complete tool call JSON
+    /// but it wasn't parsed/executed (e.g., due to parsing issues)
+    pub fn has_unexecuted_tool_call(&self) -> bool {
+        let patterns = [
+            r#"{"tool":"#,
+            r#"{ "tool":"#,
+            r#"{"tool" :"#,
+            r#"{ "tool" :"#,
+        ];
+
+        // Find the last occurrence of a tool call pattern
+        let mut best_start: Option<usize> = None;
+        for pattern in &patterns {
+            if let Some(pos) = self.text_buffer.rfind(pattern) {
+                if best_start.map_or(true, |best| pos > best) {
+                    best_start = Some(pos);
+                }
+            }
+        }
+
+        if let Some(start_pos) = best_start {
+            // Check if we can parse a complete JSON object from this position
+            let json_text = &self.text_buffer[start_pos..];
+            // If the JSON IS complete, it means there's an unexecuted tool call
+            if let Some(json_end) = Self::find_complete_json_object_end(json_text) {
+                // Extract just the JSON object (not any trailing text)
+                let json_only = &json_text[..=json_end];
+                // Try to parse it as a tool call to confirm it's valid JSON
+                return serde_json::from_str::<serde_json::Value>(json_only).is_ok();
+            }
+            false
+        } else {
+            false
+        }
+    }
+
+    /// Check if a string contains a complete JSON object
+    fn is_complete_json_object(text: &str) -> bool {
+        Self::find_complete_json_object_end(text).is_some()
+    }
+
+    /// Find the end position (byte index) of a complete JSON object in the text
+    /// Returns None if no complete JSON object is found
+    fn find_complete_json_object_end(text: &str) -> Option<usize> {
+        let mut brace_count = 0;
+        let mut in_string = false;
+        let mut escape_next = false;
+        let mut found_start = false;
+
+        for (i, ch) in text.char_indices() {
+            if escape_next {
+                escape_next = false;
+                continue;
+            }
+
+            match ch {
+                '\\' => escape_next = true,
+                '"' if !escape_next => in_string = !in_string,
+                '{' if !in_string => {
+                    brace_count += 1;
+                    found_start = true;
+                }
+                '}' if !in_string => {
+                    brace_count -= 1;
+                    if brace_count == 0 && found_start {
+                        return Some(i); // Return the byte index of the closing brace
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None // No complete JSON object found
+    }
+
     /// Reset the parser state for a new message
     pub fn reset(&mut self) {
         self.text_buffer.clear();
@@ -4941,18 +5048,41 @@ impl<W: UiWriter> Agent<W> {
 
                 let has_response = !current_response.is_empty() || !full_response.is_empty();
 
+                // Check if there's an incomplete tool call in the buffer
+                let has_incomplete_tool_call = parser.has_incomplete_tool_call();
+
+                // Check if there's a complete but unexecuted tool call in the buffer
+                let has_unexecuted_tool_call = parser.has_unexecuted_tool_call();
+
                 // Auto-continue if tools were executed but final_output was never called
-                // This is the simple rule: LLM must call final_output before returning control
-                if any_tool_executed && !final_output_called {
+                // OR if the LLM emitted an incomplete tool call (truncated JSON)
+                // OR if the LLM emitted a complete tool call that wasn't executed
+                // This ensures we don't return control when the LLM clearly intended to call a tool
+                if (any_tool_executed && !final_output_called) || has_incomplete_tool_call || has_unexecuted_tool_call {
                     if auto_summary_attempts < MAX_AUTO_SUMMARY_ATTEMPTS {
                         auto_summary_attempts += 1;
-                        warn!(
-                            "LLM stopped without calling final_output after executing tools ({} iterations, auto-continue attempt {})",
-                            iteration_count, auto_summary_attempts
-                        );
-                        self.ui_writer.print_context_status(
-                            "\n🔄 Model stopped without calling final_output. Auto-continuing...\n"
-                        );
+                        if has_incomplete_tool_call || has_unexecuted_tool_call {
+                            warn!(
+                                "LLM emitted {} tool call ({} iterations, auto-continue attempt {})",
+                                if has_incomplete_tool_call { "incomplete" } else { "unexecuted" },
+                                iteration_count, auto_summary_attempts
+                            );
+                            self.ui_writer.print_context_status(
+                                if has_incomplete_tool_call {
+                                    "\n🔄 Model emitted incomplete tool call. Auto-continuing...\n"
+                                } else {
+                                    "\n🔄 Model emitted tool call that wasn't executed. Auto-continuing...\n"
+                                }
+                            );
+                        } else {
+                            warn!(
+                                "LLM stopped without calling final_output after executing tools ({} iterations, auto-continue attempt {})",
+                                iteration_count, auto_summary_attempts
+                            );
+                            self.ui_writer.print_context_status(
+                                "\n🔄 Model stopped without calling final_output. Auto-continuing...\n"
+                            );
+                        }
                         
                         // Add any text response to context before prompting for continuation
                         if has_response {
@@ -4971,10 +5101,17 @@ impl<W: UiWriter> Agent<W> {
                         }
                         
                         // Add a follow-up message asking for continuation
-                        let continue_prompt = Message::new(
-                            MessageRole::User,
-                            "Please continue until you are done. You **MUST** call `final_output` with a summary when done.".to_string(),
-                        );
+                        let continue_prompt = if has_incomplete_tool_call {
+                            Message::new(
+                                MessageRole::User,
+                                "Your previous response was cut off mid-tool-call. Please complete the tool call and continue.".to_string(),
+                            )
+                        } else {
+                            Message::new(
+                                MessageRole::User,
+                                "Please continue until you are done. You **MUST** call `final_output` with a summary when done.".to_string(),
+                            )
+                        };
                         self.context_window.add_message(continue_prompt);
                         request.messages = self.context_window.conversation_history.clone();
                         
