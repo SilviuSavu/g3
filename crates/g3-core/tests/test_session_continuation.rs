@@ -98,6 +98,10 @@ fn test_save_and_load_continuation() {
     let saved_path = save_continuation(&original).expect("Failed to save continuation");
     assert!(saved_path.exists());
 
+    // Verify the symlink was created
+    let session_dir = get_session_dir();
+    assert!(session_dir.is_symlink(), "session should be a symlink");
+
     // Load it back
     let loaded = load_continuation()
         .expect("Failed to load continuation")
@@ -141,14 +145,15 @@ fn test_clear_continuation() {
     );
     save_continuation(&continuation).expect("Failed to save");
 
-    // Verify it exists
-    assert!(get_latest_continuation_path().exists());
+    // Verify the symlink exists
+    let session_dir = get_session_dir();
+    assert!(session_dir.is_symlink(), "session should be a symlink after save");
 
     // Clear it
     clear_continuation().expect("Failed to clear");
 
-    // Verify it's gone
-    assert!(!get_latest_continuation_path().exists());
+    // Verify the symlink is gone
+    assert!(!session_dir.exists() && !session_dir.is_symlink(), "symlink should be removed");
 
     // Loading should return None
     let result = load_continuation().expect("load should not error");
@@ -158,17 +163,23 @@ fn test_clear_continuation() {
 }
 
 #[test]
-fn test_ensure_session_dir_creates_directory() {
+fn test_ensure_session_dir_creates_g3_directory() {
     let _lock = TEST_MUTEX.lock().unwrap();
-    let (_temp_dir, original_dir) = setup_test_env();
+    let (temp_dir, original_dir) = setup_test_env();
 
-    let session_dir = get_session_dir();
-    assert!(!session_dir.exists());
+    let g3_dir = temp_dir.path().join(".g3");
+    assert!(!g3_dir.exists());
 
     ensure_session_dir().expect("Failed to ensure session dir");
 
-    assert!(session_dir.exists());
-    assert!(session_dir.is_dir());
+    // The .g3 directory should exist, but not the session symlink
+    assert!(g3_dir.exists(), ".g3 directory should be created");
+    assert!(g3_dir.is_dir(), ".g3 should be a directory");
+    
+    // The session symlink should NOT exist until save_continuation is called
+    let session_dir = get_session_dir();
+    assert!(!session_dir.exists() && !session_dir.is_symlink(), 
+            "session symlink should not exist until save_continuation is called");
 
     teardown_test_env(original_dir);
 }
@@ -257,9 +268,9 @@ fn test_continuation_serialization_format() {
 }
 
 #[test]
-fn test_multiple_saves_overwrite() {
+fn test_multiple_saves_update_symlink() {
     let _lock = TEST_MUTEX.lock().unwrap();
-    let (_temp_dir, original_dir) = setup_test_env();
+    let (temp_dir, original_dir) = setup_test_env();
 
     // Save first continuation
     let first = SessionContinuation::new(
@@ -272,7 +283,12 @@ fn test_multiple_saves_overwrite() {
     );
     save_continuation(&first).expect("Failed to save first");
 
-    // Save second continuation (should overwrite)
+    // Verify symlink points to first session
+    let session_dir = get_session_dir();
+    let first_target = fs::read_link(&session_dir).expect("Failed to read symlink");
+    assert!(first_target.to_string_lossy().contains("first_session"));
+
+    // Save second continuation (should update symlink)
     let second = SessionContinuation::new(
         "second_session".to_string(),
         Some("Second summary".to_string()),
@@ -283,6 +299,10 @@ fn test_multiple_saves_overwrite() {
     );
     save_continuation(&second).expect("Failed to save second");
 
+    // Verify symlink now points to second session
+    let second_target = fs::read_link(&session_dir).expect("Failed to read symlink");
+    assert!(second_target.to_string_lossy().contains("second_session"));
+
     // Load should return the second one
     let loaded = load_continuation()
         .expect("Failed to load")
@@ -292,6 +312,47 @@ fn test_multiple_saves_overwrite() {
         loaded.final_output_summary,
         Some("Second summary".to_string())
     );
+
+    // Both session directories should exist with their own latest.json
+    let sessions_dir = temp_dir.path().join(".g3").join("sessions");
+    assert!(sessions_dir.join("first_session").join("latest.json").exists());
+    assert!(sessions_dir.join("second_session").join("latest.json").exists());
+
+    teardown_test_env(original_dir);
+}
+
+#[test]
+fn test_symlink_migration_from_old_directory() {
+    let _lock = TEST_MUTEX.lock().unwrap();
+    let (temp_dir, original_dir) = setup_test_env();
+
+    // Create an old-style .g3/session directory with latest.json
+    let old_session_dir = temp_dir.path().join(".g3").join("session");
+    fs::create_dir_all(&old_session_dir).expect("Failed to create old session dir");
+    let old_latest = old_session_dir.join("latest.json");
+    fs::write(&old_latest, r#"{"version":"1.0","session_id":"old"}"#)
+        .expect("Failed to write old latest.json");
+
+    // Save a new continuation - this should migrate the old directory to a symlink
+    let continuation = SessionContinuation::new(
+        "new_session".to_string(),
+        Some("New summary".to_string()),
+        "/path/to/session.json".to_string(),
+        50.0,
+        None,
+        ".".to_string(),
+    );
+    save_continuation(&continuation).expect("Failed to save");
+
+    // The session path should now be a symlink, not a directory
+    let session_dir = get_session_dir();
+    assert!(session_dir.is_symlink(), "session should be a symlink after migration");
+
+    // Load should return the new session
+    let loaded = load_continuation()
+        .expect("Failed to load")
+        .expect("No continuation");
+    assert_eq!(loaded.session_id, "new_session");
 
     teardown_test_env(original_dir);
 }

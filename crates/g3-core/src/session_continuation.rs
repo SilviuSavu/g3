@@ -2,14 +2,22 @@
 //!
 //! This module provides functionality to save and restore session state,
 //! allowing users to resume work across multiple g3 invocations.
+//!
+//! The session continuation uses a symlink-based approach:
+//! - `.g3/session` is a symlink pointing to the current session directory
+//! - `latest.json` is stored inside each session directory (`.g3/sessions/<session_id>/latest.json`)
+//! - Following the symlink gives access to the current session's continuation data
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 
 /// Version of the session continuation format
 const CONTINUATION_VERSION: &str = "1.0";
+
+/// Name of the continuation file within each session directory
+const CONTINUATION_FILENAME: &str = "latest.json";
 
 /// Session continuation artifact containing all information needed to resume a session
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,34 +68,92 @@ impl SessionContinuation {
     }
 }
 
-/// Get the path to the .g3/session directory
+/// Get the path to the .g3 directory
+fn get_g3_dir() -> PathBuf {
+    crate::get_g3_dir()
+}
+
+/// Get the path to the .g3/session symlink
 pub fn get_session_dir() -> PathBuf {
-    let current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    current_dir.join(".g3").join("session")
+    get_g3_dir().join("session")
+}
+
+/// Get the path to the .g3/sessions directory (where all sessions are stored)
+fn get_sessions_dir() -> PathBuf {
+    get_g3_dir().join("sessions")
+}
+
+/// Get the path to a specific session's directory
+fn get_session_path(session_id: &str) -> PathBuf {
+    get_sessions_dir().join(session_id)
 }
 
 /// Get the path to the latest.json continuation file
+/// This follows the symlink to get the actual path
 pub fn get_latest_continuation_path() -> PathBuf {
-    get_session_dir().join("latest.json")
+    get_session_dir().join(CONTINUATION_FILENAME)
 }
 
-/// Ensure the .g3/session directory exists
+/// Ensure the .g3 directory exists (but not the session symlink)
 pub fn ensure_session_dir() -> Result<PathBuf> {
-    let session_dir = get_session_dir();
-    if !session_dir.exists() {
-        std::fs::create_dir_all(&session_dir)?;
-        debug!("Created session directory: {:?}", session_dir);
+    let g3_dir = get_g3_dir();
+    if !g3_dir.exists() {
+        std::fs::create_dir_all(&g3_dir)?;
+        debug!("Created .g3 directory: {:?}", g3_dir);
     }
-    Ok(session_dir)
+    Ok(get_session_dir())
+}
+
+/// Update the .g3/session symlink to point to the given session directory
+fn update_session_symlink(session_id: &str) -> Result<()> {
+    let symlink_path = get_session_dir();
+    let target_path = get_session_path(session_id);
+    
+    // Remove existing symlink or directory if it exists
+    if symlink_path.exists() || symlink_path.is_symlink() {
+        if symlink_path.is_symlink() {
+            std::fs::remove_file(&symlink_path)
+                .context("Failed to remove existing session symlink")?;
+        } else if symlink_path.is_dir() {
+            // Migration: if it's an old-style directory, remove it
+            std::fs::remove_dir_all(&symlink_path)
+                .context("Failed to remove old session directory")?;
+            debug!("Migrated old .g3/session directory to symlink");
+        }
+    }
+    
+    // Create the symlink
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&target_path, &symlink_path)
+        .context("Failed to create session symlink")?;
+    
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&target_path, &symlink_path)
+        .context("Failed to create session symlink")?;
+    
+    debug!("Updated session symlink: {:?} -> {:?}", symlink_path, target_path);
+    Ok(())
 }
 
 /// Save a session continuation artifact
+/// This saves latest.json in the session's directory and updates the symlink
 pub fn save_continuation(continuation: &SessionContinuation) -> Result<PathBuf> {
-    let session_dir = ensure_session_dir()?;
-    let latest_path = session_dir.join("latest.json");
+    let session_id = &continuation.session_id;
+    let session_path = get_session_path(session_id);
     
+    // Ensure the session directory exists
+    if !session_path.exists() {
+        std::fs::create_dir_all(&session_path)
+            .context("Failed to create session directory")?;
+    }
+    
+    // Save latest.json in the session directory
+    let latest_path = session_path.join(CONTINUATION_FILENAME);
     let json = serde_json::to_string_pretty(continuation)?;
     std::fs::write(&latest_path, &json)?;
+    
+    // Update the symlink to point to this session
+    update_session_symlink(session_id)?;
     
     debug!("Saved session continuation to {:?}", latest_path);
     Ok(latest_path)
@@ -95,7 +161,24 @@ pub fn save_continuation(continuation: &SessionContinuation) -> Result<PathBuf> 
 
 /// Load the latest session continuation artifact if it exists
 pub fn load_continuation() -> Result<Option<SessionContinuation>> {
-    let latest_path = get_latest_continuation_path();
+    let symlink_path = get_session_dir();
+    
+    // Check if the symlink exists and is valid
+    if !symlink_path.is_symlink() && !symlink_path.exists() {
+        debug!("No session symlink found at {:?}", symlink_path);
+        return Ok(None);
+    }
+    
+    // If it's a symlink, check if the target exists
+    if symlink_path.is_symlink() {
+        let target = std::fs::read_link(&symlink_path)?;
+        if !target.exists() && !symlink_path.exists() {
+            debug!("Session symlink target does not exist: {:?}", target);
+            return Ok(None);
+        }
+    }
+    
+    let latest_path = symlink_path.join(CONTINUATION_FILENAME);
     
     if !latest_path.exists() {
         debug!("No continuation file found at {:?}", latest_path);
@@ -117,13 +200,17 @@ pub fn load_continuation() -> Result<Option<SessionContinuation>> {
     Ok(Some(continuation))
 }
 
-/// Clear all session continuation artifacts (for /clear command)
+/// Clear the session continuation symlink (for /clear command)
+/// This only removes the symlink, not the actual session data
 pub fn clear_continuation() -> Result<()> {
-    let session_dir = get_session_dir();
+    let symlink_path = get_session_dir();
     
-    if session_dir.exists() {
-        // Remove all files in the session directory
-        for entry in std::fs::read_dir(&session_dir)? {
+    if symlink_path.is_symlink() {
+        std::fs::remove_file(&symlink_path)?;
+        debug!("Removed session symlink: {:?}", symlink_path);
+    } else if symlink_path.is_dir() {
+        // Handle old-style directory (migration case)
+        for entry in std::fs::read_dir(&symlink_path)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
@@ -131,9 +218,11 @@ pub fn clear_continuation() -> Result<()> {
                 debug!("Removed session file: {:?}", path);
             }
         }
-        debug!("Cleared session continuation artifacts");
+        std::fs::remove_dir(&symlink_path)?;
+        debug!("Removed old session directory: {:?}", symlink_path);
     }
     
+    debug!("Cleared session continuation");
     Ok(())
 }
 
@@ -186,7 +275,6 @@ pub fn load_context_from_session_log(session_log_path: &Path) -> Result<Option<s
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     #[test]
     fn test_session_continuation_creation() {
