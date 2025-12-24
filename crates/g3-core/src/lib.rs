@@ -4072,6 +4072,9 @@ impl<W: UiWriter> Agent<W> {
                                 }
                             };
 
+                            // Track tokens before adding messages
+                            let tokens_before = self.context_window.used_tokens;
+
                             self.context_window.add_message(tool_message);
                             self.context_window.add_message(result_message);
 
@@ -4107,8 +4110,11 @@ impl<W: UiWriter> Agent<W> {
 
                             // Closure marker with timing
                             if tool_call.tool != "final_output" {
+                                let tokens_delta = self.context_window.used_tokens.saturating_sub(tokens_before);
                                 self.ui_writer
-                                    .print_tool_timing(&Self::format_duration(exec_duration));
+                                    .print_tool_timing(&Self::format_duration(exec_duration),
+                                        tokens_delta,
+                                        self.context_window.percentage_used());
                                 self.ui_writer.print_agent_prompt();
                             }
 

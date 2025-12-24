@@ -64,8 +64,10 @@ impl UiWriter for MachineUiWriter {
         println!("TOOL_OUTPUT_LINES: {}", count);
     }
 
-    fn print_tool_timing(&self, duration_str: &str) {
+    fn print_tool_timing(&self, duration_str: &str, tokens_delta: u32, context_percentage: f32) {
         println!("TOOL_DURATION: {}", duration_str);
+        println!("TOKENS_DELTA: {}", tokens_delta);
+        println!("CONTEXT_PERCENTAGE: {:.0}", context_percentage);
         println!("END_TOOL_OUTPUT");
         println!();
     }

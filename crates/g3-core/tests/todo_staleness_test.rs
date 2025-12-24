@@ -59,7 +59,7 @@ impl UiWriter for MockUiWriter {
     fn update_tool_output_line(&self, _line: &str) {}
     fn print_tool_output_line(&self, _line: &str) {}
     fn print_tool_output_summary(&self, _hidden_count: usize) {}
-    fn print_tool_timing(&self, _duration_str: &str) {}
+    fn print_tool_timing(&self, _duration_str: &str, _tokens_delta: u32, _context_percentage: f32) {}
     fn print_agent_prompt(&self) {}
     fn print_agent_response(&self, _content: &str) {}
     fn notify_sse_received(&self) {}

@@ -39,7 +39,7 @@ pub trait UiWriter: Send + Sync {
     fn print_tool_output_summary(&self, hidden_count: usize);
 
     /// Print tool execution timing
-    fn print_tool_timing(&self, duration_str: &str);
+    fn print_tool_timing(&self, duration_str: &str, tokens_delta: u32, context_percentage: f32);
 
     /// Print the agent prompt indicator
     fn print_agent_prompt(&self);
@@ -99,7 +99,7 @@ impl UiWriter for NullUiWriter {
     fn update_tool_output_line(&self, _line: &str) {}
     fn print_tool_output_line(&self, _line: &str) {}
     fn print_tool_output_summary(&self, _hidden_count: usize) {}
-    fn print_tool_timing(&self, _duration_str: &str) {}
+    fn print_tool_timing(&self, _duration_str: &str, _tokens_delta: u32, _context_percentage: f32) {}
     fn print_agent_prompt(&self) {}
     fn print_agent_response(&self, _content: &str) {}
     fn notify_sse_received(&self) {}

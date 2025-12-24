@@ -209,7 +209,7 @@ impl UiWriter for ConsoleUiWriter {
         );
     }
 
-    fn print_tool_timing(&self, duration_str: &str) {
+    fn print_tool_timing(&self, duration_str: &str, tokens_delta: u32, context_percentage: f32) {
         // Parse the duration string to determine color
         // Format is like "1.5s", "500ms", "2m 30.0s"
         let color_code = if duration_str.ends_with("ms") {
@@ -251,7 +251,7 @@ impl UiWriter for ConsoleUiWriter {
             ""
         };
 
-        println!("└─ ⚡️ {}{}\x1b[0m", color_code, duration_str);
+        println!("└─ ⚡️ {}{}\x1b[0m  \x1b[2m{}tk | {:.0}% ctx\x1b[0m", color_code, duration_str, tokens_delta, context_percentage);
         println!();
         // Clear the stored tool info
         *self.current_tool_name.lock().unwrap() = None;
