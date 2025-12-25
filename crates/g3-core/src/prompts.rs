@@ -72,7 +72,7 @@ Every multi-step task follows this pattern:
 2. **During**: Execute steps, then todo_read and todo_write to mark progress
 3. **End**: Call todo_read to verify all items complete
     
-Note: todo_write replaces the entire todo.g3.md file, so always read first to preserve content. TODO lists persist across g3 sessions in the workspace directory.
+Note: todo_write replaces the entire todo.g3.md file, so always read first to preserve content. TODO lists are scoped to the current session and stored in the session directory.
 
 IMPORTANT: If you are provided with a SHA256 hash of the requirements file, you MUST include it as the very first line of the todo.g3.md file in the following format:
 `{{Based on the requirements file with SHA256: <SHA>}}`
@@ -270,11 +270,11 @@ Short description for providers without native calling specs:
 - **final_output**: Signal task completion with a detailed summary of work done in markdown format
   - Format: {\"tool\": \"final_output\", \"args\": {\"summary\": \"what_was_accomplished\"}
 
-- **todo_read**: Read the entire TODO list from todo.g3.md file in workspace directory
+- **todo_read**: Read the current session's TODO list from todo.g3.md (session-scoped)
   - Format: {\"tool\": \"todo_read\", \"args\": {}}
   - Example: {\"tool\": \"todo_read\", \"args\": {}}
 
-- **todo_write**: Write or overwrite the entire todo.g3.md file (WARNING: overwrites completely, always read first)
+- **todo_write**: Write or overwrite the session's todo.g3.md file (WARNING: overwrites completely, always read first)
   - Format: {\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Task 1\\n- [ ] Task 2\"}}
   - Example: {\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Implement feature\\n  - [ ] Write tests\\n  - [ ] Run tests\"}}
 

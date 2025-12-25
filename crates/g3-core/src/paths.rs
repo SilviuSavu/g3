@@ -27,6 +27,12 @@ pub fn get_todo_path() -> PathBuf {
     }
 }
 
+/// Get the path to the todo.g3.md file for a specific session.
+/// Returns .g3/sessions/<session_id>/todo.g3.md
+pub fn get_session_todo_path(session_id: &str) -> PathBuf {
+    get_session_logs_dir(session_id).join("todo.g3.md")
+}
+
 /// Get the path to the logs directory.
 ///
 /// Checks for G3_WORKSPACE_PATH environment variable first (used by planning mode),
@@ -110,15 +116,18 @@ mod tests {
         let thinned_dir = get_thinned_dir(session_id);
         let session_file = get_session_file(session_id);
         let summary_file = get_context_summary_file(session_id);
+        let todo_file = get_session_todo_path(session_id);
 
         // All paths should be under the session directory
         assert!(thinned_dir.starts_with(&session_dir));
         assert!(session_file.starts_with(&session_dir));
         assert!(summary_file.starts_with(&session_dir));
+        assert!(todo_file.starts_with(&session_dir));
 
         // Check expected filenames
         assert!(thinned_dir.ends_with("thinned"));
         assert!(session_file.ends_with("session.json"));
         assert!(summary_file.ends_with("context_summary.txt"));
+        assert!(todo_file.ends_with("todo.g3.md"));
     }
 }

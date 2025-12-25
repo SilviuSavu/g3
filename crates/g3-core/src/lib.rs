@@ -51,7 +51,7 @@ pub use paths::{
     G3_WORKSPACE_PATH_ENV, ensure_session_dir, get_context_summary_file, get_g3_dir, get_logs_dir,
     get_session_file, get_session_logs_dir, get_thinned_dir, logs_dir,
 };
-use paths::get_todo_path;
+use paths::{get_todo_path, get_session_todo_path};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
@@ -1114,23 +1114,9 @@ impl<W: UiWriter> Agent<W> {
             context_window.add_message(readme_message);
         }
 
-        // Load existing TODO list if present (after system prompt and README)
-        let todo_path = get_todo_path();
-        let initial_todo_content = if todo_path.exists() {
-            std::fs::read_to_string(&todo_path).ok()
-        } else {
-            None
-        };
-
-        if let Some(ref todo_content) = initial_todo_content {
-            if !todo_content.trim().is_empty() {
-                let todo_message = Message::new(
-                    MessageRole::System,
-                    format!("📋 Existing TODO list (from todo.g3.md):\n\n{}", todo_content),
-                );
-                context_window.add_message(todo_message);
-            }
-        }
+        // NOTE: TODO lists are now session-scoped and stored in .g3/sessions/<session_id>/todo.g3.md
+        // We don't load any TODO at initialization since we don't have a session_id yet.
+        // The agent will use todo_read to load the TODO once a session is established.
 
         // Initialize computer controller if enabled
         let computer_controller = if config.computer_control.enabled {
@@ -1160,11 +1146,8 @@ impl<W: UiWriter> Agent<W> {
             session_id: None,
             tool_call_metrics: Vec::new(),
             ui_writer,
-            todo_content: std::sync::Arc::new(tokio::sync::RwLock::new({
-                // Initialize from TODO.md file if it exists
-                let todo_path = get_todo_path();
-                std::fs::read_to_string(&todo_path).unwrap_or_default()
-            })),
+            // TODO content starts empty - session-scoped TODOs are loaded via todo_read
+            todo_content: std::sync::Arc::new(tokio::sync::RwLock::new(String::new())),
             is_autonomous,
             quiet,
             computer_controller,
@@ -2946,7 +2929,7 @@ impl<W: UiWriter> Agent<W> {
             },
             Tool {
                 name: "todo_read".to_string(),
-                description: "Read your current TODO list from todo.g3.md file in the workspace directory. Shows what tasks are planned and their status. Call this at the start of multi-step tasks to check for existing plans, and during execution to review progress before updating. TODO lists persist across g3 sessions.".to_string(),
+                description: "Read your current TODO list from todo.g3.md file in the session directory. Shows what tasks are planned and their status. Call this at the start of multi-step tasks to check for existing plans, and during execution to review progress before updating. TODO lists are scoped to the current session.".to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {},
@@ -2955,7 +2938,7 @@ impl<W: UiWriter> Agent<W> {
             },
             Tool {
                 name: "todo_write".to_string(),
-                description: "Create or update your TODO list in todo.g3.md file with a complete task plan. Use markdown checkboxes: - [ ] for pending, - [x] for complete. This tool replaces the entire file content, so always call todo_read first to preserve existing content. Essential for multi-step tasks. Changes persist across g3 sessions.".to_string(),
+                description: "Create or update your TODO list in todo.g3.md file with a complete task plan. Use markdown checkboxes: - [ ] for pending, - [x] for complete. This tool replaces the entire file content, so always call todo_read first to preserve existing content. Essential for multi-step tasks. TODO lists are scoped to the current session.".to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
@@ -5331,8 +5314,13 @@ impl<W: UiWriter> Agent<W> {
             }
             "todo_read" => {
                 debug!("Processing todo_read tool call");
-                // Read from todo.g3.md file (uses G3_TODO_PATH env var if set, else current dir)
-                let todo_path = get_todo_path();
+                // Read from session-specific todo.g3.md if we have a session, else fall back to workspace
+                let todo_path = if let Some(ref session_id) = self.session_id {
+                    let _ = ensure_session_dir(session_id); // Ensure dir exists
+                    get_session_todo_path(session_id)
+                } else {
+                    get_todo_path()
+                };
 
                 if !todo_path.exists() {
                     // Also update in-memory content to stay in sync
@@ -5447,7 +5435,12 @@ impl<W: UiWriter> Agent<W> {
                         // If all todos are complete, delete the file instead of writing
                         // EXCEPT in planner mode (G3_TODO_PATH is set) - preserve for rename to completed_todo_*.md
                         let in_planner_mode = std::env::var("G3_TODO_PATH").is_ok();
-                        let todo_path = get_todo_path();
+                        let todo_path = if let Some(ref session_id) = self.session_id {
+                            let _ = ensure_session_dir(session_id); // Ensure dir exists
+                            get_session_todo_path(session_id)
+                        } else {
+                            get_todo_path()
+                        };
                         
                         if !in_planner_mode && !has_incomplete && (content_str.contains("- [x]") || content_str.contains("- [X]")) {
                             if todo_path.exists() {
@@ -5468,8 +5461,6 @@ impl<W: UiWriter> Agent<W> {
                                 }
                             }
                         }
-
-                        // Write to todo.g3.md file (uses G3_TODO_PATH env var if set, else current dir)
 
                         match std::fs::write(&todo_path, content_str) {
                             Ok(_) => {
