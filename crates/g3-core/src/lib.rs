@@ -1,3 +1,4 @@
+pub mod background_process;
 pub mod code_search;
 pub mod error_handling;
 pub mod feedback_extraction;
@@ -865,6 +866,7 @@ pub struct Agent<W: UiWriter> {
     requirements_sha: Option<String>,
     /// Working directory for tool execution (set by --codebase-fast-start)
     working_dir: Option<String>,
+    background_process_manager: std::sync::Arc<background_process::BackgroundProcessManager>,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -1178,6 +1180,10 @@ impl<W: UiWriter> Agent<W> {
             tool_call_count: 0,
             requirements_sha: None,
             working_dir: None,
+            background_process_manager: std::sync::Arc::new(
+                background_process::BackgroundProcessManager::new(
+                    paths::get_logs_dir().join("background_processes")
+                )),
         })
     }
 
@@ -2794,6 +2800,28 @@ impl<W: UiWriter> Agent<W> {
                         }
                     },
                     "required": ["command"]
+                }),
+            },
+            Tool {
+                name: "background_process".to_string(),
+                description: "Launch a long-running process in the background (e.g., game servers, dev servers). The process runs independently and logs are captured to a file. Use the regular 'shell' tool to read logs (cat/tail), check status (ps), or stop the process (kill). Returns the PID and log file path.".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "A unique name for this process (e.g., 'game_server', 'my_app'). Used to identify the process and its log file."
+                        },
+                        "command": {
+                            "type": "string",
+                            "description": "The shell command to execute in the background"
+                        },
+                        "working_dir": {
+                            "type": "string",
+                            "description": "Optional working directory. Defaults to current directory if not specified."
+                        }
+                    },
+                    "required": ["name", "command"]
                 }),
             },
             Tool {
@@ -4791,6 +4819,50 @@ impl<W: UiWriter> Agent<W> {
                             .map(|obj| obj.keys().collect::<Vec<_>>())
                     );
                     Ok("❌ Missing command argument".to_string())
+                }
+            }
+            "background_process" => {
+                debug!("Processing background_process tool call");
+                let name = tool_call.args.get("name")
+                    .and_then(|v| v.as_str());
+                let name = match name {
+                    Some(n) => n,
+                    None => return Ok("❌ Missing 'name' argument".to_string()),
+                };
+
+                let command = tool_call.args.get("command")
+                    .and_then(|v| v.as_str());
+                let command = match command {
+                    Some(c) => c,
+                    None => return Ok("❌ Missing 'command' argument".to_string()),
+                };
+
+                // Use provided working_dir, or fall back to agent's working_dir, or current dir
+                let work_dir = tool_call.args.get("working_dir")
+                    .and_then(|v| v.as_str())
+                    .map(|s| std::path::PathBuf::from(shellexpand::tilde(s).as_ref()))
+                    .or_else(|| working_dir.map(std::path::PathBuf::from))
+                    .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+
+                match self.background_process_manager.start(name, command, &work_dir) {
+                    Ok(info) => {
+                        Ok(format!(
+                            "✅ Background process '{}' started\n\n\
+                            **PID:** {}\n\
+                            **Log file:** {}\n\
+                            **Working dir:** {}\n\n\
+                            To interact with this process, use the shell tool:\n\
+                            - View logs: `tail -100 {}`\n\
+                            - Follow logs: `tail -f {}` (blocks until Ctrl+C)\n\
+                            - Check status: `ps -p {}`\n\
+                            - Stop process: `kill {}`",
+                            info.name, info.pid, 
+                            info.log_file.display(), info.working_dir.display(),
+                            info.log_file.display(), info.log_file.display(),
+                            info.pid, info.pid
+                        ))
+                    }
+                    Err(e) => Ok(format!("❌ Failed to start background process: {}", e)),
                 }
             }
             "read_file" => {

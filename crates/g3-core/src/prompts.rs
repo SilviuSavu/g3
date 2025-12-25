@@ -248,6 +248,12 @@ Short description for providers without native calling specs:
   - Format: {\"tool\": \"shell\", \"args\": {\"command\": \"your_command_here\"}
   - Example: {\"tool\": \"shell\", \"args\": {\"command\": \"ls ~/Downloads\"}
 
+- **background_process**: Launch a long-running process in the background (e.g., game servers, dev servers)
+  - Format: {\"tool\": \"background_process\", \"args\": {\"name\": \"unique_name\", \"command\": \"your_command\"}}
+  - Example: {\"tool\": \"background_process\", \"args\": {\"name\": \"game_server\", \"command\": \"./run.sh\"}}
+  - Returns PID and log file path. Use shell tool to read logs (`tail -100 <logfile>`), check status (`ps -p <pid>`), or stop (`kill <pid>`)
+  - Note: Process runs independently; logs are captured to a file for later inspection
+
 - **read_file**: Read the contents of a file (supports partial reads via start/end)
   - Format: {\"tool\": \"read_file\", \"args\": {\"file_path\": \"path/to/file\", \"start\": 0, \"end\": 100}
   - Example: {\"tool\": \"read_file\", \"args\": {\"file_path\": \"src/main.rs\"}
