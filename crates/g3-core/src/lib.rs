@@ -5397,8 +5397,6 @@ impl<W: UiWriter> Agent<W> {
                             if content.trim().is_empty() {
                                 Ok("📝 TODO list is empty".to_string())
                             } else {
-                                // Print the TODO content to the console
-                                self.ui_writer.print_context_status("📝 TODO list:");
                                 for line in content.lines() {
                                     self.ui_writer.print_tool_output_line(line);
                                 }
