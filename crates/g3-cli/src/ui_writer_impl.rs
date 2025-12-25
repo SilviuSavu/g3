@@ -251,7 +251,7 @@ impl UiWriter for ConsoleUiWriter {
             ""
         };
 
-        println!("└─ ⚡️ {}{}\x1b[0m  \x1b[2m{}tk | {:.0}% ctx\x1b[0m", color_code, duration_str, tokens_delta, context_percentage);
+        println!("└─ ⚡️ {}{}\x1b[0m  \x1b[2m{} ◉ | {:.0}%\x1b[0m", color_code, duration_str, tokens_delta, context_percentage);
         println!();
         // Clear the stored tool info
         *self.current_tool_name.lock().unwrap() = None;

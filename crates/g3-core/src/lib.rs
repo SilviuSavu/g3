@@ -6583,9 +6583,9 @@ impl<W: UiWriter> Agent<W> {
         
         // Add token usage info if available (dimmed)
         if let Some(tokens) = turn_tokens {
-            format!("{}  \x1b[2m{}tk | {:.0}% ctx\x1b[0m", timing, tokens, context_percentage)
+            format!("{}  \x1b[2m{} ◉ | {:.0}%\x1b[0m", timing, tokens, context_percentage)
         } else {
-            format!("{}  \x1b[2m{:.0}% ctx\x1b[0m", timing, context_percentage)
+            format!("{}  \x1b[2m{:.0}%\x1b[0m", timing, context_percentage)
         }
     }
 }
