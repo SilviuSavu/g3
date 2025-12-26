@@ -5034,6 +5034,9 @@ impl<W: UiWriter> Agent<W> {
                 let mut results: Vec<String> = Vec::new();
                 let mut success_count = 0;
                 
+                // Print └─ before images to break out of tool output box
+                println!("└─");
+                
                 for path_str in &paths {
                     // Expand tilde (~) to home directory
                     let expanded_path = shellexpand::tilde(path_str);
@@ -5105,13 +5108,21 @@ impl<W: UiWriter> Agent<W> {
                     }
                 }
                 
+                // Print ┌─ to resume tool output box
+                print!("┌─\n");
+                
                 let summary = if success_count == paths.len() {
-                    format!("\n{} image(s) read.", success_count)
+                    format!("{} image(s) read.", success_count)
                 } else {
-                    format!("\n{}/{} image(s) read.", success_count, paths.len())
+                    format!("{}/{} image(s) read.", success_count, paths.len())
                 };
                 
-                Ok(format!("{}\n{}", results.join("\n"), summary))
+                // Only include error results if there are any
+                if results.is_empty() {
+                    Ok(summary)
+                } else {
+                    Ok(format!("{}\n{}", results.join("\n"), summary))
+                }
             }
             "write_file" => {
                 debug!("Processing write_file tool call");
@@ -6762,10 +6773,10 @@ impl<W: UiWriter> Agent<W> {
         let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
         // iTerm2 inline image protocol (single space prefix)
         print!(" \x1b]1337;File=inline=1;height={};name={}:{}\x07\n", max_height, name, encoded);
-        // Print dimmed info line on its own line
-        println!("│ \x1b[2m{} | {} | {} | {}\x1b[0m", name, dimensions, media_type, size);
-        // Blank line before next image
-        println!("│");
+        // Print dimmed info line (no │ prefix)
+        println!(" \x1b[2m{} | {} | {} | {}\x1b[0m", name, dimensions, media_type, size);
+        // Blank line before next image (no │ prefix)
+        println!();
     }
 
     fn format_duration(duration: Duration) -> String {
