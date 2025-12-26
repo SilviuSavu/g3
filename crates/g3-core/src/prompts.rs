@@ -259,6 +259,10 @@ Short description for providers without native calling specs:
   - Example: {\"tool\": \"read_file\", \"args\": {\"file_path\": \"src/main.rs\"}
   - Example (partial): {\"tool\": \"read_file\", \"args\": {\"file_path\": \"large.log\", \"start\": 0, \"end\": 1000}
 
+- **read_image**: Read an image file for visual analysis (PNG, JPEG, GIF, WebP)
+  - Format: {\"tool\": \"read_image\", \"args\": {\"file_path\": \"path/to/image.png\"}}
+  - Example: {\"tool\": \"read_image\", \"args\": {\"file_path\": \"sprites/fairy.png\"}}
+
 - **write_file**: Write content to a file (creates or overwrites)
   - Format: {\"tool\": \"write_file\", \"args\": {\"file_path\": \"path/to/file\", \"content\": \"file content\"}
   - Example: {\"tool\": \"write_file\", \"args\": {\"file_path\": \"src/lib.rs\", \"content\": \"pub fn hello() {}\"}

@@ -867,6 +867,8 @@ pub struct Agent<W: UiWriter> {
     /// Working directory for tool execution (set by --codebase-fast-start)
     working_dir: Option<String>,
     background_process_manager: std::sync::Arc<background_process::BackgroundProcessManager>,
+    /// Pending images to attach to the next user message
+    pending_images: Vec<g3_providers::ImageContent>,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -1167,6 +1169,7 @@ impl<W: UiWriter> Agent<W> {
                 background_process::BackgroundProcessManager::new(
                     paths::get_logs_dir().join("background_processes")
                 )),
+            pending_images: Vec::new(),
         })
     }
 
@@ -1774,7 +1777,7 @@ impl<W: UiWriter> Agent<W> {
         }
 
         // Add user message to context window
-        let user_message = {
+        let mut user_message = {
             // Check if we should use cache control (every 10 tool calls)
             // But only if we haven't already added 4 cache_control annotations
             let provider = self.providers.get(None)?;
@@ -1802,6 +1805,12 @@ impl<W: UiWriter> Agent<W> {
                 Message::new(MessageRole::User, format!("Task: {}", description))
             }
         };
+        
+        // Attach any pending images to this user message
+        if !self.pending_images.is_empty() {
+            user_message.images = std::mem::take(&mut self.pending_images);
+        }
+        
         self.context_window.add_message(user_message);
 
         // Execute fast-discovery tool calls if provided (immediately after user message)
@@ -2721,6 +2730,7 @@ impl<W: UiWriter> Agent<W> {
                             self.context_window.add_message(Message {
                                 role,
                                 id: String::new(),
+                                images: Vec::new(),
                                 content: content.to_string(),
                                 cache_control: None,
                             });
@@ -2746,6 +2756,7 @@ impl<W: UiWriter> Agent<W> {
             self.context_window.add_message(Message {
                 role: MessageRole::User,
                 id: String::new(),
+                images: Vec::new(),
                 content: format!("[Session Resumed]\n\n{}", context_msg),
                 cache_control: None,
             });
@@ -2827,6 +2838,21 @@ impl<W: UiWriter> Agent<W> {
                         }
                     },
                     "required": ["file_path"]
+                }),
+            },
+            Tool {
+                name: "read_image".to_string(),
+                description: "Read one or more image files and send them to the LLM for visual analysis. Supports PNG, JPEG, GIF, and WebP formats. Use this when you need to visually inspect images (e.g., find sprites, analyze UI, read diagrams). The images will be included in your next response for analysis.".to_string(),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "file_paths": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Array of paths to image files to read"
+                        }
+                    },
+                    "required": ["file_paths"]
                 }),
             },
             Tool {
@@ -4041,7 +4067,7 @@ impl<W: UiWriter> Agent<W> {
                                     ),
                                 )
                             };
-                            let result_message = {
+                            let mut result_message = {
                                 // Check if we should use cache control (every 10 tool calls)
                                 // But only if we haven't already added 4 cache_control annotations
                                 if self.tool_call_count > 0
@@ -4082,6 +4108,12 @@ impl<W: UiWriter> Agent<W> {
                                     )
                                 }
                             };
+
+                            // Attach any pending images to the result message
+                            // (images loaded via read_image tool)
+                            if !self.pending_images.is_empty() {
+                                result_message.images = std::mem::take(&mut self.pending_images);
+                            }
 
                             // Track tokens before adding messages
                             let tokens_before = self.context_window.used_tokens;
@@ -4978,6 +5010,108 @@ impl<W: UiWriter> Agent<W> {
                 } else {
                     Ok("❌ Missing file_path argument".to_string())
                 }
+            }
+            "read_image" => {
+                debug!("Processing read_image tool call");
+                
+                // Get paths from file_paths array
+                let mut paths: Vec<String> = Vec::new();
+                
+                if let Some(file_paths) = tool_call.args.get("file_paths") {
+                    if let Some(arr) = file_paths.as_array() {
+                        for p in arr {
+                            if let Some(s) = p.as_str() {
+                                paths.push(s.to_string());
+                            }
+                        }
+                    }
+                }
+                
+                if paths.is_empty() {
+                    return Ok("❌ Missing or empty file_paths argument".to_string());
+                }
+                
+                let mut results: Vec<String> = Vec::new();
+                let mut success_count = 0;
+                
+                for path_str in &paths {
+                    // Expand tilde (~) to home directory
+                    let expanded_path = shellexpand::tilde(path_str);
+                    let path = std::path::Path::new(expanded_path.as_ref());
+                    
+                    // Check file exists
+                    if !path.exists() {
+                        results.push(format!("❌ Image file not found: {}", path_str));
+                        continue;
+                    }
+                    
+                    // Read the file first, then detect format from magic bytes
+                    match std::fs::read(path) {
+                        Ok(bytes) => {
+                            // Detect media type from magic bytes (file signature)
+                            let media_type = match g3_providers::ImageContent::media_type_from_bytes(&bytes) {
+                                Some(mt) => mt,
+                                None => {
+                                    // Fall back to extension-based detection
+                                    let ext = path.extension()
+                                        .and_then(|e| e.to_str())
+                                        .unwrap_or("");
+                                    match g3_providers::ImageContent::media_type_from_extension(ext) {
+                                        Some(mt) => mt,
+                                        None => {
+                                            results.push(format!(
+                                                "❌ {}: Unsupported or unrecognized image format",
+                                                path_str
+                                            ));
+                                            continue;
+                                        }
+                                    }
+                                }
+                            };
+                            
+                            let file_size = bytes.len();
+                            
+                            // Try to get image dimensions
+                            let dimensions = Self::get_image_dimensions(&bytes, media_type);
+                            
+                            // Build info string
+                            let dim_str = dimensions
+                                .map(|(w, h)| format!("{}x{}", w, h))
+                                .unwrap_or_else(|| "unknown".to_string());
+                            
+                            let size_str = if file_size >= 1024 * 1024 {
+                                format!("{:.1} MB", file_size as f64 / (1024.0 * 1024.0))
+                            } else if file_size >= 1024 {
+                                format!("{:.1} KB", file_size as f64 / 1024.0)
+                            } else {
+                                format!("{} bytes", file_size)
+                            };
+                            
+                            // Output imgcat inline image to terminal (height constrained)
+                            // followed by info line
+                            Self::print_imgcat(&bytes, path_str, &dim_str, media_type, &size_str, 5);
+                            
+                            // Store the image to be attached to the next user message
+                            use base64::Engine;
+                            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                            let image = g3_providers::ImageContent::new(media_type, encoded);
+                            self.pending_images.push(image);
+                            
+                            success_count += 1;
+                        }
+                        Err(e) => {
+                            results.push(format!("❌ Failed to read '{}': {}", path_str, e));
+                        }
+                    }
+                }
+                
+                let summary = if success_count == paths.len() {
+                    format!("\n{} image(s) read.", success_count)
+                } else {
+                    format!("\n{}/{} image(s) read.", success_count, paths.len())
+                };
+                
+                Ok(format!("{}\n{}", results.join("\n"), summary))
             }
             "write_file" => {
                 debug!("Processing write_file tool call");
@@ -6554,6 +6688,87 @@ impl<W: UiWriter> Agent<W> {
                 Ok(format!("❓ Unknown tool: {}", tool_call.tool))
             }
         }
+    }
+
+
+    /// Get image dimensions from raw bytes
+    fn get_image_dimensions(bytes: &[u8], media_type: &str) -> Option<(u32, u32)> {
+        match media_type {
+            "image/png" => {
+                // PNG: width at bytes 16-19, height at bytes 20-23 (big-endian)
+                if bytes.len() >= 24 {
+                    let width = u32::from_be_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
+                    let height = u32::from_be_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
+                    Some((width, height))
+                } else {
+                    None
+                }
+            }
+            "image/jpeg" => {
+                // JPEG: Need to find SOF0/SOF2 marker (FF C0 or FF C2)
+                let mut i = 2; // Skip FF D8
+                while i + 8 < bytes.len() {
+                    if bytes[i] == 0xFF {
+                        let marker = bytes[i + 1];
+                        // SOF0, SOF1, SOF2 markers contain dimensions
+                        if marker == 0xC0 || marker == 0xC1 || marker == 0xC2 {
+                            let height = u16::from_be_bytes([bytes[i + 5], bytes[i + 6]]) as u32;
+                            let width = u16::from_be_bytes([bytes[i + 7], bytes[i + 8]]) as u32;
+                            return Some((width, height));
+                        }
+                        // Skip to next marker
+                        if marker == 0xD8 || marker == 0xD9 || marker == 0x01 || (0xD0..=0xD7).contains(&marker) {
+                            i += 2;
+                        } else {
+                            let len = u16::from_be_bytes([bytes[i + 2], bytes[i + 3]]) as usize;
+                            i += 2 + len;
+                        }
+                    } else {
+                        i += 1;
+                    }
+                }
+                None
+            }
+            "image/gif" => {
+                // GIF: width at bytes 6-7, height at bytes 8-9 (little-endian)
+                if bytes.len() >= 10 {
+                    let width = u16::from_le_bytes([bytes[6], bytes[7]]) as u32;
+                    let height = u16::from_le_bytes([bytes[8], bytes[9]]) as u32;
+                    Some((width, height))
+                } else {
+                    None
+                }
+            }
+            "image/webp" => {
+                // WebP VP8: dimensions at specific offsets (simplified)
+                // This is a basic implementation - WebP format is complex
+                if bytes.len() >= 30 && &bytes[12..16] == b"VP8 " {
+                    // Lossy WebP
+                    let width = (u16::from_le_bytes([bytes[26], bytes[27]]) & 0x3FFF) as u32;
+                    let height = (u16::from_le_bytes([bytes[28], bytes[29]]) & 0x3FFF) as u32;
+                    Some((width, height))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Print image using iTerm2 imgcat protocol
+    /// Print image using iTerm2 imgcat protocol with info line
+    fn print_imgcat(bytes: &[u8], name: &str, dimensions: &str, media_type: &str, size: &str, max_height: u32) {
+        use base64::Engine;
+        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+        // Print 3 lines of │ prefix before image for visual alignment
+        println!("│");
+        println!("│");
+        // iTerm2 inline image protocol
+        print!("│ \x1b]1337;File=inline=1;height={};name={}:{}\x07", max_height, name, encoded);
+        // Print dimmed info line (no checkmark)
+        println!("│ \x1b[2m{} | {} | {} | {}\x1b[0m", name, dimensions, media_type, size);
+        // Blank line before next image
+        println!("│");
     }
 
     fn format_duration(duration: Duration) -> String {

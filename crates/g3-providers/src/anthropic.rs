@@ -274,15 +274,29 @@ impl AnthropicProvider {
                     }
                 }
                 MessageRole::User => {
+                    // Build content blocks - images first, then text
+                    let mut content_blocks: Vec<AnthropicContent> = Vec::new();
+                    
+                    // Add any images attached to this message
+                    for image in &message.images {
+                        content_blocks.push(AnthropicContent::Image {
+                            source: AnthropicImageSource {
+                                source_type: "base64".to_string(),
+                                media_type: image.media_type.clone(),
+                                data: image.data.clone(),
+                            },
+                        });
+                    }
+                    
+                    // Add text content
+                    content_blocks.push(AnthropicContent::Text {
+                        text: message.content.clone(),
+                        cache_control: message.cache_control.as_ref().map(Self::convert_cache_control),
+                    });
+                    
                     anthropic_messages.push(AnthropicMessage {
                         role: "user".to_string(),
-                        content: vec![AnthropicContent::Text {
-                            text: message.content.clone(),
-                            cache_control: message
-                                .cache_control
-                                .as_ref()
-                                .map(Self::convert_cache_control),
-                        }],
+                        content: content_blocks,
                     });
                 }
                 MessageRole::Assistant => {
@@ -924,6 +938,19 @@ enum AnthropicContent {
         name: String,
         input: serde_json::Value,
     },
+    #[serde(rename = "image")]
+    Image {
+        source: AnthropicImageSource,
+    },
+}
+
+/// Image source for Anthropic API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AnthropicImageSource {
+    #[serde(rename = "type")]
+    source_type: String, // Always "base64"
+    media_type: String,  // e.g., "image/png", "image/jpeg"
+    data: String,        // Base64-encoded image data
 }
 
 #[derive(Debug, Deserialize)]

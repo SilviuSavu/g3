@@ -88,6 +88,8 @@ pub struct Message {
     pub role: MessageRole,
     pub content: String,
     #[serde(skip)]
+    pub images: Vec<ImageContent>,
+    #[serde(skip)]
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_control: Option<CacheControl>,
@@ -99,6 +101,65 @@ pub enum MessageRole {
     System,
     User,
     Assistant,
+}
+
+/// Image content for multimodal messages
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageContent {
+    /// Media type (e.g., "image/png", "image/jpeg", "image/gif", "image/webp")
+    pub media_type: String,
+    /// Base64-encoded image data
+    pub data: String,
+}
+
+impl ImageContent {
+    pub fn new(media_type: &str, data: String) -> Self {
+        Self {
+            media_type: media_type.to_string(),
+            data,
+        }
+    }
+
+    /// Detect media type from file extension
+    pub fn media_type_from_extension(ext: &str) -> Option<&'static str> {
+        match ext.to_lowercase().as_str() {
+            "png" => Some("image/png"),
+            "jpg" | "jpeg" => Some("image/jpeg"),
+            "gif" => Some("image/gif"),
+            "webp" => Some("image/webp"),
+            _ => None,
+        }
+    }
+
+    /// Detect media type from image data magic bytes (file signature)
+    /// This is more reliable than file extension as it checks actual content
+    pub fn media_type_from_bytes(bytes: &[u8]) -> Option<&'static str> {
+        if bytes.len() < 12 {
+            return None;
+        }
+
+        // PNG: 89 50 4E 47 0D 0A 1A 0A
+        if bytes.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) {
+            return Some("image/png");
+        }
+
+        // JPEG: FF D8 FF
+        if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+            return Some("image/jpeg");
+        }
+
+        // GIF: 47 49 46 38 (GIF8)
+        if bytes.starts_with(&[0x47, 0x49, 0x46, 0x38]) {
+            return Some("image/gif");
+        }
+
+        // WebP: 52 49 46 46 ... 57 45 42 50 (RIFF....WEBP)
+        if bytes.starts_with(&[0x52, 0x49, 0x46, 0x46]) && bytes.len() >= 12 && &bytes[8..12] == b"WEBP" {
+            return Some("image/webp");
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,6 +235,7 @@ impl Message {
         Self {
             role,
             content,
+            images: Vec::new(),
             id: Self::generate_id(),
             cache_control: None,
         }
@@ -188,6 +250,7 @@ impl Message {
         Self {
             role,
             content,
+            images: Vec::new(),
             id: Self::generate_id(),
             cache_control: Some(cache_control),
         }
