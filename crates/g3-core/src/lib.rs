@@ -3831,12 +3831,9 @@ impl<W: UiWriter> Agent<W> {
                         for (tool_call, duplicate_type) in deduplicated_tools {
                             debug!("Processing completed tool call: {:?}", tool_call);
                             
-                            // Mark that we detected a tool call - this prevents content from being printed
-                            // even if the tool is skipped as a duplicate
-                            tool_executed = true;
-
-
-                            // If it's a duplicate, log it and return a warning
+                            // If it's a duplicate, log it and skip - don't set tool_executed!
+                            // Setting tool_executed for duplicates would trigger auto-continue
+                            // even when no actual tool execution occurred.
                             if let Some(dup_type) = &duplicate_type {
                                 // Log the duplicate with red prefix
                                 let prefixed_tool_name =
@@ -3852,8 +3849,17 @@ impl<W: UiWriter> Agent<W> {
                                 let mut modified_tool_call = tool_call.clone();
                                 modified_tool_call.tool = prefixed_tool_name;
                                 debug!("{}", warning_msg);
+
+                                // Reset the parser to clear any partial/polluted state.
+                                // This prevents "example" tool calls in markdown or LLM stuttering
+                                // from polluting subsequent parsing.
+                                parser.reset();
+
                                 continue; // Skip execution of duplicate
                             }
+
+                            // Mark that we're executing a tool (only for non-duplicates)
+                            tool_executed = true;
 
                             // Check if we should auto-compact at 90% BEFORE executing the tool
                             // We need to do this before any borrows of self
