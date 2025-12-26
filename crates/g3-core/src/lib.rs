@@ -5035,7 +5035,8 @@ impl<W: UiWriter> Agent<W> {
                 let mut success_count = 0;
                 
                 // Print └─ before images to break out of tool output box
-                println!("└─");
+                // Print └─ and newline before images to break out of tool output box
+                println!("└─\n");
                 
                 for path_str in &paths {
                     // Expand tilde (~) to home directory
@@ -6766,15 +6767,19 @@ impl<W: UiWriter> Agent<W> {
         }
     }
 
-    /// Print image using iTerm2 imgcat protocol
     /// Print image using iTerm2 imgcat protocol with info line
     fn print_imgcat(bytes: &[u8], name: &str, dimensions: &str, media_type: &str, size: &str, max_height: u32) {
         use base64::Engine;
         let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+        // Extract just the filename from the path
+        let filename = std::path::Path::new(name)
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or(name);
         // iTerm2 inline image protocol (single space prefix)
         print!(" \x1b]1337;File=inline=1;height={};name={}:{}\x07\n", max_height, name, encoded);
-        // Print dimmed info line (no │ prefix)
-        println!(" \x1b[2m{} | {} | {} | {}\x1b[0m", name, dimensions, media_type, size);
+        // Print dimmed info line with filename only (no │ prefix)
+        println!(" \x1b[2m{} | {} | {} | {}\x1b[0m", filename, dimensions, media_type, size);
         // Blank line before next image (no │ prefix)
         println!();
     }
