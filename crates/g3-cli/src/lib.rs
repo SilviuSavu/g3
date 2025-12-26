@@ -2042,16 +2042,32 @@ fn display_context_progress<W: UiWriter>(agent: &Agent<W>, _output: &SimpleOutpu
         Color::Red
     };
 
+    // Format tokens as compact strings (e.g., "38.5k" instead of "38531")
+    let format_tokens = |tokens: u32| -> String {
+        if tokens >= 1_000_000 {
+            format!("{:.1}m", tokens as f64 / 1_000_000.0)
+        } else if tokens >= 1_000 {
+            let k = tokens as f64 / 1000.0;
+            if k >= 100.0 {
+                format!("{:.0}k", k)
+            } else {
+                format!("{:.1}k", k)
+            }
+        } else {
+            format!("{}", tokens)
+        }
+    };
+
     // Print with colored dots (using print! directly to handle color codes)
     print!(
-        "Context: {}{}{}{} {:.0}% ({}/{} tokens)\n",
+        "{}{}{}{} {}/{} ◉ | {:.0}%\n",
         SetForegroundColor(color),
         filled_str,
         empty_str,
         ResetColor,
-        percentage,
-        context.used_tokens,
-        context.total_tokens
+        format_tokens(context.used_tokens),
+        format_tokens(context.total_tokens),
+        percentage
     );
 }
 
