@@ -6760,12 +6760,9 @@ impl<W: UiWriter> Agent<W> {
     fn print_imgcat(bytes: &[u8], name: &str, dimensions: &str, media_type: &str, size: &str, max_height: u32) {
         use base64::Engine;
         let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-        // Print 3 lines of │ prefix before image for visual alignment
-        println!("│");
-        println!("│");
-        // iTerm2 inline image protocol
-        print!("│ \x1b]1337;File=inline=1;height={};name={}:{}\x07", max_height, name, encoded);
-        // Print dimmed info line (no checkmark)
+        // iTerm2 inline image protocol (single space prefix)
+        print!(" \x1b]1337;File=inline=1;height={};name={}:{}\x07\n", max_height, name, encoded);
+        // Print dimmed info line on its own line
         println!("│ \x1b[2m{} | {} | {} | {}\x1b[0m", name, dimensions, media_type, size);
         // Blank line before next image
         println!("│");
