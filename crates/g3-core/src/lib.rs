@@ -1012,25 +1012,39 @@ impl<W: UiWriter> Agent<W> {
     fn generate_session_id(&self, description: &str) -> String {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
+        use std::time::{SystemTime, UNIX_EPOCH};
 
-        // Clean and truncate the description for a readable filename
-        let clean_description = description
-            .chars()
-            .filter(|c| c.is_alphanumeric() || c.is_whitespace() || *c == '-' || *c == '_')
-            .collect::<String>()
-            .split_whitespace()
-            .take(5) // Take first 5 words
-            .collect::<Vec<_>>()
-            .join("_")
-            .to_lowercase();
+        // For agent mode, use agent name as prefix for clarity
+        // For regular mode, use first 5 words of description
+        let prefix = if let Some(ref agent_name) = self.agent_name {
+            agent_name.clone()
+        } else {
+            description
+                .chars()
+                .filter(|c| c.is_alphanumeric() || c.is_whitespace() || *c == '-' || *c == '_')
+                .collect::<String>()
+                .split_whitespace()
+                .take(5)
+                .collect::<Vec<_>>()
+                .join("_")
+                .to_lowercase()
+        };
 
-        // Create a hash for uniqueness
+        // Create a hash for uniqueness (description + agent name + timestamp)
         let mut hasher = DefaultHasher::new();
         description.hash(&mut hasher);
+        if let Some(ref agent_name) = self.agent_name {
+            agent_name.hash(&mut hasher);
+        }
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        timestamp.hash(&mut hasher);
         let hash = hasher.finish();
 
-        // Format: clean_description_hash
-        format!("{}_{:x}", clean_description, hash)
+        // Format: prefix_hash (agent_name_hash for agents, description_hash for regular)
+        format!("{}_{:x}", prefix, hash)
     }
 
     /// Save the entire context window to a per-session file
@@ -1763,6 +1777,15 @@ impl<W: UiWriter> Agent<W> {
         self.is_agent_mode = true;
         self.agent_name = Some(agent_name.to_string());
         debug!("Agent mode enabled for agent: {}", agent_name);
+    }
+
+    /// Initialize session ID manually (primarily for testing).
+    /// This allows tests to verify session ID generation without calling execute_task,
+    /// which would require an LLM provider.
+    pub fn init_session_id_for_test(&mut self, description: &str) {
+        if self.session_id.is_none() {
+            self.session_id = Some(self.generate_session_id(description));
+        }
     }
 
     /// Clear session state and continuation artifacts (for /clear command)
