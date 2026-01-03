@@ -4,6 +4,7 @@ use anyhow::Result;
 use tracing::debug;
 
 use crate::ui_writer::UiWriter;
+use crate::utils::resolve_path_with_unicode_fallback;
 use crate::utils::apply_unified_diff_to_string;
 use crate::ToolCall;
 
@@ -23,7 +24,9 @@ pub async fn execute_read_file<W: UiWriter>(
 
     // Expand tilde (~) to home directory
     let expanded_path = shellexpand::tilde(file_path);
-    let path_str = expanded_path.as_ref();
+    // Try to resolve with Unicode space fallback (macOS uses U+202F in screenshot names)
+    let resolved_path = resolve_path_with_unicode_fallback(expanded_path.as_ref());
+    let path_str = resolved_path.as_ref();
 
     // Check if this is an image file
     let is_image = path_str.to_lowercase().ends_with(".png")
@@ -166,7 +169,9 @@ pub async fn execute_read_image<W: UiWriter>(
     for path_str in &paths {
         // Expand tilde (~) to home directory
         let expanded_path = shellexpand::tilde(path_str);
-        let path = std::path::Path::new(expanded_path.as_ref());
+        // Try to resolve with Unicode space fallback (macOS uses U+202F in screenshot names)
+        let resolved_path = resolve_path_with_unicode_fallback(expanded_path.as_ref());
+        let path = std::path::Path::new(resolved_path.as_ref());
 
         // Check file exists
         if !path.exists() {

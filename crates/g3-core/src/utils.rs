@@ -8,6 +8,130 @@
 use anyhow::Result;
 use tracing::debug;
 
+/// Normalize Unicode space characters in a file path to regular ASCII spaces.
+///
+/// macOS uses special Unicode space characters in certain filenames:
+/// - U+202F (Narrow No-Break Space) in screenshot filenames before "am"/"pm"
+/// - U+00A0 (No-Break Space) in some contexts
+///
+/// This function replaces these with regular ASCII spaces (0x20) so that
+/// file paths typed or copied by users will match the actual filenames.
+///
+/// # Arguments
+/// * `path` - The file path that may contain Unicode space characters
+///
+/// # Returns
+/// A new string with Unicode spaces normalized to ASCII spaces
+pub fn normalize_path_unicode_spaces(path: &str) -> String {
+    path.chars()
+        .map(|c| match c {
+            '\u{202F}' => ' ', // Narrow No-Break Space
+            '\u{00A0}' => ' ', // No-Break Space
+            '\u{2007}' => ' ', // Figure Space
+            '\u{2008}' => ' ', // Punctuation Space
+            '\u{2009}' => ' ', // Thin Space
+            '\u{200A}' => ' ', // Hair Space
+            '\u{200B}' => ' ', // Zero Width Space (remove)
+            '\u{FEFF}' => ' ', // Zero Width No-Break Space / BOM
+            _ => c,
+        })
+        .collect()
+}
+
+/// Try to resolve a file path, handling Unicode space normalization.
+///
+/// This function attempts to find a file in the following order:
+/// 1. Try the path as-is
+/// 2. If not found and path contains spaces, try with Unicode narrow no-break spaces
+///    (macOS uses U+202F in screenshot filenames)
+///
+/// # Arguments
+/// * `path` - The file path to resolve
+///
+/// # Returns
+/// The resolved path that exists, or the original path if no match found
+pub fn resolve_path_with_unicode_fallback(path: &str) -> std::borrow::Cow<'_, str> {
+    use std::borrow::Cow;
+    use std::path::Path;
+
+    // First, try the path as-is
+    if Path::new(path).exists() {
+        return Cow::Borrowed(path);
+    }
+
+    // If the path contains regular spaces, try replacing them with U+202F
+    // (narrow no-break space) which macOS uses in screenshot filenames
+    if path.contains(' ') {
+        // Try with narrow no-break space before am/pm (common macOS pattern)
+        let unicode_path = path
+            .replace(" am.", "\u{202F}am.")
+            .replace(" pm.", "\u{202F}pm.")
+            .replace(" AM.", "\u{202F}AM.")
+            .replace(" PM.", "\u{202F}PM.");
+        
+        if unicode_path != path && Path::new(&unicode_path).exists() {
+            return Cow::Owned(unicode_path);
+        }
+    }
+
+    // Return original path if no Unicode variant found
+    Cow::Borrowed(path)
+}
+
+/// Resolve file paths within a shell command, handling Unicode space normalization.
+///
+/// This function finds quoted file paths in a shell command and resolves them
+/// using Unicode space fallback (for macOS screenshot filenames with U+202F).
+///
+/// # Arguments
+/// * `command` - The shell command that may contain file paths
+///
+/// # Returns
+/// The command with file paths resolved to their actual filesystem paths
+pub fn resolve_paths_in_shell_command(command: &str) -> String {
+    use std::path::Path;
+
+    let mut result = command.to_string();
+    
+    // Find all double-quoted strings that look like file paths
+    let mut i = 0;
+    let chars: Vec<char> = command.chars().collect();
+    
+    while i < chars.len() {
+        if chars[i] == '"' {
+            // Found start of quoted string
+            let start = i;
+            i += 1;
+            while i < chars.len() && chars[i] != '"' {
+                if chars[i] == '\\' && i + 1 < chars.len() {
+                    i += 2; // Skip escaped character
+                } else {
+                    i += 1;
+                }
+            }
+            if i < chars.len() {
+                // Extract the quoted content (without quotes)
+                let quoted_content: String = chars[start + 1..i].iter().collect();
+                
+                // Check if it looks like a file path and doesn't exist
+                if (quoted_content.starts_with('/') || quoted_content.starts_with('~'))
+                    && !Path::new(&quoted_content).exists()
+                {
+                    let resolved = resolve_path_with_unicode_fallback(&quoted_content);
+                    if resolved.as_ref() != quoted_content {
+                        let old_quoted: String = chars[start..=i].iter().collect();
+                        let new_quoted = format!("\"{}\"", resolved);
+                        result = result.replace(&old_quoted, &new_quoted);
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    
+    result
+}
+
 /// Apply unified diff to an input string with optional [start, end) bounds.
 ///
 /// # Arguments
@@ -436,5 +560,48 @@ mod tests {
         let input = "{'key': 'value'}";
         let result = fix_mixed_quotes_in_json(input);
         assert_eq!(result, "{\"key\": \"value\"}");
+    }
+
+    #[test]
+    fn normalize_path_unicode_spaces_converts_narrow_no_break_space() {
+        // U+202F is Narrow No-Break Space (used by macOS in screenshot filenames)
+        let path_with_unicode = "/Users/test/Screenshot 2025-01-03 at 4.41.27\u{202F}pm.png";
+        let normalized = normalize_path_unicode_spaces(path_with_unicode);
+        assert_eq!(normalized, "/Users/test/Screenshot 2025-01-03 at 4.41.27 pm.png");
+    }
+
+    #[test]
+    fn normalize_path_unicode_spaces_converts_no_break_space() {
+        // U+00A0 is No-Break Space
+        let path_with_unicode = "/Users/test/file\u{00A0}name.txt";
+        let normalized = normalize_path_unicode_spaces(path_with_unicode);
+        assert_eq!(normalized, "/Users/test/file name.txt");
+    }
+
+    #[test]
+    fn normalize_path_unicode_spaces_preserves_regular_spaces() {
+        let path = "/Users/test/file with spaces.txt";
+        let normalized = normalize_path_unicode_spaces(path);
+        assert_eq!(normalized, path);
+    }
+
+    #[test]
+    fn normalize_path_unicode_spaces_handles_multiple_unicode_spaces() {
+        // Multiple different Unicode space types
+        let path = "/Users/test/a\u{202F}b\u{00A0}c\u{2009}d.txt";
+        let normalized = normalize_path_unicode_spaces(path);
+        assert_eq!(normalized, "/Users/test/a b c d.txt");
+    }
+
+    #[test]
+    fn resolve_paths_in_shell_command_preserves_commands_without_paths() {
+        let cmd = "echo hello world";
+        assert_eq!(resolve_paths_in_shell_command(cmd), cmd);
+    }
+
+    #[test]
+    fn resolve_paths_in_shell_command_preserves_existing_paths() {
+        let cmd = "cat \"/etc/hosts\"";
+        assert_eq!(resolve_paths_in_shell_command(cmd), cmd);
     }
 }

@@ -4,6 +4,7 @@ use anyhow::Result;
 use tracing::debug;
 
 use crate::ui_writer::UiWriter;
+use crate::utils::resolve_paths_in_shell_command;
 use crate::utils::shell_escape_command;
 use crate::ToolCall;
 
@@ -22,7 +23,10 @@ pub async fn execute_shell<W: UiWriter>(tool_call: &ToolCall, ctx: &ToolContext<
     };
     
     debug!("Command string: {}", command);
-    let escaped_command = shell_escape_command(command);
+    // First resolve any file paths with Unicode space fallback (macOS screenshot names)
+    let resolved_command = resolve_paths_in_shell_command(command);
+    debug!("Resolved command: {}", resolved_command);
+    let escaped_command = shell_escape_command(&resolved_command);
 
     let executor = g3_execution::CodeExecutor::new();
 
