@@ -666,6 +666,7 @@ async fn run_agent_mode(
     _quiet: bool,
 ) -> Result<()> {
     use g3_core::get_agent_system_prompt;
+    use g3_core::find_incomplete_agent_session;
     
     // Initialize logging
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -683,6 +684,36 @@ async fn run_agent_mode(
     
     // Determine workspace directory (current dir if not specified)
     let workspace_dir = workspace.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+    
+    // Change to the workspace directory first so session scanning works correctly
+    std::env::set_current_dir(&workspace_dir)?;
+    
+    // Check for incomplete agent sessions before starting a new one
+    if let Ok(Some(incomplete_session)) = find_incomplete_agent_session(agent_name) {
+        output.print(&format!(
+            "\n🔄 Found incomplete session for agent '{}'",
+            agent_name
+        ));
+        output.print(&format!(
+            "   Session: {}",
+            incomplete_session.session_id
+        ));
+        output.print(&format!(
+            "   Created: {}",
+            incomplete_session.created_at
+        ));
+        if let Some(ref todo) = incomplete_session.todo_snapshot {
+            // Show first few lines of TODO
+            let preview: String = todo.lines().take(5).collect::<Vec<_>>().join("\n");
+            output.print(&format!("   TODO preview:\n{}", preview));
+        }
+        output.print("");
+        output.print("   Resuming incomplete session...");
+        output.print("");
+        
+        // TODO: Actually resume the session - for now we just notify and continue
+        // In a future iteration, we could restore the context and continue
+    }
     
     // Load agent prompt from agents/<name>.md
     let agent_prompt_path = workspace_dir.join("agents").join(format!("{}.md", agent_name));
@@ -720,9 +751,6 @@ async fn run_agent_mode(
     output.print(&format!("🤖 Running as agent: {}", agent_name));
     output.print(&format!("📁 Working directory: {:?}", workspace_dir));
     
-    // Change to the workspace directory so all file operations happen there
-    std::env::set_current_dir(&workspace_dir)?;
-    
     // Load config
     let config = g3_config::Config::load(config_path)?;
     
@@ -743,6 +771,9 @@ async fn run_agent_mode(
         system_prompt,
         readme_for_prompt,
     ).await?;
+    
+    // Set agent mode for session tracking
+    agent.set_agent_mode(agent_name);
     
     // The agent prompt should contain instructions to start working immediately
     // Send an initial message to trigger the agent

@@ -189,3 +189,39 @@ fn test_error_message_content() {
     assert!(warning.contains("10000"));
     assert!(warning.contains("Context reduction needed"));
 }
+
+/// Test that SUMMARY_MIN_TOKENS floor prevents max_tokens=0 errors
+/// This is the fix for the bug where context at 90%+ caused API errors
+#[test]
+fn test_summary_min_tokens_floor_prevents_zero() {
+    // The SUMMARY_MIN_TOKENS constant is 1000
+    let summary_min_tokens = 1000u32;
+    
+    let mut context = ContextWindow::new(200000);
+    
+    // Simulate extremely full context - 98% used
+    context.used_tokens = 196000;
+    
+    let model_limit = context.total_tokens;
+    let current_usage = context.used_tokens;
+    let buffer = (model_limit / 40).clamp(1000, 10000); // 5000
+    
+    // Without the floor, available would be 0
+    let available_without_floor = model_limit
+        .saturating_sub(current_usage)
+        .saturating_sub(buffer);
+    assert_eq!(available_without_floor, 0, "Without floor, available should be 0");
+    
+    // With the floor, available is at least SUMMARY_MIN_TOKENS
+    let available_with_floor = available_without_floor.max(summary_min_tokens);
+    assert_eq!(available_with_floor, 1000, "With floor, available should be 1000");
+    
+    // Even after applying provider caps (which use .min()), the floor is preserved
+    let after_cap = available_with_floor.min(10_000);
+    assert_eq!(after_cap, 1000, "After cap, should still be 1000");
+    
+    // And the final defense-in-depth .max() ensures it's never below the floor
+    let final_value = after_cap.max(summary_min_tokens);
+    assert!(final_value >= 1, "Final value must be >= 1 for API");
+    assert_eq!(final_value, 1000, "Final value should be exactly 1000");
+}

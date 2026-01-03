@@ -24,6 +24,10 @@ const CONTINUATION_FILENAME: &str = "latest.json";
 pub struct SessionContinuation {
     /// Version of the continuation format
     pub version: String,
+    /// Whether this session was running in agent mode
+    pub is_agent_mode: bool,
+    /// Name of the agent (e.g., "fowler", "pike") if in agent mode
+    pub agent_name: Option<String>,
     /// Timestamp when the continuation was saved
     pub created_at: String,
     /// Original session ID
@@ -43,6 +47,8 @@ pub struct SessionContinuation {
 impl SessionContinuation {
     /// Create a new session continuation artifact
     pub fn new(
+        is_agent_mode: bool,
+        agent_name: Option<String>,
         session_id: String,
         final_output_summary: Option<String>,
         session_log_path: String,
@@ -52,6 +58,8 @@ impl SessionContinuation {
     ) -> Self {
         Self {
             version: CONTINUATION_VERSION.to_string(),
+            is_agent_mode,
+            agent_name,
             created_at: chrono::Utc::now().to_rfc3339(),
             session_id,
             final_output_summary,
@@ -65,6 +73,14 @@ impl SessionContinuation {
     /// Check if the context can be fully restored (< 80% used)
     pub fn can_restore_full_context(&self) -> bool {
         self.context_percentage < 80.0
+    }
+
+    /// Check if this session has incomplete TODO items
+    pub fn has_incomplete_todos(&self) -> bool {
+        match &self.todo_snapshot {
+            Some(todo) => todo.contains("- [ ]"),
+            None => false,
+        }
     }
 }
 
@@ -272,6 +288,76 @@ pub fn load_context_from_session_log(session_log_path: &Path) -> Result<Option<s
     Ok(Some(session_data))
 }
 
+/// Find an incomplete agent session for the given agent name.
+/// Returns the most recent session that:
+/// 1. Was running in agent mode with the matching agent name
+/// 2. Has incomplete TODO items (contains "- [ ]")
+/// 3. Is in the same working directory
+pub fn find_incomplete_agent_session(agent_name: &str) -> Result<Option<SessionContinuation>> {
+    let sessions_dir = get_sessions_dir();
+    
+    if !sessions_dir.exists() {
+        debug!("Sessions directory does not exist: {:?}", sessions_dir);
+        return Ok(None);
+    }
+    
+    let current_dir = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    
+    let mut candidates: Vec<SessionContinuation> = Vec::new();
+    
+    // Scan all session directories
+    for entry in std::fs::read_dir(&sessions_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        if !path.is_dir() {
+            continue;
+        }
+        
+        // Check for latest.json in this session directory
+        let latest_path = path.join(CONTINUATION_FILENAME);
+        if !latest_path.exists() {
+            continue;
+        }
+        
+        // Try to load the continuation
+        let json = match std::fs::read_to_string(&latest_path) {
+            Ok(j) => j,
+            Err(_) => continue,
+        };
+        
+        let continuation: SessionContinuation = match serde_json::from_str(&json) {
+            Ok(c) => c,
+            Err(_) => continue, // Skip sessions with old format
+        };
+        
+        // Check if this is an agent mode session with matching name
+        if !continuation.is_agent_mode {
+            continue;
+        }
+        
+        if continuation.agent_name.as_deref() != Some(agent_name) {
+            continue;
+        }
+        
+        // Check if in same working directory
+        if continuation.working_directory != current_dir {
+            continue;
+        }
+        
+        // Check if has incomplete TODOs
+        if continuation.has_incomplete_todos() {
+            candidates.push(continuation);
+        }
+    }
+    
+    // Sort by created_at descending and return the most recent
+    candidates.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(candidates.into_iter().next())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,6 +365,8 @@ mod tests {
     #[test]
     fn test_session_continuation_creation() {
         let continuation = SessionContinuation::new(
+            false,
+            None,
             "test_session_123".to_string(),
             Some("Task completed successfully".to_string()),
             "/path/to/session.json".to_string(),
@@ -295,6 +383,8 @@ mod tests {
     #[test]
     fn test_can_restore_full_context() {
         let mut continuation = SessionContinuation::new(
+            false,
+            None,
             "test".to_string(),
             None,
             "path".to_string(),
@@ -310,5 +400,27 @@ mod tests {
         
         continuation.context_percentage = 95.0;
         assert!(!continuation.can_restore_full_context()); // 95% >= 80%
+    }
+
+    #[test]
+    fn test_has_incomplete_todos() {
+        let mut continuation = SessionContinuation::new(
+            true,
+            Some("fowler".to_string()),
+            "test".to_string(),
+            None,
+            "path".to_string(),
+            50.0,
+            Some("- [x] Done\n- [ ] Not done".to_string()),
+            ".".to_string(),
+        );
+        
+        assert!(continuation.has_incomplete_todos());
+        
+        continuation.todo_snapshot = Some("- [x] All done".to_string());
+        assert!(!continuation.has_incomplete_todos());
+        
+        continuation.todo_snapshot = None;
+        assert!(!continuation.has_incomplete_todos());
     }
 }

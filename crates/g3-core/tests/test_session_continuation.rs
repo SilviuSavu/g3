@@ -31,7 +31,7 @@ fn teardown_test_env(original_dir: std::path::PathBuf) {
 #[test]
 fn test_session_continuation_creation() {
     // This test doesn't need file system access
-    let continuation = SessionContinuation::new(
+    let continuation = SessionContinuation::new(false, None, 
         "test_session_123".to_string(),
         Some("Task completed successfully".to_string()),
         "/path/to/session.json".to_string(),
@@ -63,7 +63,7 @@ fn test_can_restore_full_context_threshold() {
     ];
 
     for (percentage, expected) in test_cases {
-        let continuation = SessionContinuation::new(
+        let continuation = SessionContinuation::new(false, None, 
             "test".to_string(),
             None,
             "path".to_string(),
@@ -85,7 +85,7 @@ fn test_save_and_load_continuation() {
     let _lock = TEST_MUTEX.lock().unwrap();
     let (temp_dir, original_dir) = setup_test_env();
 
-    let original = SessionContinuation::new(
+    let original = SessionContinuation::new(false, None, 
         "save_load_test".to_string(),
         Some("Test summary content".to_string()),
         "/logs/g3_session_save_load_test.json".to_string(),
@@ -118,9 +118,110 @@ fn test_save_and_load_continuation() {
 }
 
 #[test]
+fn test_find_incomplete_agent_session() {
+    use g3_core::session_continuation::find_incomplete_agent_session;
+    
+    let _lock = TEST_MUTEX.lock().unwrap();
+    let (temp_dir, original_dir) = setup_test_env();
+
+    // Get the actual current directory (after set_current_dir in setup)
+    let current_working_dir = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Create an agent mode session with incomplete TODOs
+    let agent_session = SessionContinuation::new(
+        true,  // is_agent_mode
+        Some("fowler".to_string()),  // agent_name
+        "fowler_session_1".to_string(),
+        Some("Working on task".to_string()),
+        "/path/to/session.json".to_string(),
+        50.0,
+        Some("- [x] Done\n- [ ] Not done yet".to_string()),  // incomplete TODO
+        current_working_dir,  // Use actual current dir
+    );
+    save_continuation(&agent_session).expect("Failed to save agent session");
+
+    // Should find the incomplete session for "fowler"
+    let result = find_incomplete_agent_session("fowler").expect("Failed to search");
+    assert!(result.is_some(), "Should find incomplete fowler session");
+    let found = result.unwrap();
+    assert_eq!(found.session_id, "fowler_session_1");
+    assert_eq!(found.agent_name, Some("fowler".to_string()));
+
+    // Should NOT find session for different agent
+    let result = find_incomplete_agent_session("pike").expect("Failed to search");
+    assert!(result.is_none(), "Should not find session for pike");
+
+    teardown_test_env(original_dir);
+}
+
+#[test]
+fn test_find_incomplete_agent_session_ignores_complete_todos() {
+    use g3_core::session_continuation::find_incomplete_agent_session;
+    
+    let _lock = TEST_MUTEX.lock().unwrap();
+    let (temp_dir, original_dir) = setup_test_env();
+
+    let current_working_dir = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Create an agent mode session with ALL TODOs complete
+    let complete_session = SessionContinuation::new(
+        true,
+        Some("fowler".to_string()),
+        "fowler_complete".to_string(),
+        Some("All done".to_string()),
+        "/path/to/session.json".to_string(),
+        50.0,
+        Some("- [x] Task 1\n- [x] Task 2".to_string()),  // all complete
+        current_working_dir,
+    );
+    save_continuation(&complete_session).expect("Failed to save");
+
+    // Should NOT find session since all TODOs are complete
+    let result = find_incomplete_agent_session("fowler").expect("Failed to search");
+    assert!(result.is_none(), "Should not find session with complete TODOs");
+
+    teardown_test_env(original_dir);
+}
+
+#[test]
+fn test_find_incomplete_agent_session_ignores_non_agent_mode() {
+    use g3_core::session_continuation::find_incomplete_agent_session;
+    
+    let _lock = TEST_MUTEX.lock().unwrap();
+    let (temp_dir, original_dir) = setup_test_env();
+
+    let current_working_dir = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // Create a NON-agent mode session with incomplete TODOs
+    let non_agent_session = SessionContinuation::new(
+        false,  // NOT agent mode
+        None,
+        "regular_session".to_string(),
+        None,
+        "/path/to/session.json".to_string(),
+        50.0,
+        Some("- [ ] Incomplete task".to_string()),
+        current_working_dir,
+    );
+    save_continuation(&non_agent_session).expect("Failed to save");
+
+    // Should NOT find session since it's not agent mode
+    let result = find_incomplete_agent_session("fowler").expect("Failed to search");
+    assert!(result.is_none(), "Should not find non-agent-mode session");
+
+    teardown_test_env(original_dir);
+}
+
+#[test]
 fn test_load_continuation_when_none_exists() {
     let _lock = TEST_MUTEX.lock().unwrap();
-    let (_temp_dir, original_dir) = setup_test_env();
+    let (temp_dir, original_dir) = setup_test_env();
 
     // No continuation should exist in a fresh temp directory
     let result = load_continuation().expect("load_continuation should not error");
@@ -132,10 +233,10 @@ fn test_load_continuation_when_none_exists() {
 #[test]
 fn test_clear_continuation() {
     let _lock = TEST_MUTEX.lock().unwrap();
-    let (_temp_dir, original_dir) = setup_test_env();
+    let (temp_dir, original_dir) = setup_test_env();
 
     // Create and save a continuation
-    let continuation = SessionContinuation::new(
+    let continuation = SessionContinuation::new(false, None, 
         "clear_test".to_string(),
         Some("Will be cleared".to_string()),
         "/path/to/session.json".to_string(),
@@ -187,10 +288,10 @@ fn test_ensure_session_dir_creates_g3_directory() {
 #[test]
 fn test_has_valid_continuation_with_missing_session_log() {
     let _lock = TEST_MUTEX.lock().unwrap();
-    let (_temp_dir, original_dir) = setup_test_env();
+    let (temp_dir, original_dir) = setup_test_env();
 
     // Create a continuation pointing to a non-existent session log
-    let continuation = SessionContinuation::new(
+    let continuation = SessionContinuation::new(false, None, 
         "invalid_test".to_string(),
         Some("Summary".to_string()),
         "/nonexistent/path/session.json".to_string(),
@@ -218,7 +319,7 @@ fn test_has_valid_continuation_with_existing_session_log() {
     fs::write(&session_log_path, "{}").expect("Failed to write session log");
 
     // Create a continuation pointing to the existing session log
-    let continuation = SessionContinuation::new(
+    let continuation = SessionContinuation::new(false, None, 
         "valid_test".to_string(),
         Some("Summary".to_string()),
         session_log_path.to_string_lossy().to_string(),
@@ -237,9 +338,9 @@ fn test_has_valid_continuation_with_existing_session_log() {
 #[test]
 fn test_continuation_serialization_format() {
     let _lock = TEST_MUTEX.lock().unwrap();
-    let (_temp_dir, original_dir) = setup_test_env();
+    let (temp_dir, original_dir) = setup_test_env();
 
-    let continuation = SessionContinuation::new(
+    let continuation = SessionContinuation::new(false, None, 
         "format_test".to_string(),
         Some("Test summary".to_string()),
         "/path/to/session.json".to_string(),
@@ -273,7 +374,7 @@ fn test_multiple_saves_update_symlink() {
     let (temp_dir, original_dir) = setup_test_env();
 
     // Save first continuation
-    let first = SessionContinuation::new(
+    let first = SessionContinuation::new(false, None, 
         "first_session".to_string(),
         Some("First summary".to_string()),
         "/path/first.json".to_string(),
@@ -289,7 +390,7 @@ fn test_multiple_saves_update_symlink() {
     assert!(first_target.to_string_lossy().contains("first_session"));
 
     // Save second continuation (should update symlink)
-    let second = SessionContinuation::new(
+    let second = SessionContinuation::new(false, None, 
         "second_session".to_string(),
         Some("Second summary".to_string()),
         "/path/second.json".to_string(),
@@ -334,7 +435,7 @@ fn test_symlink_migration_from_old_directory() {
         .expect("Failed to write old latest.json");
 
     // Save a new continuation - this should migrate the old directory to a symlink
-    let continuation = SessionContinuation::new(
+    let continuation = SessionContinuation::new(false, None, 
         "new_session".to_string(),
         Some("New summary".to_string()),
         "/path/to/session.json".to_string(),

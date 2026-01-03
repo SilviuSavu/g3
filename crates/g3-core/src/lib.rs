@@ -10,6 +10,7 @@ pub mod session_continuation;
 pub mod streaming_parser;
 pub mod task_result;
 pub mod tool_definitions;
+pub mod tools;
 pub mod ui_writer;
 pub mod utils;
 pub mod webdriver_session;
@@ -17,7 +18,7 @@ pub mod webdriver_session;
 pub use task_result::TaskResult;
 pub use retry::{RetryConfig, RetryResult, execute_with_retry, retry_operation};
 pub use feedback_extraction::{ExtractedFeedback, FeedbackSource, FeedbackExtractionConfig, extract_coach_feedback};
-pub use session_continuation::{SessionContinuation, load_continuation, save_continuation, clear_continuation, has_valid_continuation, get_session_dir, load_context_from_session_log};
+pub use session_continuation::{SessionContinuation, load_continuation, save_continuation, clear_continuation, has_valid_continuation, get_session_dir, load_context_from_session_log, find_incomplete_agent_session};
 
 // Re-export context window types
 pub use context_window::{ContextWindow, ThinScope};
@@ -117,9 +118,17 @@ pub struct Agent<W: UiWriter> {
     background_process_manager: std::sync::Arc<background_process::BackgroundProcessManager>,
     /// Pending images to attach to the next user message
     pending_images: Vec<g3_providers::ImageContent>,
+    /// Whether this agent is running in agent mode (--agent flag)
+    is_agent_mode: bool,
+    /// Name of the agent if running in agent mode (e.g., "fowler", "pike")
+    agent_name: Option<String>,
 }
 
 impl<W: UiWriter> Agent<W> {
+    /// Minimum tokens for summary requests to avoid API errors when context is nearly full.
+    /// This ensures max_tokens is never 0 even when context usage is 90%+.
+    const SUMMARY_MIN_TOKENS: u32 = 1000;
+
     pub async fn new(config: Config, ui_writer: W) -> Result<Self> {
         Self::new_with_mode(config, ui_writer, false, false).await
     }
@@ -418,6 +427,8 @@ impl<W: UiWriter> Agent<W> {
                     paths::get_logs_dir().join("background_processes")
                 )),
             pending_images: Vec::new(),
+            is_agent_mode: false,
+            agent_name: None,
         })
     }
 
@@ -606,6 +617,9 @@ impl<W: UiWriter> Agent<W> {
     /// Calculate max_tokens for a summary request, ensuring it satisfies the thinking constraint.
     /// Applies fallback sequence: thinnify -> skinnify -> hard-coded minimum
     /// Returns (max_tokens, whether_fallback_was_used)
+    /// 
+    /// IMPORTANT: Always returns at least SUMMARY_MIN_TOKENS to avoid API errors
+    /// when context is nearly full (90%+).
     fn calculate_summary_max_tokens(
         &mut self,
         provider_name: &str,
@@ -621,7 +635,10 @@ impl<W: UiWriter> Agent<W> {
         let available = model_limit
             .saturating_sub(current_usage)
             .saturating_sub(buffer);
-        // Use the smaller of available tokens or configured max_tokens,
+        // Ensure we have at least a minimum floor for summary requests
+        // This prevents max_tokens=0 errors when context is 90%+ full
+        let available = available.max(Self::SUMMARY_MIN_TOKENS);
+        // Use the smaller of available tokens (with floor) or configured max_tokens,
         // but ensure we don't go below thinking budget floor for Anthropic
         let proposed_max_tokens = available.min(configured_max_tokens);
         let proposed_max_tokens = if provider_name == "anthropic" {
@@ -1554,6 +1571,9 @@ impl<W: UiWriter> Agent<W> {
             _ => summary_max_tokens.min(5000),
         };
 
+        // Ensure minimum floor as defense-in-depth (primary protection is in calculate_summary_max_tokens)
+        summary_max_tokens = summary_max_tokens.max(Self::SUMMARY_MIN_TOKENS);
+
         debug!(
             "Requesting summary with max_tokens: {} (current usage: {} tokens)",
             summary_max_tokens, self.context_window.used_tokens
@@ -1912,6 +1932,8 @@ impl<W: UiWriter> Agent<W> {
             .unwrap_or_else(|_| ".".to_string());
         
         let continuation = SessionContinuation::new(
+            self.is_agent_mode,
+            self.agent_name.clone(),
             session_id,
             final_output_summary,
             session_log_path.to_string_lossy().to_string(),
@@ -1927,6 +1949,14 @@ impl<W: UiWriter> Agent<W> {
         }
     }
     
+    /// Set agent mode information for session tracking
+    /// Called when running with --agent flag to enable agent-specific session resume
+    pub fn set_agent_mode(&mut self, agent_name: &str) {
+        self.is_agent_mode = true;
+        self.agent_name = Some(agent_name.to_string());
+        debug!("Agent mode enabled for agent: {}", agent_name);
+    }
+
     /// Clear session state and continuation artifacts (for /clear command)
     pub fn clear_session(&mut self) {
         use crate::session_continuation::clear_continuation;
@@ -2157,6 +2187,9 @@ impl<W: UiWriter> Agent<W> {
                     "embedded" => summary_max_tokens.min(3000),
                     _ => summary_max_tokens.min(5000),
                 };
+
+                // Ensure minimum floor as defense-in-depth (primary protection is in calculate_summary_max_tokens)
+                summary_max_tokens = summary_max_tokens.max(Self::SUMMARY_MIN_TOKENS);
 
                 debug!(
                     "Requesting summary with max_tokens: {} (current usage: {} tokens)",
