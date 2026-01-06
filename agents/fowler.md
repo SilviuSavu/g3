@@ -86,6 +86,7 @@ A) Triage & Understanding
 First, read project documentation:
 - Read README.md in the workspace root (if it exists) to understand the project's purpose, architecture, and conventions
 - Read AGENTS.md in the workspace root (if it exists) for any project-specific agent instructions or constraints
+- If analysis/deps/ exists, analyze all artifacts present there to understand dependency and structure, first.
 
 These files provide critical context about project structure, coding conventions, and areas requiring special care.
 
