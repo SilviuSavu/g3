@@ -1,0 +1,399 @@
+{
+  "metadata": {
+    "generated_at": "2025-01-13T00:00:00Z",
+    "tool": "g3-euler-structural-analysis",
+    "version": "1.0.0",
+    "workspace_root": ".",
+    "extraction_method": "static-cargo-toml-and-use-statements"
+  },
+  "crates": {
+    "g3": {
+      "path": ".",
+      "type": "binary",
+      "description": "Root binary crate - entry point"
+    },
+    "g3-cli": {
+      "path": "crates/g3-cli",
+      "type": "library",
+      "description": "CLI interface for G3 AI coding agent"
+    },
+    "g3-core": {
+      "path": "crates/g3-core",
+      "type": "library",
+      "description": "Core engine for G3 AI coding agent"
+    },
+    "g3-providers": {
+      "path": "crates/g3-providers",
+      "type": "library",
+      "description": "LLM provider abstractions for G3 AI coding agent"
+    },
+    "g3-config": {
+      "path": "crates/g3-config",
+      "type": "library",
+      "description": "Configuration management for G3 AI coding agent"
+    },
+    "g3-execution": {
+      "path": "crates/g3-execution",
+      "type": "library",
+      "description": "Code execution engine for G3 AI agent"
+    },
+    "g3-computer-control": {
+      "path": "crates/g3-computer-control",
+      "type": "library",
+      "description": "Computer control capabilities (mouse, keyboard, UI)"
+    },
+    "g3-console": {
+      "path": "crates/g3-console",
+      "type": "library+binary",
+      "description": "Web console for monitoring and managing g3 instances"
+    },
+    "g3-ensembles": {
+      "path": "crates/g3-ensembles",
+      "type": "library",
+      "description": "Multi-agent ensemble functionality for G3"
+    },
+    "g3-planner": {
+      "path": "crates/g3-planner",
+      "type": "library",
+      "description": "Fast-discovery planner for G3 AI coding agent"
+    }
+  },
+  "crate_dependencies": [
+    {
+      "from": "g3",
+      "to": "g3-cli",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-cli = { path = \"crates/g3-cli\" }"
+    },
+    {
+      "from": "g3",
+      "to": "g3-providers",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-providers = { path = \"crates/g3-providers\" }"
+    },
+    {
+      "from": "g3-cli",
+      "to": "g3-core",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-core = { path = \"../g3-core\" }"
+    },
+    {
+      "from": "g3-cli",
+      "to": "g3-config",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-config = { path = \"../g3-config\" }"
+    },
+    {
+      "from": "g3-cli",
+      "to": "g3-planner",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-planner = { path = \"../g3-planner\" }"
+    },
+    {
+      "from": "g3-cli",
+      "to": "g3-providers",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-providers = { path = \"../g3-providers\" }"
+    },
+    {
+      "from": "g3-cli",
+      "to": "g3-ensembles",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-ensembles = { path = \"../g3-ensembles\" }"
+    },
+    {
+      "from": "g3-core",
+      "to": "g3-providers",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-providers = { path = \"../g3-providers\" }"
+    },
+    {
+      "from": "g3-core",
+      "to": "g3-config",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-config = { path = \"../g3-config\" }"
+    },
+    {
+      "from": "g3-core",
+      "to": "g3-execution",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-execution = { path = \"../g3-execution\" }"
+    },
+    {
+      "from": "g3-core",
+      "to": "g3-computer-control",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-computer-control = { path = \"../g3-computer-control\" }"
+    },
+    {
+      "from": "g3-ensembles",
+      "to": "g3-core",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-core = { path = \"../g3-core\" }"
+    },
+    {
+      "from": "g3-ensembles",
+      "to": "g3-config",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-config = { path = \"../g3-config\" }"
+    },
+    {
+      "from": "g3-planner",
+      "to": "g3-providers",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-providers = { path = \"../g3-providers\" }"
+    },
+    {
+      "from": "g3-planner",
+      "to": "g3-core",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-core = { path = \"../g3-core\" }"
+    },
+    {
+      "from": "g3-planner",
+      "to": "g3-config",
+      "type": "internal",
+      "evidence": "Cargo.toml: g3-config = { path = \"../g3-config\" }"
+    }
+  ],
+  "external_dependencies": {
+    "g3": ["tokio", "anyhow", "serde_json"],
+    "g3-cli": ["clap", "tokio", "anyhow", "tracing", "tracing-subscriber", "serde", "serde_json", "rustyline", "dirs", "tokio-util", "sha2", "hex", "indicatif", "chrono", "crossterm", "ratatui", "termimad", "regex"],
+    "g3-core": ["tokio", "reqwest", "anyhow", "thiserror", "tracing", "serde", "serde_json", "uuid", "async-trait", "tokio-stream", "tokio-util", "futures-util", "chrono", "rand", "regex", "shellexpand", "serde_yaml", "tree-sitter", "tree-sitter-rust", "tree-sitter-python", "tree-sitter-javascript", "tree-sitter-typescript", "tree-sitter-go", "tree-sitter-java", "tree-sitter-c", "tree-sitter-cpp", "tree-sitter-haskell", "tree-sitter-scheme", "streaming-iterator", "walkdir", "const_format", "base64"],
+    "g3-providers": ["tokio", "reqwest", "anyhow", "thiserror", "serde", "serde_json", "tracing", "async-trait", "tokio-stream", "futures-util", "bytes", "axum", "base64", "chrono", "sha2", "url", "webbrowser", "nanoid", "serde_urlencoded", "tokio-util", "dirs", "llama_cpp", "shellexpand", "rand"],
+    "g3-config": ["config", "serde", "anyhow", "thiserror", "toml", "shellexpand", "dirs"],
+    "g3-execution": ["tokio", "anyhow", "futures", "thiserror", "tracing", "regex", "tempfile"],
+    "g3-computer-control": ["tokio", "anyhow", "thiserror", "serde", "serde_json", "tracing", "uuid", "shellexpand", "async-trait", "fantoccini", "core-graphics", "core-foundation", "cocoa", "objc", "accessibility", "image", "x11", "windows"],
+    "g3-console": ["tokio", "axum", "tower", "tower-http", "serde", "serde_json", "clap", "anyhow", "thiserror", "tracing", "tracing-subscriber", "sysinfo", "libc", "notify", "uuid", "chrono", "regex", "dirs", "open"],
+    "g3-ensembles": ["clap", "tokio", "anyhow", "tracing", "serde", "serde_json", "chrono", "uuid"],
+    "g3-planner": ["serde", "serde_json", "const_format", "anyhow", "tokio", "chrono", "shellexpand"]
+  },
+  "modules": {
+    "g3-core": [
+      "context_window",
+      "background_process",
+      "code_search",
+      "error_handling",
+      "feedback_extraction",
+      "paths",
+      "project",
+      "provider_config",
+      "retry",
+      "session_continuation",
+      "streaming_parser",
+      "task_result",
+      "tool_dispatch",
+      "tool_definitions",
+      "tools",
+      "ui_writer",
+      "utils",
+      "webdriver_session",
+      "prompts"
+    ],
+    "g3-core/tools": [
+      "executor",
+      "file_ops",
+      "misc",
+      "shell",
+      "todo",
+      "webdriver"
+    ],
+    "g3-core/code_search": [
+      "mod",
+      "searcher"
+    ],
+    "g3-cli": [
+      "filter_json",
+      "machine_ui_writer",
+      "retro_tui",
+      "simple_output",
+      "theme",
+      "tui",
+      "ui_writer_impl"
+    ],
+    "g3-providers": [
+      "anthropic",
+      "databricks",
+      "embedded",
+      "oauth",
+      "openai"
+    ],
+    "g3-computer-control": [
+      "macax",
+      "ocr",
+      "platform",
+      "types",
+      "webdriver"
+    ],
+    "g3-computer-control/macax": [
+      "mod",
+      "controller"
+    ],
+    "g3-computer-control/ocr": [
+      "mod",
+      "tesseract",
+      "vision"
+    ],
+    "g3-computer-control/platform": [
+      "mod",
+      "linux",
+      "macos",
+      "windows"
+    ],
+    "g3-computer-control/webdriver": [
+      "mod",
+      "chrome",
+      "safari"
+    ],
+    "g3-console": [
+      "api",
+      "launch",
+      "logs",
+      "models",
+      "process"
+    ],
+    "g3-console/api": [
+      "mod",
+      "control",
+      "instances",
+      "logs",
+      "state"
+    ],
+    "g3-console/models": [
+      "mod",
+      "instance",
+      "message"
+    ],
+    "g3-console/process": [
+      "mod",
+      "controller",
+      "detector"
+    ],
+    "g3-ensembles": [
+      "flock",
+      "status",
+      "tests"
+    ],
+    "g3-planner": [
+      "code_explore",
+      "git",
+      "history",
+      "llm",
+      "planner",
+      "prompts",
+      "state"
+    ],
+    "g3-config": [],
+    "g3-execution": []
+  },
+  "files": {
+    "g3-core": [
+      "src/lib.rs",
+      "src/background_process.rs",
+      "src/code_search/mod.rs",
+      "src/code_search/searcher.rs",
+      "src/context_window.rs",
+      "src/error_handling.rs",
+      "src/feedback_extraction.rs",
+      "src/paths.rs",
+      "src/project.rs",
+      "src/prompts.rs",
+      "src/provider_config.rs",
+      "src/retry.rs",
+      "src/session_continuation.rs",
+      "src/streaming_parser.rs",
+      "src/task_result.rs",
+      "src/tool_definitions.rs",
+      "src/tool_dispatch.rs",
+      "src/tools/executor.rs",
+      "src/tools/file_ops.rs",
+      "src/tools/misc.rs",
+      "src/tools/mod.rs",
+      "src/tools/shell.rs",
+      "src/tools/todo.rs",
+      "src/tools/webdriver.rs",
+      "src/ui_writer.rs",
+      "src/utils.rs",
+      "src/webdriver_session.rs"
+    ],
+    "g3-cli": [
+      "src/lib.rs",
+      "src/filter_json.rs",
+      "src/machine_ui_writer.rs",
+      "src/retro_tui.rs",
+      "src/simple_output.rs",
+      "src/theme.rs",
+      "src/tui.rs",
+      "src/ui_writer_impl.rs"
+    ],
+    "g3-providers": [
+      "src/lib.rs",
+      "src/anthropic.rs",
+      "src/databricks.rs",
+      "src/embedded.rs",
+      "src/oauth.rs",
+      "src/openai.rs"
+    ],
+    "g3-config": [
+      "src/lib.rs"
+    ],
+    "g3-execution": [
+      "src/lib.rs"
+    ],
+    "g3-computer-control": [
+      "src/lib.rs",
+      "src/macax/controller.rs",
+      "src/macax/mod.rs",
+      "src/ocr/mod.rs",
+      "src/ocr/tesseract.rs",
+      "src/ocr/vision.rs",
+      "src/platform/linux.rs",
+      "src/platform/macos.rs",
+      "src/platform/mod.rs",
+      "src/platform/windows.rs",
+      "src/types.rs",
+      "src/webdriver/chrome.rs",
+      "src/webdriver/mod.rs",
+      "src/webdriver/safari.rs"
+    ],
+    "g3-console": [
+      "src/lib.rs",
+      "src/main.rs",
+      "src/api/control.rs",
+      "src/api/instances.rs",
+      "src/api/logs.rs",
+      "src/api/mod.rs",
+      "src/api/state.rs",
+      "src/launch.rs",
+      "src/logs.rs",
+      "src/models/instance.rs",
+      "src/models/message.rs",
+      "src/models/mod.rs",
+      "src/process/controller.rs",
+      "src/process/detector.rs",
+      "src/process/mod.rs"
+    ],
+    "g3-ensembles": [
+      "src/lib.rs",
+      "src/flock.rs",
+      "src/status.rs"
+    ],
+    "g3-planner": [
+      "src/lib.rs",
+      "src/code_explore.rs",
+      "src/git.rs",
+      "src/history.rs",
+      "src/llm.rs",
+      "src/planner.rs",
+      "src/prompts.rs",
+      "src/state.rs"
+    ]
+  },
+  "statistics": {
+    "total_crates": 10,
+    "internal_edges": 16,
+    "total_files": 76,
+    "leaf_crates": ["g3-config", "g3-execution", "g3-computer-control", "g3-providers"],
+    "root_crates": ["g3", "g3-console"]
+  }
+}

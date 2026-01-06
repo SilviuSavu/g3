@@ -26,6 +26,9 @@ target
 # Session logs directory
 logs/
 *.json
+# Exception: analysis artifacts
+!analysis/deps/graph.json
+
 .g3/
 
 # g3 artifacts
