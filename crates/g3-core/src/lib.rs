@@ -5,8 +5,10 @@ pub mod error_handling;
 pub mod feedback_extraction;
 pub mod paths;
 pub mod project;
+pub mod provider_registration;
 pub mod provider_config;
 pub mod retry;
+pub mod session;
 pub mod session_continuation;
 pub mod streaming_parser;
 pub mod task_result;
@@ -200,135 +202,9 @@ impl<W: UiWriter> Agent<W> {
         quiet: bool,
         custom_system_prompt: Option<String>,
     ) -> Result<Self> {
-        let mut providers = ProviderRegistry::new();
-
-        // In autonomous mode, we need to register both coach and player providers
-        // Otherwise, only register the default provider
-        let providers_to_register: Vec<String> = if is_autonomous {
-            let mut providers = vec![config.providers.default_provider.clone()];
-            if let Some(coach) = &config.providers.coach {
-                if !providers.contains(coach) {
-                    providers.push(coach.clone());
-                }
-            }
-            if let Some(player) = &config.providers.player {
-                if !providers.contains(player) {
-                    providers.push(player.clone());
-                }
-            }
-            providers
-        } else {
-            vec![config.providers.default_provider.clone()]
-        };
-
-        // Only register providers that are configured AND selected
-        // This prevents unnecessary initialization of heavy providers like embedded models
-
-        // Helper to check if a provider ref should be registered
-        let should_register = |provider_type: &str, config_name: &str| -> bool {
-            let full_ref = format!("{}.{}", provider_type, config_name);
-            providers_to_register.iter().any(|p| p == &full_ref || p.starts_with(&format!("{}.", provider_type)))
-        };
-
-        // Register embedded providers from HashMap
-        for (name, embedded_config) in &config.providers.embedded {
-            if should_register("embedded", name) {
-                let embedded_provider = g3_providers::EmbeddedProvider::new(
-                    embedded_config.model_path.clone(),
-                    embedded_config.model_type.clone(),
-                    embedded_config.context_length,
-                    embedded_config.max_tokens,
-                    embedded_config.temperature,
-                    embedded_config.gpu_layers,
-                    embedded_config.threads,
-                )?;
-                providers.register(embedded_provider);
-            }
-        }
-
-        // Register OpenAI providers from HashMap
-        for (name, openai_config) in &config.providers.openai {
-            if should_register("openai", name) {
-                let openai_provider = g3_providers::OpenAIProvider::new_with_name(
-                    format!("openai.{}", name),
-                    openai_config.api_key.clone(),
-                    Some(openai_config.model.clone()),
-                    openai_config.base_url.clone(),
-                    openai_config.max_tokens,
-                    openai_config.temperature,
-                )?;
-                providers.register(openai_provider);
-            }
-        }
-
-        // Register OpenAI-compatible providers (e.g., OpenRouter, Groq, etc.)
-        for (name, openai_config) in &config.providers.openai_compatible {
-            if should_register(name, "default") {
-                let openai_provider = g3_providers::OpenAIProvider::new_with_name(
-                    name.clone(),
-                    openai_config.api_key.clone(),
-                    Some(openai_config.model.clone()),
-                    openai_config.base_url.clone(),
-                    openai_config.max_tokens,
-                    openai_config.temperature,
-                )?;
-                providers.register(openai_provider);
-            }
-        }
-
-        // Register Anthropic providers from HashMap
-        for (name, anthropic_config) in &config.providers.anthropic {
-            if should_register("anthropic", name) {
-                let anthropic_provider = g3_providers::AnthropicProvider::new_with_name(
-                    format!("anthropic.{}", name),
-                    anthropic_config.api_key.clone(),
-                    Some(anthropic_config.model.clone()),
-                    anthropic_config.max_tokens,
-                    anthropic_config.temperature,
-                    anthropic_config.cache_config.clone(),
-                    anthropic_config.enable_1m_context,
-                    anthropic_config.thinking_budget_tokens,
-                )?;
-                providers.register(anthropic_provider);
-            }
-        }
-
-        // Register Databricks providers from HashMap
-        for (name, databricks_config) in &config.providers.databricks {
-            if should_register("databricks", name) {
-                let databricks_provider = if let Some(token) = &databricks_config.token {
-                    // Use token-based authentication
-                    g3_providers::DatabricksProvider::from_token_with_name(
-                        format!("databricks.{}", name),
-                        databricks_config.host.clone(),
-                        token.clone(),
-                        databricks_config.model.clone(),
-                        databricks_config.max_tokens,
-                        databricks_config.temperature,
-                    )?
-                } else {
-                    // Use OAuth authentication
-                    g3_providers::DatabricksProvider::from_oauth_with_name(
-                        format!("databricks.{}", name),
-                        databricks_config.host.clone(),
-                        databricks_config.model.clone(),
-                        databricks_config.max_tokens,
-                        databricks_config.temperature,
-                    )
-                    .await?
-                };
-
-                providers.register(databricks_provider);
-            }
-        }
-
-        // Set default provider
-        debug!(
-            "Setting default provider to: {}",
-            config.providers.default_provider
-        );
-        providers.set_default(&config.providers.default_provider)?;
-        debug!("Default provider set successfully");
+        // Register providers using the extracted module
+        let providers_to_register = provider_registration::determine_providers_to_register(&config, is_autonomous);
+        let providers = provider_registration::register_providers(&config, &providers_to_register).await?;
 
         // Determine context window size based on active provider
         let mut context_warnings = Vec::new();
@@ -997,241 +873,26 @@ impl<W: UiWriter> Agent<W> {
 
     /// Generate a session ID based on the initial prompt
     fn generate_session_id(&self, description: &str) -> String {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        use std::time::{SystemTime, UNIX_EPOCH};
-
-        // For agent mode, use agent name as prefix for clarity
-        // For regular mode, use first 5 words of description
-        let prefix = if let Some(ref agent_name) = self.agent_name {
-            agent_name.clone()
-        } else {
-            description
-                .chars()
-                .filter(|c| c.is_alphanumeric() || c.is_whitespace() || *c == '-' || *c == '_')
-                .collect::<String>()
-                .split_whitespace()
-                .take(5)
-                .collect::<Vec<_>>()
-                .join("_")
-                .to_lowercase()
-        };
-
-        // Create a hash for uniqueness (description + agent name + timestamp)
-        let mut hasher = DefaultHasher::new();
-        description.hash(&mut hasher);
-        if let Some(ref agent_name) = self.agent_name {
-            agent_name.hash(&mut hasher);
-        }
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0);
-        timestamp.hash(&mut hasher);
-        let hash = hasher.finish();
-
-        // Format: prefix_hash (agent_name_hash for agents, description_hash for regular)
-        format!("{}_{:x}", prefix, hash)
+        session::generate_session_id(description, self.agent_name.as_deref())
     }
 
     /// Save the entire context window to a per-session file
     fn save_context_window(&self, status: &str) {
-        // Skip logging if quiet mode is enabled
         if self.quiet {
             return;
         }
-
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-
-        // Use new .g3/session/<session_id>/ structure if we have a session ID
-        let filename = if let Some(ref session_id) = self.session_id {
-            // Ensure session directory exists
-            if let Err(e) = ensure_session_dir(session_id) {
-                error!("Failed to create session directory: {}", e);
-                return;
-            }
-            get_session_file(session_id)
-        } else {
-            // Fallback to old logs/ directory for sessions without ID
-            let logs_dir = get_logs_dir();
-            if let Err(e) = std::fs::create_dir_all(&logs_dir) {
-                error!("Failed to create logs directory: {}", e);
-                return;
-            }
-            logs_dir.join(format!("g3_context_{}.json", timestamp))
-        };
-
-        let context_data = serde_json::json!({
-            "session_id": self.session_id,
-            "timestamp": timestamp,
-            "status": status,
-            "context_window": {
-                "used_tokens": self.context_window.used_tokens,
-                "total_tokens": self.context_window.total_tokens,
-                "percentage_used": self.context_window.percentage_used(),
-                "conversation_history": self.context_window.conversation_history
-            }
-        });
-
-        match serde_json::to_string_pretty(&context_data) {
-            Ok(json_content) => {
-                if let Err(e) = std::fs::write(&filename, &json_content) {
-                    error!("Failed to save context window to {:?}: {}", &filename, e);
-                }
-            }
-            Err(e) => {
-                error!("Failed to serialize context window: {}", e);
-            }
-        }
-    }
-
-    /// Format token count in compact form (e.g., 1K, 2M, 100b, 200K) and clamp to 4 chars right-aligned
-    fn format_token_count(tokens: u32) -> String {
-        let mut raw = if tokens >= 1_000_000_000 {
-            format!("{}b", tokens / 1_000_000_000)
-        } else if tokens >= 1_000_000 {
-            format!("{}M", tokens / 1_000_000)
-        } else if tokens >= 1_000 {
-            format!("{}K", tokens / 1_000)
-        } else {
-            format!("0K")
-        };
-
-        if raw.len() > 4 {
-            raw.truncate(4);
-        }
-
-        format!("{:>4}", raw)
-    }
-
-    /// Pick a single Unicode indicator for token magnitude (maps to previous color bands)
-    fn token_indicator(tokens: u32) -> &'static str {
-        if tokens <= 1_000 {
-            "🟢"
-        } else if tokens <= 5_000 {
-            "🟡"
-        } else if tokens <= 10_000 {
-            "🟠"
-        } else if tokens <= 20_000 {
-            "🔴"
-        } else {
-            "🟣"
-        }
+        session::save_context_window(self.session_id.as_deref(), &self.context_window, status);
     }
 
     /// Write context window summary to file
     /// Format: date&time, token_count, message_id, role, first_100_chars
     fn write_context_window_summary(&self) {
-        // Skip if quiet mode is enabled
         if self.quiet {
             return;
         }
-
-        // Skip if no session ID
-        let session_id = match &self.session_id {
-            Some(id) => id,
-            None => return,
-        };
-
-        // Ensure session directory exists
-        if let Err(e) = ensure_session_dir(session_id) {
-            error!("Failed to create session directory: {}", e);
-            return;
+        if let Some(ref session_id) = self.session_id {
+            session::write_context_window_summary(session_id, &self.context_window);
         }
-
-        // Use new .g3/session/<session_id>/ structure
-        let filename = get_context_summary_file(session_id);
-        let symlink_path = get_g3_dir().join("sessions").join("current_context_window");
-
-        // Build the summary content
-        let mut summary_lines = Vec::new();
-
-        for message in &self.context_window.conversation_history {
-            let _timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-            // Estimate tokens for this message
-            let message_tokens = ContextWindow::estimate_tokens(&message.content);
-
-            // Format token count
-            let token_str = Self::format_token_count(message_tokens);
-
-            // Get token indicator
-            let indicator = Self::token_indicator(message_tokens);
-
-            // Get role as string
-            let role = match message.role {
-                MessageRole::System => "sys",
-                MessageRole::User => "usr",
-                MessageRole::Assistant => "ass",
-            };
-
-            // Get first 100 characters of content
-            let content_preview: String = message.content.chars().take(120).collect();
-
-            // Replace newlines with spaces for single-line format
-            let content_preview = content_preview.replace('\n', " ").replace('\r', " ");
-
-            // Format: message_id, role, token_count, indicator, first_100_chars
-            let line = format!(
-                "{}, {}, {} {}, {}\n",
-                message.id, role, token_str, indicator, content_preview
-            );
-            summary_lines.push(line);
-        }
-
-        // Add total estimate after the last line of conversation history
-        let total_tokens = self.context_window.used_tokens;
-        let total_capacity = self.context_window.total_tokens;
-        let percentage = self.context_window.percentage_used();
-        let total_token_str = Self::format_token_count(total_tokens);
-        let capacity_str = Self::format_token_count(total_capacity);
-        
-        summary_lines.push(format!(
-            "\n--- TOTAL: {} / {} ({:.1}%) ---\n",
-            total_token_str, capacity_str, percentage
-        ));
-
-        // Write to file
-        let summary_content = summary_lines.join("");
-        if let Err(e) = std::fs::write(&filename, summary_content) {
-            error!(
-                "Failed to write context window summary to {:?}: {}",
-                &filename, e
-            );
-            return;
-        }
-
-        // Update symlink
-        // Remove old symlink if it exists
-        let _ = std::fs::remove_file(&symlink_path);
-
-        // Create new symlink
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::symlink;
-            let target = format!("context_window_{}.txt", session_id);
-            if let Err(e) = symlink(&target, &symlink_path) {
-                error!("Failed to create symlink {:?}: {}", &symlink_path, e);
-            }
-        }
-
-        #[cfg(windows)]
-        {
-            use std::os::windows::fs::symlink_file;
-            let target = format!("context_window_{}.txt", session_id);
-            if let Err(e) = symlink_file(&target, &symlink_path) {
-                error!("Failed to create symlink {:?}: {}", &symlink_path, e);
-            }
-        }
-
-        debug!(
-            "Context window summary written to {:?} ({} messages)",
-            filename,
-            self.context_window.conversation_history.len()
-        );
     }
 
     pub fn get_context_window(&self) -> &ContextWindow {
@@ -1268,68 +929,14 @@ impl<W: UiWriter> Agent<W> {
         role: &str,
         forensic_context: Option<String>,
     ) {
-        // Skip if quiet mode is enabled
         if self.quiet {
             return;
         }
-
-        // Only log if we have a session ID
-        let session_id = match &self.session_id {
-            Some(id) => id,
+        match &self.session_id {
+            Some(id) => session::log_error_to_session(id, error, role, forensic_context),
             None => {
                 error!("Cannot log error to session: no session ID");
-                return;
             }
-        };
-
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-
-        let logs_dir = get_logs_dir();
-        let filename = logs_dir.join(format!("g3_session_{}.json", session_id));
-
-        // Read existing session log
-        let mut session_data: serde_json::Value = if std::path::Path::new(&filename).exists() {
-            match std::fs::read_to_string(&filename) {
-                Ok(content) => {
-                    serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
-                }
-                Err(_) => serde_json::json!({}),
-            }
-        } else {
-            serde_json::json!({})
-        };
-
-        // Build error message with forensic context
-        let error_message = if let Some(context) = forensic_context {
-            format!("ERROR: {}\n\nForensic Context:\n{}", error, context)
-        } else {
-            format!("ERROR: {}", error)
-        };
-
-        // Create error message entry
-        let error_entry = serde_json::json!({
-            "role": role,
-            "content": error_message,
-            "timestamp": timestamp,
-            "error_type": "context_length_exceeded"
-        });
-
-        // Append to conversation history
-        if let Some(history) = session_data
-            .get_mut("context_window")
-            .and_then(|cw| cw.get_mut("conversation_history"))
-        {
-            if let Some(history_array) = history.as_array_mut() {
-                history_array.push(error_entry);
-            }
-        }
-
-        // Write back to file
-        if let Ok(json_content) = serde_json::to_string_pretty(&session_data) {
-            let _ = std::fs::write(&filename, json_content);
         }
     }
 
@@ -2352,9 +1959,6 @@ impl<W: UiWriter> Agent<W> {
 
                                 continue; // Skip execution of duplicate
                             }
-
-                            // Mark that we're executing a tool (only for non-duplicates)
-                            tool_executed = true;
 
                             // Check if we should auto-compact at 90% BEFORE executing the tool
                             // We need to do this before any borrows of self
