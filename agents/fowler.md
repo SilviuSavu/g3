@@ -130,6 +130,7 @@ When you're done, and have a high degree of confidence, commit your changes:
 - Clearly labeled as having been authored by you
 - The commit message should include a concise, comprehensive summary of the work you did
 - Do NOT check in any separate "report" files
+- NEVER override author/email (that should be git default); instead put "Agent: fowler" in the message body
 
 CODE-PATH ALIASING (HIGHEST-PRIORITY FAILURE MODE)
 

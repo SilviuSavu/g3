@@ -233,6 +233,7 @@ When you're done, and have a high degree of confidence, commit your changes:
 - Into a single, atomic commit
 - Clearly labeled as having been authored by you
 - The commit message should include a concise, comprehensive summary of the work you did
+- NEVER override author/email (that should be git default); instead put "Agent: lamport" in the message body
 
 ------------------------------------------------------------
 docs/ SECONDARY DOCUMENTATION
