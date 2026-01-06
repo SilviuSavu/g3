@@ -1,120 +1,95 @@
-# Coupling Hotspots
+# Dependency Hotspots
 
-## High Fan-In Nodes
+## Definition
 
-Nodes with disproportionate incoming dependencies (dependents).
+Hotspots are code artifacts with disproportionate coupling, measured by:
+- **Fan-in**: Number of files/crates that depend on this artifact
+- **Fan-out**: Number of files/crates this artifact depends on
+- **Cross-group edges**: Dependencies that cross module/crate boundaries
 
-| Crate | Fan-In | % of Crates | Classification |
-|-------|--------|-------------|----------------|
-| g3-config | 5 | 50% | **High** - shared foundation |
-| g3-core | 4 | 40% | **High** - central hub |
-| g3-providers | 4 | 40% | **High** - shared foundation |
-| g3-cli | 1 | 10% | Normal |
-| g3-execution | 1 | 10% | Normal |
-| g3-computer-control | 1 | 10% | Normal |
-| g3-ensembles | 1 | 10% | Normal |
-| g3-planner | 1 | 10% | Normal |
+## Crate-Level Hotspots
 
-### g3-config (Fan-In: 5)
+### High Fan-In Crates
 
-**Dependents:** g3-cli, g3-core, g3-ensembles, g3-planner, (implicit: g3)
+| Crate | Fan-In | Evidence |
+|-------|--------|----------|
+| g3-config | 5 | Depended on by: g3-cli, g3-core, g3-planner, g3-ensembles, (tests) |
+| g3-providers | 4 | Depended on by: g3, g3-cli, g3-core, g3-planner |
+| g3-core | 3 | Depended on by: g3-cli, g3-planner, g3-ensembles |
 
-**Evidence:**
-- `g3-cli/Cargo.toml`: `g3-config = { path = "../g3-config" }`
-- `g3-core/Cargo.toml`: `g3-config = { path = "../g3-config" }`
-- `g3-ensembles/Cargo.toml`: `g3-config = { path = "../g3-config" }`
-- `g3-planner/Cargo.toml`: `g3-config = { path = "../g3-config" }`
+### High Fan-Out Crates
 
-**Coupling Pattern:** Configuration struct (`Config`) is passed through the call stack. Changes to `Config` fields propagate to all dependents.
-
-### g3-core (Fan-In: 4)
-
-**Dependents:** g3-cli, g3-ensembles, g3-planner
-
-**Evidence:**
-- `g3-cli/Cargo.toml`: `g3-core = { path = "../g3-core" }`
-- `g3-ensembles/Cargo.toml`: `g3-core = { path = "../g3-core" }`
-- `g3-planner/Cargo.toml`: `g3-core = { path = "../g3-core" }`
-
-**Coupling Pattern:** `Agent` struct is the primary interface. Feature modules create and orchestrate agents.
-
-### g3-providers (Fan-In: 4)
-
-**Dependents:** g3, g3-cli, g3-core, g3-planner
-
-**Evidence:**
-- `Cargo.toml`: `g3-providers = { path = "crates/g3-providers" }`
-- `g3-cli/Cargo.toml`: `g3-providers = { path = "../g3-providers" }`
-- `g3-core/Cargo.toml`: `g3-providers = { path = "../g3-providers" }`
-- `g3-planner/Cargo.toml`: `g3-providers = { path = "../g3-providers" }`
-
-**Coupling Pattern:** `Message`, `MessageRole`, `LLMProvider` trait are widely used types.
-
-## High Fan-Out Nodes
-
-Nodes with disproportionate outgoing dependencies.
-
-| Crate | Fan-Out | % of Crates | Classification |
-|-------|---------|-------------|----------------|
-| g3-cli | 5 | 50% | **High** - orchestrator |
-| g3-core | 4 | 40% | **High** - integrator |
-| g3-planner | 3 | 30% | Moderate |
-| g3-ensembles | 2 | 20% | Normal |
-| g3 | 2 | 20% | Normal |
-
-### g3-cli (Fan-Out: 5)
-
-**Dependencies:** g3-core, g3-config, g3-planner, g3-providers, g3-ensembles
-
-**Coupling Pattern:** CLI orchestrates all major features. This is expected for a top-level UI crate.
-
-### g3-core (Fan-Out: 4)
-
-**Dependencies:** g3-providers, g3-config, g3-execution, g3-computer-control
-
-**Coupling Pattern:** Core integrates all foundation crates. This is the expected role of a "core" module.
+| Crate | Fan-Out | Evidence |
+|-------|---------|----------|
+| g3-cli | 5 | Depends on: g3-core, g3-config, g3-planner, g3-providers, g3-ensembles |
+| g3-core | 4 | Depends on: g3-providers, g3-config, g3-execution, g3-computer-control |
+| g3-planner | 3 | Depends on: g3-providers, g3-core, g3-config |
 
 ## File-Level Hotspots
 
-### g3-core/src/lib.rs
+### High Fan-In Files
 
-**Lines:** ~3366 (largest file in codebase)
+| File | Fan-In | Importing Files |
+|------|--------|----------------|
+| `g3-core/src/ui_writer.rs` | 10 | lib.rs, tool_dispatch.rs, retry.rs, feedback_extraction.rs, tools/file_ops.rs, tools/shell.rs, tools/misc.rs, tools/todo.rs, tools/webdriver.rs, tools/executor.rs |
+| `g3-core/src/lib.rs` | 8 | streaming_parser.rs, feedback_extraction.rs, retry.rs, task_result_comprehensive_tests.rs, (external: g3-cli, g3-planner, g3-ensembles) |
+| `g3-providers/src/lib.rs` | 7 | anthropic.rs, databricks.rs, openai.rs, embedded.rs, (external: g3-core, g3-planner, examples) |
+| `g3-config/src/lib.rs` | 5 | (external: g3-core, g3-cli, g3-planner, g3-ensembles, tools/executor.rs) |
+| `g3-computer-control/src/types.rs` | 5 | platform/macos.rs, platform/linux.rs, platform/windows.rs, ocr/mod.rs, ocr/vision.rs, ocr/tesseract.rs |
+| `g3-console/src/models/mod.rs` | 5 | api/instances.rs, api/control.rs, logs.rs, process/controller.rs, process/detector.rs |
 
-**Concerns:**
-- Contains the entire `Agent` struct implementation
-- High cyclomatic complexity
-- Multiple responsibilities (streaming, tools, context management)
+### High Fan-Out Files
 
-**Evidence:** File contains 19 public module declarations and the main `Agent` implementation.
+| File | Fan-Out | Dependencies |
+|------|---------|-------------|
+| `g3-core/src/tools/executor.rs` | 5 | background_process.rs, paths.rs, ui_writer.rs, webdriver_session.rs, g3-config |
+| `g3-core/src/tool_dispatch.rs` | 4 | tools/executor.rs, tools/mod.rs, ui_writer.rs, ToolCall |
+| `g3-core/src/retry.rs` | 4 | error_handling.rs, ui_writer.rs, lib.rs (Agent, TaskResult) |
+| `g3-planner/src/llm.rs` | 5 | g3-config, g3-core/project, g3-core/Agent, g3-core/error_handling, g3-providers, prompts.rs |
+| `g3-console/src/api/instances.rs` | 3 | logs.rs, models, process/detector.rs |
 
-### g3-cli/src/lib.rs
+## Cross-Boundary Dependencies
 
-**Lines:** ~2888
+### External Crate Imports (Cross-Crate)
 
-**Concerns:**
-- Contains multiple mode implementations (autonomous, interactive, planning, agent)
-- Large `run_autonomous` function
-- Mixed concerns (UI, orchestration, error handling)
+| From Crate | To Crate | Import Count | Key Types |
+|------------|----------|--------------|----------|
+| g3-core | g3-providers | 5 | Message, MessageRole, Usage, CacheControl, Tool, CompletionRequest, ProviderRegistry |
+| g3-core | g3-config | 3 | Config |
+| g3-core | g3-computer-control | 2 | WebDriverController, ChromeDriver, SafariDriver, WebElement |
+| g3-cli | g3-core | 3 | Agent, UiWriter, DiscoveryOptions, Project, error_handling |
+| g3-planner | g3-core | 3 | Agent, Project, error_handling |
+| g3-planner | g3-providers | 2 | Message, MessageRole, LLMProvider, CompletionRequest |
+| g3-ensembles | g3-core | 1 | (via g3-config) |
 
-## Cross-Crate Type Dependencies
-
-### Most Shared Types
-
-| Type | Defined In | Used By |
-|------|------------|--------|
-| `Config` | g3-config | g3-cli, g3-core, g3-ensembles, g3-planner |
-| `Message` | g3-providers | g3-core, g3-cli, g3-planner |
-| `MessageRole` | g3-providers | g3-core, g3-cli, g3-planner |
-| `Agent` | g3-core | g3-cli, g3-ensembles, g3-planner |
-| `LLMProvider` | g3-providers | g3-core, g3-planner |
-| `UiWriter` | g3-core | g3-cli |
-
-## Metrics Summary
+## Coupling Metrics Summary
 
 | Metric | Value | Threshold | Status |
 |--------|-------|-----------|--------|
-| Max Fan-In | 5 (g3-config) | ≤6 | ✅ OK |
-| Max Fan-Out | 5 (g3-cli) | ≤6 | ✅ OK |
-| Largest File | 3366 lines | ≤1000 | ⚠️ Large |
-| Crates with Fan-In > 3 | 3 | ≤4 | ✅ OK |
-| Crates with Fan-Out > 3 | 2 | ≤3 | ✅ OK |
+| Max crate fan-in | 5 (g3-config) | - | Expected for config |
+| Max crate fan-out | 5 (g3-cli) | - | Expected for CLI |
+| Max file fan-in | 10 (ui_writer.rs) | - | Trait abstraction |
+| Max file fan-out | 5 (executor.rs, llm.rs) | - | Orchestration files |
+| Cross-crate edges | 16 | - | Moderate |
+
+## Observations
+
+1. **ui_writer.rs** has highest file-level fan-in (10 dependents)
+   - This is a trait definition, high fan-in is expected
+   - Implements dependency inversion pattern
+
+2. **g3-config** has highest crate-level fan-in (5 dependents)
+   - Configuration is appropriately centralized
+   - No code duplication observed
+
+3. **g3-cli** has highest crate-level fan-out (5 dependencies)
+   - Expected for application entry point
+   - Orchestrates all major subsystems
+
+4. **tools/executor.rs** has high fan-out within g3-core
+   - Central tool execution context
+   - Coordinates background processes, paths, webdriver, config
+
+5. **g3-console** is isolated
+   - No dependencies on other workspace crates
+   - Standalone monitoring application

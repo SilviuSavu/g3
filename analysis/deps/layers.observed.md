@@ -2,123 +2,126 @@
 
 ## Layer Structure
 
-The G3 codebase exhibits a 5-layer architecture derived mechanically from dependency direction:
+Based on crate dependencies and file imports, the following layers are observed:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 4: Entry Points                                          │
-│  ┌─────────┐  ┌─────────────┐                                   │
-│  │   g3    │  │  g3-console │                                   │
-│  └────┬────┘  └─────────────┘                                   │
-│       │            (standalone)                                 │
-├───────┼─────────────────────────────────────────────────────────┤
-│  Layer 3: CLI/UI                                                │
-│       │                                                         │
-│       ▼                                                         │
-│  ┌─────────┐                                                    │
-│  │ g3-cli  │                                                    │
-│  └────┬────┘                                                    │
-│       │                                                         │
-├───────┼─────────────────────────────────────────────────────────┤
-│  Layer 2: Feature Modules                                       │
-│       │                                                         │
-│       ├──────────────┬──────────────┐                           │
-│       ▼              ▼              │                           │
-│  ┌───────────┐  ┌───────────┐       │                           │
-│  │g3-ensembles│ │g3-planner │       │                           │
-│  └─────┬─────┘  └─────┬─────┘       │                           │
-│        │              │             │                           │
-├────────┼──────────────┼─────────────┼───────────────────────────┤
-│  Layer 1: Core Engine                                           │
-│        │              │             │                           │
-│        └──────┬───────┘             │                           │
-│               ▼                     │                           │
-│          ┌─────────┐                │                           │
-│          │ g3-core │◄───────────────┘                           │
-│          └────┬────┘                                            │
-│               │                                                 │
-├───────────────┼─────────────────────────────────────────────────┤
-│  Layer 0: Foundation                                            │
-│               │                                                 │
-│    ┌──────────┼──────────┬──────────────┬───────────────┐       │
-│    ▼          ▼          ▼              ▼               │       │
-│ ┌────────┐ ┌──────────┐ ┌───────────┐ ┌─────────────────┴─┐     │
-│ │g3-config│ │g3-providers│ │g3-execution│ │g3-computer-control│  │
-│ └────────┘ └──────────┘ └───────────┘ └───────────────────┘     │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      LAYER 5: Binaries                      │
+│                                                             │
+│   g3 (src/main.rs)           g3-console (src/main.rs)       │
+│         │                           │                       │
+└─────────┼───────────────────────────┼───────────────────────┘
+          │                           │
+          ▼                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   LAYER 4: Application                      │
+│                                                             │
+│   g3-cli                      g3-console (lib)              │
+│   ├── Interactive CLI         ├── Web API                   │
+│   ├── TUI rendering           ├── Process management        │
+│   └── Session management      └── Log parsing               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   LAYER 3: Orchestration                    │
+│                                                             │
+│   g3-planner                  g3-ensembles                  │
+│   ├── Planning workflow       ├── Flock mode                │
+│   ├── Git integration         └── Multi-agent status        │
+│   └── LLM coordination                                      │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      LAYER 2: Core                          │
+│                                                             │
+│   g3-core                                                   │
+│   ├── Agent engine (lib.rs)                                 │
+│   ├── Context window management                             │
+│   ├── Tool dispatch & execution                             │
+│   ├── Streaming parser                                      │
+│   ├── Error handling & retry                                │
+│   └── Code search (tree-sitter)                             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   LAYER 1: Foundation                       │
+│                                                             │
+│   g3-providers        g3-config       g3-execution          │
+│   ├── Anthropic       ├── TOML        └── Coverage tools    │
+│   ├── Databricks      │   parsing                           │
+│   ├── OpenAI          └── Settings    g3-computer-control   │
+│   ├── Embedded                        ├── Platform (macOS/  │
+│   └── OAuth                           │   Linux/Windows)    │
+│                                       ├── OCR               │
+│                                       ├── WebDriver         │
+│                                       └── MacAX             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Layer Definitions
+## Layer Dependency Rules
 
-### Layer 0: Foundation
-**Crates:** g3-config, g3-providers, g3-execution, g3-computer-control
+| From Layer | May Depend On |
+|------------|---------------|
+| 5 (Binaries) | 4, 1 |
+| 4 (Application) | 3, 2, 1 |
+| 3 (Orchestration) | 2, 1 |
+| 2 (Core) | 1 |
+| 1 (Foundation) | (none - leaf) |
 
-- No internal dependencies
-- Provide fundamental capabilities:
-  - Configuration loading and management
-  - LLM provider abstractions (Anthropic, OpenAI, Databricks, embedded)
-  - Code execution engine
-  - Computer control (mouse, keyboard, screenshots)
-
-### Layer 1: Core Engine
-**Crates:** g3-core
-
-- Depends on all Layer 0 crates
-- Central orchestration:
-  - Agent state machine
-  - Context window management
-  - Tool dispatch and execution
-  - Streaming response parsing
-  - Session management
-
-### Layer 2: Feature Modules
-**Crates:** g3-ensembles, g3-planner
-
-- Depend on Layer 0 (g3-config) and Layer 1 (g3-core)
-- Specialized functionality:
-  - g3-ensembles: Multi-agent parallel development (flock mode)
-  - g3-planner: Requirements-driven planning workflow
-
-### Layer 3: CLI/UI
-**Crates:** g3-cli
-
-- Depends on Layers 0, 1, and 2
-- User interface:
-  - Command-line parsing
-  - Interactive REPL
-  - Output formatting
-  - Mode orchestration (autonomous, chat, planning, agent)
-
-### Layer 4: Entry Points
-**Crates:** g3, g3-console
-
-- Binary entry points
-- g3: Main CLI binary (delegates to g3-cli)
-- g3-console: Standalone web console (no internal deps)
-
-## Layer Violations
+## Observed Violations
 
 **None detected.**
 
-All dependencies flow downward (higher layers depend on lower layers).
+All observed dependencies follow the layering rules:
+- Higher layers depend only on lower layers
+- No skip-level violations that bypass intermediate layers inappropriately
+- No upward dependencies
 
-## Cross-Layer Dependencies
+## Cross-Cutting Concerns
 
-| From Layer | To Layer | Count | Edges |
-|------------|----------|-------|-------|
-| 4 → 3 | Entry → CLI | 1 | g3 → g3-cli |
-| 4 → 0 | Entry → Foundation | 1 | g3 → g3-providers |
-| 3 → 2 | CLI → Features | 2 | g3-cli → g3-ensembles, g3-cli → g3-planner |
-| 3 → 1 | CLI → Core | 1 | g3-cli → g3-core |
-| 3 → 0 | CLI → Foundation | 2 | g3-cli → g3-config, g3-cli → g3-providers |
-| 2 → 1 | Features → Core | 2 | g3-ensembles → g3-core, g3-planner → g3-core |
-| 2 → 0 | Features → Foundation | 3 | g3-ensembles → g3-config, g3-planner → g3-config, g3-planner → g3-providers |
-| 1 → 0 | Core → Foundation | 4 | g3-core → g3-config, g3-core → g3-providers, g3-core → g3-execution, g3-core → g3-computer-control |
+### g3-config
+Used by: g3-cli, g3-core, g3-planner, g3-ensembles
+- Provides `Config` struct across all layers
+- Appropriate as foundation-level shared configuration
 
-## Observations
+### g3-providers
+Used by: g3, g3-cli, g3-core, g3-planner
+- Provides `Message`, `MessageRole`, `LLMProvider` types
+- Core abstraction for LLM communication
+- Appropriate as foundation-level abstraction
 
-1. **Clean layering**: No upward dependencies detected
-2. **g3-console isolation**: Standalone binary with no internal dependencies
-3. **g3-config ubiquity**: Used by 5 crates across all layers
-4. **g3-core centrality**: Hub for all feature modules
-5. **Skip-layer dependencies**: g3-cli directly depends on Layer 0 crates (g3-config, g3-providers) - this is acceptable for configuration and provider access
+### UiWriter trait (g3-core/src/ui_writer.rs)
+Used by: 10 files within g3-core, implemented by g3-cli
+- Abstraction for output rendering
+- Defined in core, implemented in application layer
+- Follows dependency inversion principle
+
+## Module Groupings by Path Convention
+
+| Path Pattern | Purpose | Crates |
+|--------------|---------|--------|
+| `src/tools/*` | Tool implementations | g3-core |
+| `src/api/*` | HTTP API handlers | g3-console |
+| `src/models/*` | Data structures | g3-console |
+| `src/process/*` | Process management | g3-console |
+| `src/platform/*` | OS-specific code | g3-computer-control |
+| `src/ocr/*` | OCR implementations | g3-computer-control |
+| `src/webdriver/*` | Browser automation | g3-computer-control |
+| `src/macax/*` | macOS accessibility | g3-computer-control |
+| `src/code_search/*` | Tree-sitter search | g3-core |
+
+## Confidence Assessment
+
+| Aspect | Confidence | Notes |
+|--------|------------|-------|
+| Crate-level layering | High | Derived from Cargo.toml |
+| File-level layering | Medium | Based on import analysis |
+| Violation detection | Medium | May miss dynamic/conditional deps |
+| Module groupings | High | Based on path conventions |
