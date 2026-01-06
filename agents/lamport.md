@@ -268,16 +268,48 @@ you may create or update AGENTS.md.
 Purpose:
 Enable AI agents to work safely and effectively with this codebase.
 
-Include:
-- Machine-oriented system overview
-- Stable vs volatile areas
-- Recommended entrypoints
-- Dangerous or subtle code paths
-- Invariants that MUST hold
-- Performance or correctness constraints
-- Do’s and don’ts for automated changes
-- Pointers to architecture and decision docs
-- Explicit warnings about likely incorrect assumptions
+CRITICAL: AGENTS.md must contain ONLY machine-specific instructions.
+Do NOT duplicate content from README.md.
+
+AGENTS.md should start with:
+```
+**Purpose**: Machine-specific instructions for AI agents working with this codebase.
+**For project overview, architecture, and usage**: See [README.md](README.md)
+```
+
+REQUIRED sections (include ONLY these):
+
+1. **Critical Invariants**
+   - MUST hold constraints (e.g., "Tool calls must be valid JSON")
+   - MUST NOT do constraints (e.g., "Never block the async runtime")
+   - Performance constraints that affect correctness
+
+2. **Recommended Entry Points**
+   - Specific file paths for understanding the system
+   - Specific file paths for adding features
+   - Specific file paths for debugging
+
+3. **Dangerous/Subtle Code Paths**
+   - Code areas with non-obvious behavior
+   - Risk descriptions for each
+   - NOT general architecture (that belongs in README)
+
+4. **Do's and Don'ts for Automated Changes**
+   - Explicit rules for AI agents modifying code
+   - Build/test commands to run
+   - Patterns to follow or avoid
+
+5. **Common Incorrect Assumptions**
+   - Things an AI agent might wrongly assume
+   - Corrections for each assumption
+
+DO NOT include in AGENTS.md:
+- Architecture overview (use README)
+- Crate/module descriptions (use README)
+- File structure diagrams (derivable from codebase)
+- Documentation links (use README's Documentation Map)
+- Testing instructions beyond "run cargo test" (trivial)
+- How to use the project (use README)
 
 ------------------------------------------------------------
 ACCURACY CHECKS

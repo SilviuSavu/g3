@@ -1,25 +1,7 @@
 # AGENTS.md - Machine Instructions for G3
 
-**Last updated**: January 2025  
-**Purpose**: Enable AI agents to work safely and effectively with this codebase
-
-## System Overview
-
-G3 is an AI coding agent built in Rust. It uses LLM providers to execute tasks through a tool-based interface. The codebase is organized as a Cargo workspace with 9 crates.
-
-### Quick Reference
-
-| Crate | Purpose | Stability |
-|-------|---------|----------|
-| `g3-core` | Agent engine, tools, context management | Stable |
-| `g3-providers` | LLM provider abstractions | Stable |
-| `g3-cli` | Command-line interface | Stable |
-| `g3-config` | Configuration management | Stable |
-| `g3-execution` | Code execution | Stable |
-| `g3-computer-control` | Computer automation | Experimental |
-| `g3-planner` | Planning mode | Stable |
-| `g3-ensembles` | Multi-agent (flock) mode | Experimental |
-| `g3-console` | Web monitoring console | Experimental |
+**Purpose**: Machine-specific instructions for AI agents working with this codebase.  
+**For project overview, architecture, and usage**: See [README.md](README.md)
 
 ## Critical Invariants
 
@@ -30,6 +12,8 @@ G3 is an AI coding agent built in Rust. It uses LLM providers to execute tasks t
 3. **Provider trait implementations must be Send + Sync** - Required for async runtime
 4. **Session IDs must be unique** - Used for log file paths and TODO scoping
 5. **File paths in tools support tilde expansion** - `~` expands to home directory
+6. **Streaming is preferred** - Non-streaming requests block UI
+7. **Tool results are size-limited** - Large outputs are truncated or thinned automatically
 
 ### MUST NOT Do
 
@@ -87,40 +71,6 @@ G3 is an AI coding agent built in Rust. It uses LLM providers to execute tasks t
 - Different configs for interactive vs autonomous mode
 - **Risk**: Aggressive retries can hit rate limits harder
 
-## Performance Constraints
-
-1. **Streaming is preferred** - Non-streaming requests block UI
-2. **Tool results are size-limited** - Large outputs are truncated or thinned
-3. **Concurrent tool calls** - Enabled by `allow_multiple_tool_calls` config
-4. **Background processes** - Long-running commands use `background_process` tool
-
-## Testing Strategy
-
-### Test Locations
-
-- Unit tests: `crates/*/tests/`
-- Integration tests: `crates/*/tests/`
-- Test fixtures: `examples/test_code/`
-
-### Running Tests
-
-```bash
-# All tests
-cargo test
-
-# Specific crate
-cargo test -p g3-core
-
-# With output
-cargo test -- --nocapture
-```
-
-### Test Considerations
-
-- Provider tests may require API keys
-- Computer control tests require OS permissions
-- WebDriver tests require browser setup
-
 ## Do's and Don'ts for Automated Changes
 
 ### Do
@@ -149,59 +99,6 @@ cargo test -- --nocapture
 3. **"Tool results are always small"** - File reads can return megabytes
 4. **"Sessions persist across runs"** - Sessions are ephemeral by default
 5. **"All platforms are equal"** - macOS has more features (Vision, Accessibility)
-
-## Architecture Decisions
-
-See `DESIGN.md` for original design rationale.
-
-Key decisions:
-- **Rust for performance and safety** - Async runtime, memory safety
-- **Workspace structure** - Separation of concerns, independent compilation
-- **Provider abstraction** - Swap providers without code changes
-- **Tool-first philosophy** - Agent acts through tools, not just advice
-- **Session-scoped state** - TODO lists, logs tied to sessions
-
-## File Structure Quick Reference
-
-```
-g3/
-├── src/main.rs                    # Entry point
-├── crates/
-│   ├── g3-cli/src/
-│   │   ├── lib.rs                 # CLI logic (~112k chars)
-│   │   └── retro_tui.rs           # Retro TUI mode
-│   ├── g3-core/src/
-│   │   ├── lib.rs                 # Agent struct (~3400 lines)
-│   │   ├── context_window.rs      # Context management
-│   │   ├── tool_definitions.rs    # Tool schemas
-│   │   ├── tool_dispatch.rs       # Tool routing
-│   │   ├── tools/                 # Tool implementations
-│   │   ├── streaming_parser.rs    # Response parsing
-│   │   └── retry.rs               # Retry logic
-│   ├── g3-providers/src/
-│   │   ├── lib.rs                 # Provider trait
-│   │   ├── anthropic.rs           # Anthropic Claude
-│   │   ├── databricks.rs          # Databricks
-│   │   ├── openai.rs              # OpenAI
-│   │   └── embedded.rs            # Local models
-│   ├── g3-config/src/lib.rs       # Configuration
-│   ├── g3-planner/src/            # Planning mode
-│   ├── g3-ensembles/src/          # Flock mode
-│   └── g3-computer-control/src/   # Automation
-├── agents/                         # Agent personas
-├── docs/                           # Documentation
-└── logs/                           # Session logs
-```
-
-## Pointers to Documentation
-
-- [Architecture](docs/architecture.md) - System design and data flow
-- [Configuration](docs/configuration.md) - Config file format and options
-- [Tools Reference](docs/tools.md) - All available tools
-- [Providers Guide](docs/providers.md) - LLM provider setup
-- [Control Commands](docs/CONTROL_COMMANDS.md) - Interactive commands
-- [Code Search](docs/CODE_SEARCH.md) - Tree-sitter search guide
-- [Flock Mode](docs/FLOCK_MODE.md) - Multi-agent development
 
 ## Dependency Analysis Artifacts
 
