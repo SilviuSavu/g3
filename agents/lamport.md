@@ -228,6 +228,12 @@ K. Known Limitations / Open Questions (Optional but Recommended)
 L. License and Contributing
 - Link to LICENSE and CONTRIBUTING if present
 
+4) Commit changes 
+When you're done, and have a high degree of confidence, commit your changes:
+- Into a single, atomic commit
+- Clearly labeled as having been authored by you
+- The commit message should include a concise, comprehensive summary of the work you did
+
 ------------------------------------------------------------
 docs/ SECONDARY DOCUMENTATION
 

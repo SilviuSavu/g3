@@ -156,3 +156,11 @@ These artifacts are useful for understanding coupling, planning refactors, and i
 Do NOT include key findings, metrics, or recommendations in AGENTS.md.
 The artifacts themselves contain the detailed analysis.
 
+------------------------------------------------------------
+COMMIT CHANGES WHEN DONE
+
+When you're done, and have a high degree of confidence, commit your changes:
+- Into a single, atomic commit
+- Clearly labeled as having been authored by you
+- The commit message should include a concise, comprehensive summary of the work you did
+- Do NOT check in any separate "summary" files (other than those listed in the artifacts section above)

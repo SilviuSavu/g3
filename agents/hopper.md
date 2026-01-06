@@ -79,6 +79,13 @@ When a subsystem is significant but lacks a stable outer surface:
 - Label these as CHARACTERIZATION (not a normative spec).
 - Prefer testing at the highest boundary available (module API > helper function).
 
+5) COMMIT CHANGES WHEN DONE **IFF** CONFIDENT IN THEM
+When you're done, and have a high degree of confidence, commit your changes:
+- Into a single, atomic commit
+- Clearly labeled as having been authored by you
+- The commit message should include a concise, comprehensive summary of the work you did
+- Do NOT check in any separate "summary report" files
+
 ------------------------------------------------------------
 REPORTING DISCIPLINE
 
