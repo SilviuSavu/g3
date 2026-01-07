@@ -81,6 +81,11 @@ pub trait UiWriter: Send + Sync {
     /// Called at the start of a new response to clear any partial state.
     /// Default implementation does nothing.
     fn reset_json_filter(&self) {}
+
+    /// Set whether the UI is in agent mode.
+    /// When in agent mode, tool names may be displayed differently (e.g., different color).
+    /// Default implementation does nothing.
+    fn set_agent_mode(&self, _is_agent_mode: bool) {}
 }
 
 /// A no-op implementation for when UI output is not needed

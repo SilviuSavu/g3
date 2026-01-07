@@ -768,6 +768,8 @@ async fn run_agent_mode(
     
     // Create agent with custom system prompt
     let ui_writer = ConsoleUiWriter::new();
+    // Set agent mode on UI writer for visual differentiation (royal blue tool names)
+    ui_writer.set_agent_mode(true);
     let mut agent = Agent::new_with_custom_prompt(
         config,
         ui_writer,
@@ -1407,11 +1409,20 @@ fn read_project_readme(workspace_dir: &Path) -> Option<String> {
 
 /// Extract the main heading or title from README content
 fn extract_readme_heading(readme_content: &str) -> Option<String> {
-    // Process the content line by line, skipping the prefix line if present
-    let lines_iter = readme_content.lines();
-    let mut content_lines = Vec::new();
+    // Find the README section in the combined content
+    // The README section starts with "📚 Project README (from"
+    let readme_start = readme_content.find("📚 Project README (from");
 
-    for line in lines_iter {
+    // If we can't find the README marker, the content might be just README
+    // or might not contain README at all
+    let content_to_search = match readme_start {
+        Some(pos) => &readme_content[pos..],
+        None => readme_content,
+    };
+
+    // Process the content line by line, skipping the prefix line
+    let mut content_lines = Vec::new();
+    for line in content_to_search.lines() {
         // Skip the "📚 Project README (from ...):" line
         if line.starts_with("📚 Project README") {
             continue;

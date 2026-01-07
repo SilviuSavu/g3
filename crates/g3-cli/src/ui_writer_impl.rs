@@ -9,6 +9,7 @@ pub struct ConsoleUiWriter {
     current_tool_args: std::sync::Mutex<Vec<(String, String)>>,
     current_output_line: std::sync::Mutex<Option<String>>,
     output_line_printed: std::sync::Mutex<bool>,
+    is_agent_mode: std::sync::Mutex<bool>,
 }
 
 impl ConsoleUiWriter {
@@ -18,6 +19,7 @@ impl ConsoleUiWriter {
             current_tool_args: std::sync::Mutex::new(Vec::new()),
             current_output_line: std::sync::Mutex::new(None),
             output_line_printed: std::sync::Mutex::new(false),
+            is_agent_mode: std::sync::Mutex::new(false),
         }
     }
 }
@@ -109,7 +111,11 @@ impl UiWriter for ConsoleUiWriter {
         // Reset output_line_printed at the start of a new tool output
         // This ensures the header isn't cleared by update_tool_output_line
         *self.output_line_printed.lock().unwrap() = false;
-        // Now print the tool header with the most important arg in bold green
+        // Now print the tool header with the most important arg
+        // Use royal blue in agent mode, bold green otherwise
+        let is_agent_mode = *self.is_agent_mode.lock().unwrap();
+        // Royal blue: \x1b[38;5;69m, Bold green: \x1b[1;32m
+        let tool_color = if is_agent_mode { "\x1b[1;38;5;69m" } else { "\x1b[1;32m" };
         if let Some(tool_name) = self.current_tool_name.lock().unwrap().as_ref() {
             let args = self.current_tool_args.lock().unwrap();
 
@@ -162,14 +168,14 @@ impl UiWriter for ConsoleUiWriter {
                     String::new()
                 };
 
-                // Print with bold green tool name, purple (non-bold) for pipe and args
+                // Print with tool name in color (royal blue for agent mode, green otherwise)
                 println!(
-                    "┌─\x1b[1;32m {}\x1b[0m\x1b[35m | {}{}\x1b[0m",
-                    tool_name, display_value, header_suffix
+                    "┌─{} {}\x1b[0m\x1b[35m | {}{}\x1b[0m",
+                    tool_color, tool_name, display_value, header_suffix
                 );
             } else {
-                // Print with bold green formatting using ANSI escape codes
-                println!("┌─\x1b[1;32m {}\x1b[0m", tool_name);
+                // Print with tool name in color
+                println!("┌─{} {}\x1b[0m", tool_color, tool_name);
             }
         }
     }
@@ -360,5 +366,9 @@ impl UiWriter for ConsoleUiWriter {
     fn reset_json_filter(&self) {
         // Reset the filter state for a new response
         reset_json_tool_state();
+    }
+
+    fn set_agent_mode(&self, is_agent_mode: bool) {
+        *self.is_agent_mode.lock().unwrap() = is_agent_mode;
     }
 }
