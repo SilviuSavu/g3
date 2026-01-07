@@ -12,6 +12,7 @@ use tracing::{debug, error};
 use crate::{
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Tool, ToolCall, Usage,
+    streaming::{make_text_chunk, make_final_chunk},
 };
 
 #[derive(Clone)]
@@ -171,12 +172,7 @@ impl OpenAIProvider {
                                         if let Some(content) = &choice.delta.content {
                                             accumulated_content.push_str(content);
 
-                                            let chunk = CompletionChunk {
-                                                content: content.clone(),
-                                                finished: false,
-                                                tool_calls: None,
-                                                usage: None,
-                                            };
+                                            let chunk = make_text_chunk(content.clone());
                                             if tx.send(Ok(chunk)).await.is_err() {
                                                 debug!("Receiver dropped, stopping stream");
                                                 return accumulated_usage;
@@ -242,22 +238,15 @@ impl OpenAIProvider {
 
         // Send final chunk if we haven't already
         let tool_calls = if current_tool_calls.is_empty() {
-            None
+            vec![]
         } else {
-            Some(
-                current_tool_calls
-                    .iter()
-                    .filter_map(|tc| tc.to_tool_call())
-                    .collect(),
-            )
+            current_tool_calls
+                .iter()
+                .filter_map(|tc| tc.to_tool_call())
+                .collect()
         };
 
-        let final_chunk = CompletionChunk {
-            content: String::new(),
-            finished: true,
-            tool_calls,
-            usage: accumulated_usage.clone(),
-        };
+        let final_chunk = make_final_chunk(tool_calls, accumulated_usage.clone());
         let _ = tx.send(Ok(final_chunk)).await;
 
         accumulated_usage

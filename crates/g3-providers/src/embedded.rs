@@ -1,6 +1,7 @@
 use crate::{
-    CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
+    CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Usage,
+    streaming::{make_text_chunk, make_final_chunk},
 };
 use anyhow::Result;
 use llama_cpp::{
@@ -699,12 +700,7 @@ impl LLMProvider for EmbeddedProvider {
                             if accumulated_text.len() > already_sent_len {
                                 let remaining_to_send = &accumulated_text[already_sent_len..];
                                 if !remaining_to_send.is_empty() {
-                                    let chunk = CompletionChunk {
-                                        content: remaining_to_send.to_string(),
-                                        finished: false,
-                                        usage: None,
-                                        tool_calls: None,
-                                    };
+                                    let chunk = make_text_chunk(remaining_to_send.to_string());
                                     let _ = tx.blocking_send(Ok(chunk));
                                 }
                             }
@@ -726,12 +722,7 @@ impl LLMProvider for EmbeddedProvider {
                     if clean_accumulated.len() > already_sent_len {
                         let remaining_to_send = &clean_accumulated[already_sent_len..];
                         if !remaining_to_send.is_empty() {
-                            let chunk = CompletionChunk {
-                                content: remaining_to_send.to_string(),
-                                finished: false,
-                                usage: None,
-                                tool_calls: None,
-                            };
+                            let chunk = make_text_chunk(remaining_to_send.to_string());
                             let _ = tx.blocking_send(Ok(chunk));
                         }
                     }
@@ -761,12 +752,7 @@ impl LLMProvider for EmbeddedProvider {
                         // Send the oldest part and keep only the recent part that might be a stop sequence
                         let to_send = &unsent_tokens[..unsent_tokens.len() - 10];
                         if !to_send.is_empty() {
-                            let chunk = CompletionChunk {
-                                content: to_send.to_string(),
-                                finished: false,
-                                usage: None,
-                                tool_calls: None,
-                            };
+                            let chunk = make_text_chunk(to_send.to_string());
                             if tx.blocking_send(Ok(chunk)).is_err() {
                                 break;
                             }
@@ -777,12 +763,7 @@ impl LLMProvider for EmbeddedProvider {
                 } else {
                     // No potential stop sequence, send all unsent tokens
                     if !unsent_tokens.is_empty() {
-                        let chunk = CompletionChunk {
-                            content: unsent_tokens.clone(),
-                            finished: false,
-                            usage: None,
-                            tool_calls: None,
-                        };
+                        let chunk = make_text_chunk(unsent_tokens.clone());
                         if tx.blocking_send(Ok(chunk)).is_err() {
                             break;
                         }
@@ -798,12 +779,7 @@ impl LLMProvider for EmbeddedProvider {
             }
 
             // Send final chunk
-            let final_chunk = CompletionChunk {
-                content: String::new(),
-                finished: true,
-                usage: None, // Embedded models calculate usage differently
-                tool_calls: None,
-            };
+            let final_chunk = make_final_chunk(vec![], None);
             let _ = tx.blocking_send(Ok(final_chunk));
         });
 
