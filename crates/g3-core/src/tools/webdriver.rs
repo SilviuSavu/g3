@@ -1,5 +1,6 @@
 //! WebDriver browser automation tools.
 
+use std::sync::Arc;
 use anyhow::Result;
 use g3_computer_control::WebDriverController;
 use tracing::{debug, warn};
@@ -9,6 +10,29 @@ use crate::webdriver_session::WebDriverSession;
 use crate::ToolCall;
 
 use super::executor::ToolContext;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Acquire the WebDriver session, returning an error message if unavailable.
+async fn get_session<W: UiWriter>(
+    ctx: &ToolContext<'_, W>,
+) -> Result<Arc<tokio::sync::Mutex<WebDriverSession>>, String> {
+    if !ctx.config.webdriver.enabled {
+        return Err("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
+    }
+
+    let session_guard = ctx.webdriver_session.read().await;
+    match session_guard.as_ref() {
+        Some(s) => Ok(s.clone()),
+        None => Err("❌ No active WebDriver session. Call webdriver_start first.".to_string()),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tool implementations
+// ─────────────────────────────────────────────────────────────────────────────
 
 /// Execute the `webdriver_start` tool.
 pub async fn execute_webdriver_start<W: UiWriter>(
@@ -178,18 +202,10 @@ pub async fn execute_webdriver_navigate<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_navigate tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
-    drop(session_guard);
 
     let url = match tool_call.args.get("url").and_then(|v| v.as_str()) {
         Some(u) => u,
@@ -211,16 +227,9 @@ pub async fn execute_webdriver_get_url<W: UiWriter>(
     debug!("Processing webdriver_get_url tool call");
     let _ = tool_call; // unused
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let driver = session.lock().await;
@@ -238,16 +247,9 @@ pub async fn execute_webdriver_get_title<W: UiWriter>(
     debug!("Processing webdriver_get_title tool call");
     let _ = tool_call; // unused
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let driver = session.lock().await;
@@ -264,16 +266,9 @@ pub async fn execute_webdriver_find_element<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_find_element tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let selector = match tool_call.args.get("selector").and_then(|v| v.as_str()) {
@@ -298,16 +293,9 @@ pub async fn execute_webdriver_find_elements<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_find_elements tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let selector = match tool_call.args.get("selector").and_then(|v| v.as_str()) {
@@ -342,16 +330,9 @@ pub async fn execute_webdriver_click<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_click tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let selector = match tool_call.args.get("selector").and_then(|v| v.as_str()) {
@@ -376,16 +357,9 @@ pub async fn execute_webdriver_send_keys<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_send_keys tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let selector = match tool_call.args.get("selector").and_then(|v| v.as_str()) {
@@ -428,16 +402,9 @@ pub async fn execute_webdriver_execute_script<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_execute_script tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let script = match tool_call.args.get("script").and_then(|v| v.as_str()) {
@@ -459,10 +426,6 @@ pub async fn execute_webdriver_get_page_source<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_get_page_source tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
     // Extract optional parameters
     let max_length = tool_call
         .args
@@ -473,12 +436,9 @@ pub async fn execute_webdriver_get_page_source<W: UiWriter>(
 
     let save_to_file = tool_call.args.get("save_to_file").and_then(|v| v.as_str());
 
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let driver = session.lock().await;
@@ -528,16 +488,9 @@ pub async fn execute_webdriver_screenshot<W: UiWriter>(
 ) -> Result<String> {
     debug!("Processing webdriver_screenshot tool call");
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let path = match tool_call.args.get("path").and_then(|v| v.as_str()) {
@@ -560,16 +513,9 @@ pub async fn execute_webdriver_back<W: UiWriter>(
     debug!("Processing webdriver_back tool call");
     let _ = tool_call; // unused
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let mut driver = session.lock().await;
@@ -587,16 +533,9 @@ pub async fn execute_webdriver_forward<W: UiWriter>(
     debug!("Processing webdriver_forward tool call");
     let _ = tool_call; // unused
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let mut driver = session.lock().await;
@@ -614,16 +553,9 @@ pub async fn execute_webdriver_refresh<W: UiWriter>(
     debug!("Processing webdriver_refresh tool call");
     let _ = tool_call; // unused
 
-    if !ctx.config.webdriver.enabled {
-        return Ok("❌ WebDriver is not enabled. Use --webdriver flag to enable.".to_string());
-    }
-
-    let session_guard = ctx.webdriver_session.read().await;
-    let session = match session_guard.as_ref() {
-        Some(s) => s.clone(),
-        None => {
-            return Ok("❌ No active WebDriver session. Call webdriver_start first.".to_string())
-        }
+    let session = match get_session(ctx).await {
+        Ok(s) => s,
+        Err(msg) => return Ok(msg),
     };
 
     let mut driver = session.lock().await;
