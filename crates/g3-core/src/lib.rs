@@ -16,6 +16,7 @@ pub mod tool_dispatch;
 pub mod tool_definitions;
 pub mod tools;
 pub mod ui_writer;
+pub mod streaming;
 pub mod utils;
 pub mod webdriver_session;
 
@@ -1983,11 +1984,7 @@ impl<W: UiWriter> Agent<W> {
                             let text_content = parser.get_text_content();
 
                             // Clean the content
-                            let clean_content = text_content
-                                .replace("<|im_end|>", "")
-                                .replace("</s>", "")
-                                .replace("[/INST]", "")
-                                .replace("<</SYS>>", "");
+                            let clean_content = streaming::clean_llm_tokens(&text_content);
 
                             // Store the raw content BEFORE filtering for the context window log
                             let raw_content_for_log = clean_content.clone();
@@ -2046,14 +2043,8 @@ impl<W: UiWriter> Agent<W> {
                                                     } else {
                                                         s.clone()
                                                     }
-                                                } else if s.len() > 100 {
-                                                    // Use char_indices to respect UTF-8 boundaries
-                                                    let truncated = s
-                                                        .char_indices()
-                                                        .take(100)
-                                                        .map(|(_, c)| c)
-                                                        .collect::<String>();
-                                                    format!("{}...", truncated)
+                                                } else if s.chars().count() > 100 {
+                                                    streaming::truncate_for_display(s, 100)
                                                 } else {
                                                     s.clone()
                                                 }
@@ -2104,25 +2095,6 @@ impl<W: UiWriter> Agent<W> {
                                 // Check if UI wants full output (machine mode) or truncated (human mode)
                                 let wants_full = self.ui_writer.wants_full_output();
 
-                                // Helper function to safely truncate strings at character boundaries
-                                let truncate_line =
-                                    |line: &str, max_width: usize, truncate: bool| -> String {
-                                        if !truncate {
-                                            // Machine mode - return full line
-                                            line.to_string()
-                                        } else if line.chars().count() <= max_width {
-                                            // Human mode - line fits within limit
-                                            line.to_string()
-                                        } else {
-                                            // Human mode - truncate long line
-                                            let truncated: String = line
-                                                .chars()
-                                                .take(max_width.saturating_sub(3))
-                                                .collect();
-                                            format!("{}...", truncated)
-                                        }
-                                    };
-
                                 const MAX_LINES: usize = 5;
                                 const MAX_LINE_WIDTH: usize = 80;
                                 let output_len = output_lines.len();
@@ -2138,7 +2110,7 @@ impl<W: UiWriter> Agent<W> {
                                         if !wants_full && idx >= max_lines_to_show {
                                             break;
                                         }
-                                        let clipped_line = truncate_line(line, MAX_LINE_WIDTH, !wants_full);
+                                        let clipped_line = streaming::truncate_line(line, MAX_LINE_WIDTH, !wants_full);
                                         self.ui_writer.update_tool_output_line(&clipped_line);
                                     }
 
@@ -2330,12 +2302,7 @@ impl<W: UiWriter> Agent<W> {
 
                         // If no tool calls were completed, continue streaming normally
                         if !tool_executed {
-                            let clean_content = chunk
-                                .content
-                                .replace("<|im_end|>", "")
-                                .replace("</s>", "")
-                                .replace("[/INST]", "")
-                                .replace("<</SYS>>", "");
+                            let clean_content = streaming::clean_llm_tokens(&chunk.content);
 
                             if !clean_content.is_empty() {
                                 let filtered_content =
@@ -2382,11 +2349,7 @@ impl<W: UiWriter> Agent<W> {
                                     debug!("Warning: Using parser buffer text as fallback - this may duplicate output");
                                     // Extract only the undisplayed portion from parser buffer
                                     // Parser buffer accumulates across iterations, so we need to be careful
-                                    let clean_text = text_content
-                                        .replace("<|im_end|>", "")
-                                        .replace("</s>", "")
-                                        .replace("[/INST]", "")
-                                        .replace("<</SYS>>", "");
+                                    let clean_text = streaming::clean_llm_tokens(&text_content);
 
                                     let filtered_text =
                                         self.ui_writer.filter_json_tool_calls(&clean_text);
@@ -2404,91 +2367,17 @@ impl<W: UiWriter> Agent<W> {
                                 }
 
                                 if !has_text_response && full_response.is_empty() {
-                                    // Log detailed error information before failing
-                                    error!(
-                                        "=== STREAM ERROR: No content or tool calls received ==="
+                                    streaming::log_stream_error(
+                                        iteration_count,
+                                        &provider_name,
+                                        &provider_model,
+                                        chunks_received,
+                                        &parser,
+                                        &request,
+                                        &self.context_window,
+                                        self.session_id.as_deref(),
+                                        &raw_chunks,
                                     );
-                                    error!("Iteration: {}/{}", iteration_count, MAX_ITERATIONS);
-                                    error!(
-                                        "Provider: {} (model: {})",
-                                        provider_name, provider_model
-                                    );
-                                    error!("Chunks received: {}", chunks_received);
-                                    error!("Parser state:");
-                                    error!("  - Text buffer length: {}", parser.text_buffer_len());
-                                    error!(
-                                        "  - Text buffer content: {:?}",
-                                        parser.get_text_content()
-                                    );
-                                    error!("  - Has incomplete tool call: {}", parser.has_incomplete_tool_call());
-                                    error!("  - Message stopped: {}", parser.is_message_stopped());
-                                    error!("  - In JSON tool call: {}", parser.is_in_json_tool_call());
-                                    error!("  - JSON tool start: {:?}", parser.json_tool_start_position());
-                                    error!("Request details:");
-                                    error!("  - Messages count: {}", request.messages.len());
-                                    error!("  - Has tools: {}", request.tools.is_some());
-                                    error!("  - Max tokens: {:?}", request.max_tokens);
-                                    error!("  - Temperature: {:?}", request.temperature);
-                                    error!("  - Stream: {}", request.stream);
-
-                                    // Log raw chunks received
-                                    error!("Raw chunks received ({} total):", chunks_received);
-                                    for (i, chunk_str) in raw_chunks.iter().take(25).enumerate() {
-                                        error!("  [{}] {}", i, chunk_str);
-                                    }
-
-                                    // Log the full request JSON
-                                    match serde_json::to_string_pretty(&request) {
-                                        Ok(json) => {
-                                            error!(
-                                                "(turn on DEBUG logging for the raw JSON request)"
-                                            );
-                                            debug!("Full request JSON:\n{}", json);
-                                        }
-                                        Err(e) => {
-                                            error!("Failed to serialize request: {}", e);
-                                        }
-                                    }
-
-                                    // Log last user message for context
-                                    if let Some(last_user_msg) = request
-                                        .messages
-                                        .iter()
-                                        .rev()
-                                        .find(|m| matches!(m.role, MessageRole::User))
-                                    {
-                                        error!(
-                                            "Last user message: {}",
-                                            if last_user_msg.content.len() > 500 {
-                                                format!(
-                                                    "{}... (truncated)",
-                                                    &last_user_msg.content[..500]
-                                                )
-                                            } else {
-                                                last_user_msg.content.clone()
-                                            }
-                                        );
-                                    }
-
-                                    // Log context window state
-                                    error!("Context window state:");
-                                    error!(
-                                        "  - Used tokens: {}/{}",
-                                        self.context_window.used_tokens,
-                                        self.context_window.total_tokens
-                                    );
-                                    error!(
-                                        "  - Percentage used: {:.1}%",
-                                        self.context_window.percentage_used()
-                                    );
-                                    error!(
-                                        "  - Conversation history length: {}",
-                                        self.context_window.conversation_history.len()
-                                    );
-
-                                    // Log session info
-                                    error!("Session ID: {:?}", self.session_id);
-                                    error!("=== END STREAM ERROR ===");
 
                                     // No response received - this is an error condition
                                     warn!("Stream finished without any content or tool calls");
@@ -2565,10 +2454,7 @@ impl<W: UiWriter> Agent<W> {
                         _last_error = Some(error_details.clone());
 
                         // Check if this is a recoverable connection error
-                        let is_connection_error = error_msg.contains("unexpected EOF")
-                            || error_msg.contains("connection")
-                            || error_msg.contains("chunk size line")
-                            || error_msg.contains("body error");
+                        let is_connection_error = streaming::is_connection_error(&error_msg);
 
                         if is_connection_error {
                             warn!(
@@ -2633,8 +2519,7 @@ impl<W: UiWriter> Agent<W> {
                 } else {
                     &full_response
                 };
-                let is_empty_response = response_text.trim().is_empty() 
-                    || response_text.lines().all(|line| line.trim().is_empty() || line.trim().starts_with("⏱️"));
+                let is_empty_response = streaming::is_empty_response(response_text);
 
                 // Check if there's an incomplete tool call in the buffer
                 let has_incomplete_tool_call = parser.has_incomplete_tool_call();
@@ -2769,11 +2654,7 @@ impl<W: UiWriter> Agent<W> {
                 if !full_response.trim().is_empty() {
                     // Get the raw text from the parser (before filtering)
                     let raw_text = parser.get_text_content();
-                    let raw_clean = raw_text
-                        .replace("<|im_end|>", "")
-                        .replace("</s>", "")
-                        .replace("[/INST]", "")
-                        .replace("<</SYS>>", "");
+                    let raw_clean = streaming::clean_llm_tokens(&raw_text);
 
                     if !raw_clean.trim().is_empty() {
                         let assistant_message = Message::new(MessageRole::Assistant, raw_clean);
@@ -2908,35 +2789,16 @@ impl<W: UiWriter> Agent<W> {
 
 
     fn format_duration(duration: Duration) -> String {
-        let total_ms = duration.as_millis();
-
-        if total_ms < 1000 {
-            format!("{}ms", total_ms)
-        } else if total_ms < 60_000 {
-            let seconds = duration.as_secs_f64();
-            format!("{:.1}s", seconds)
-        } else {
-            let minutes = total_ms / 60_000;
-            let remaining_seconds = (total_ms % 60_000) as f64 / 1000.0;
-            format!("{}m {:.1}s", minutes, remaining_seconds)
-        }
+        streaming::format_duration(duration)
     }
 
-    /// Format the timing footer with optional token usage info
     fn format_timing_footer(
         elapsed: Duration,
         ttft: Duration,
         turn_tokens: Option<u32>,
         context_percentage: f32,
     ) -> String {
-        let timing = format!("⏱️ {} | 💭 {}", Self::format_duration(elapsed), Self::format_duration(ttft));
-        
-        // Add token usage info if available (dimmed)
-        if let Some(tokens) = turn_tokens {
-            format!("{}  \x1b[2m{} ◉ | {:.0}%\x1b[0m", timing, tokens, context_percentage)
-        } else {
-            format!("{}  \x1b[2m{:.0}%\x1b[0m", timing, context_percentage)
-        }
+        streaming::format_timing_footer(elapsed, ttft, turn_tokens, context_percentage)
     }
 }
 
