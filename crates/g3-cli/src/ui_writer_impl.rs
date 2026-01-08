@@ -1,6 +1,9 @@
 use crate::filter_json::{filter_json_tool_calls, reset_json_tool_state};
+use crate::syntax_highlight::render_markdown_with_highlighting;
+use crate::streaming_markdown::StreamingMarkdownFormatter;
 use g3_core::ui_writer::UiWriter;
 use std::io::{self, Write};
+use std::sync::Mutex;
 use termimad::MadSkin;
 
 /// Console implementation of UiWriter that prints to stdout
@@ -10,6 +13,8 @@ pub struct ConsoleUiWriter {
     current_output_line: std::sync::Mutex<Option<String>>,
     output_line_printed: std::sync::Mutex<bool>,
     is_agent_mode: std::sync::Mutex<bool>,
+    /// Streaming markdown formatter for agent responses
+    markdown_formatter: Mutex<Option<StreamingMarkdownFormatter>>,
 }
 
 impl ConsoleUiWriter {
@@ -20,6 +25,7 @@ impl ConsoleUiWriter {
             current_output_line: std::sync::Mutex::new(None),
             output_line_printed: std::sync::Mutex::new(false),
             is_agent_mode: std::sync::Mutex::new(false),
+            markdown_formatter: Mutex::new(None),
         }
     }
 }
@@ -271,8 +277,37 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn print_agent_response(&self, content: &str) {
-        print!("{}", content);
-        let _ = io::stdout().flush();
+        let mut formatter_guard = self.markdown_formatter.lock().unwrap();
+        
+        // Initialize formatter if not already done
+        if formatter_guard.is_none() {
+            let mut skin = MadSkin::default();
+            skin.bold.set_fg(termimad::crossterm::style::Color::Green);
+            skin.italic.set_fg(termimad::crossterm::style::Color::Cyan);
+            skin.inline_code.set_fg(termimad::crossterm::style::Color::Rgb { r: 216, g: 177, b: 114 });
+            *formatter_guard = Some(StreamingMarkdownFormatter::new(skin));
+        }
+        
+        // Process the chunk through the formatter
+        if let Some(ref mut formatter) = *formatter_guard {
+            let formatted = formatter.process(content);
+            print!("{}", formatted);
+            let _ = io::stdout().flush();
+        }
+    }
+
+    fn finish_streaming_markdown(&self) {
+        let mut formatter_guard = self.markdown_formatter.lock().unwrap();
+        
+        if let Some(ref mut formatter) = *formatter_guard {
+            // Flush any remaining buffered content
+            let remaining = formatter.finish();
+            print!("{}", remaining);
+            let _ = io::stdout().flush();
+        }
+        
+        // Reset the formatter for the next response
+        *formatter_guard = None;
     }
 
     fn notify_sse_received(&self) {
@@ -340,17 +375,16 @@ impl UiWriter for ConsoleUiWriter {
         // Customize colors for better terminal appearance
         skin.bold.set_fg(termimad::crossterm::style::Color::Green);
         skin.italic.set_fg(termimad::crossterm::style::Color::Cyan);
+        skin.inline_code.set_fg(termimad::crossterm::style::Color::Rgb { r: 216, g: 177, b: 114 });
         skin.headers[0].set_fg(termimad::crossterm::style::Color::Magenta);
         skin.headers[1].set_fg(termimad::crossterm::style::Color::Magenta);
-        skin.code_block.set_fg(termimad::crossterm::style::Color::Yellow);
-        skin.inline_code.set_fg(termimad::crossterm::style::Color::Yellow);
 
         // Print a header separator
         println!("\x1b[1;35m━━━ Summary ━━━\x1b[0m");
         println!();
 
-        // Render the markdown
-        let rendered = skin.term_text(summary);
+        // Render the markdown with syntax-highlighted code blocks
+        let rendered = render_markdown_with_highlighting(summary, &skin);
         print!("{}", rendered);
 
         // Print a footer separator

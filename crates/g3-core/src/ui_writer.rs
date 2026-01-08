@@ -81,6 +81,12 @@ pub trait UiWriter: Send + Sync {
     /// Called at the start of a new response to clear any partial state.
     /// Default implementation does nothing.
     fn reset_json_filter(&self) {}
+    
+    /// Finish the streaming markdown formatter and flush any remaining content.
+    /// Called at the end of an agent response to emit any buffered markdown.
+    /// Also resets the formatter for the next response.
+    /// Default implementation does nothing.
+    fn finish_streaming_markdown(&self) {}
 
     /// Set whether the UI is in agent mode.
     /// When in agent mode, tool names may be displayed differently (e.g., different color).
@@ -109,6 +115,7 @@ impl UiWriter for NullUiWriter {
     fn print_agent_response(&self, _content: &str) {}
     fn notify_sse_received(&self) {}
     fn flush(&self) {}
+    fn finish_streaming_markdown(&self) {}
     fn wants_full_output(&self) -> bool {
         false
     }

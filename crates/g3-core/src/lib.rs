@@ -2027,6 +2027,9 @@ impl<W: UiWriter> Agent<W> {
 
                             // Skip printing tool call details for final_output
                             if tool_call.tool != "final_output" {
+                                // Finish streaming markdown before showing tool output
+                                self.ui_writer.finish_streaming_markdown();
+
                                 // Tool call header
                                 self.ui_writer.print_tool_header(&tool_call.tool, Some(&tool_call.args));
                                 if let Some(args_obj) = tool_call.args.as_object() {
@@ -2197,6 +2200,9 @@ impl<W: UiWriter> Agent<W> {
 
                             // Check if this was a final_output tool call
                             if tool_call.tool == "final_output" {
+                                // Finish the streaming markdown formatter before final_output
+                                self.ui_writer.finish_streaming_markdown();
+
                                 // Save context window BEFORE returning so the session log includes final_output
                                 self.save_context_window("completed");
                                 
@@ -2405,6 +2411,9 @@ impl<W: UiWriter> Agent<W> {
                                 // The text was already displayed during streaming
                                 // Return empty string to avoid duplication
                                 full_response = String::new();
+
+                                // Finish the streaming markdown formatter before returning
+                                self.ui_writer.finish_streaming_markdown();
 
                                 // Save context window BEFORE returning
                                 self.save_context_window("completed");
