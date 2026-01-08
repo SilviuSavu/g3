@@ -1586,3 +1586,186 @@ fn test_language_aliases() {
     let full = format!("{}{}", output, remaining);
     assert!(full.contains("\x1b["), "Scheme should be syntax highlighted");
 }
+
+#[test]
+fn test_backticks_edge_cases() {
+    let mut fmt = make_formatter();
+    
+    // Simple inline code
+    let input = "- `racket` / `rkt`\n";
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    println!("Simple: {}", full);
+    assert!(full.contains("\x1b["), "Should have formatting");
+    
+    // Backticks inside inline code (using double backtick delimiters)
+    let mut fmt = make_formatter();
+    let input = "- `` `racket` `` works\n";
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    println!("Double delim: {}", full);
+}
+
+#[test]
+fn test_inline_code_regex_directly() {
+    let code_re = regex::Regex::new(r"`([^`]+)`").unwrap();
+    
+    let input = "`racket` / `rkt`";
+    let matches: Vec<_> = code_re.find_iter(input).collect();
+    println!("Input: {}", input);
+    println!("Matches: {:?}", matches);
+    
+    let result = code_re.replace_all(input, |caps: &regex::Captures| {
+        let code = &caps[1];
+        format!("[CODE:{}]", code)
+    });
+    println!("Result: {}", result);
+}
+
+#[test]
+fn test_inline_code_char_by_char() {
+    let mut fmt = make_formatter();
+    
+    let input = "- `racket` / `rkt`\n";
+    println!("Input: {:?}", input);
+    
+    // Process char by char to see what's happening
+    for ch in input.chars() {
+        let output = fmt.process(&ch.to_string());
+        if !output.is_empty() {
+            println!("After {:?}: output={:?}", ch, output);
+        }
+    }
+    
+    let remaining = fmt.finish();
+    println!("Finish: {:?}", remaining);
+}
+
+#[test]
+fn test_inline_code_detailed_trace() {
+    let mut fmt = make_formatter();
+    
+    let input = "- `racket` / `rkt`\n";
+    println!("Input: {:?}", input);
+    
+    // Process char by char
+    for (i, ch) in input.chars().enumerate() {
+        let output = fmt.process(&ch.to_string());
+        println!("[{}] char={:?} output={:?}", i, ch, output);
+    }
+    
+    let remaining = fmt.finish();
+    println!("Finish: {:?}", remaining);
+}
+
+#[test]
+fn test_code_block_closing() {
+    let mut fmt = make_formatter();
+    
+    let input = r#"```yaml
+- type: on-load
+  script: |
+    (lock-player)
+```
+"#;
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+    
+    // Should NOT contain literal ``` in output
+    assert!(!full.contains("```"), "Code fence should not appear in output");
+}
+
+#[test]
+fn test_code_block_with_trailing_fence() {
+    let mut fmt = make_formatter();
+    
+    // Test case: code block followed by another code fence (malformed markdown)
+    let input = "```yaml\ncode here\n```\n```\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+}
+
+#[test]
+fn test_code_block_char_by_char() {
+    let mut fmt = make_formatter();
+    
+    let input = "```yaml\ncode\n```\n";
+    println!("Input: {:?}", input);
+    
+    for (i, ch) in input.chars().enumerate() {
+        let output = fmt.process(&ch.to_string());
+        if !output.is_empty() {
+            println!("[{}] char={:?} output={:?}", i, ch, output);
+        }
+    }
+    
+    let remaining = fmt.finish();
+    println!("Finish: {:?}", remaining);
+}
+
+#[test]
+fn test_code_fence_not_at_line_start() {
+    let mut fmt = make_formatter();
+    
+    // Code fence with leading space (should NOT be treated as code block)
+    let input = " ```yaml\ncode\n```\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+    // With leading space, it might not be detected as a code fence
+}
+
+#[test]
+fn test_code_block_containing_backticks() {
+    let mut fmt = make_formatter();
+    
+    // Code block that contains triple backticks in the content
+    let input = "```yaml\nscript: |\n  ```\n  nested\n  ```\n```\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+}
+
+#[test]
+fn test_code_block_with_4space_indent() {
+    let mut fmt = make_formatter();
+    
+    // Code block that contains triple backticks with 4-space indent (should NOT close)
+    let input = "```yaml\nscript: |\n    ```\n    nested\n    ```\n```\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+    
+    // The 4-space indented ``` should NOT close the code block
+    // So "nested" should be part of the highlighted code
+    assert!(full.contains("nested"), "nested should be in output");
+}

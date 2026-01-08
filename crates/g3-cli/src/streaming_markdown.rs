@@ -179,6 +179,7 @@ impl StreamingMarkdownFormatter {
                     self.pending_output.push_back(indent);
                 }
                 self.pending_output.push_back("• ".to_string());
+                self.at_line_start = false;
                 return;
             }
             
@@ -424,7 +425,12 @@ impl StreamingMarkdownFormatter {
     fn process_in_code_block(&mut self, ch: char) {
         if ch == '\n' {
             // Check if this line closes the code block
-            if self.current_line.trim() == "```" {
+            // Only close if the fence is at the start of the line with at most 3 spaces
+            // of indentation (per CommonMark spec). This prevents content like "    ```"
+            // (4+ spaces, which is code indentation) from closing the block.
+            let trimmed = self.current_line.trim_start();
+            let leading_spaces = self.current_line.len() - trimmed.len();
+            if trimmed == "```" && leading_spaces <= 3 {
                 // Emit the entire code block
                 self.emit_code_block();
                 self.block_state = BlockState::None;
