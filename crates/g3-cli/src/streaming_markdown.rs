@@ -799,8 +799,22 @@ fn is_potential_delimiter_start(ch: char) -> bool {
 
 /// Highlight code with syntect.
 fn highlight_code(code: &str, lang: Option<&str>) -> String {
+    // Map language aliases to syntect-recognized names
+    let normalized_lang = lang.map(|l| match l.to_lowercase().as_str() {
+        // Lisp family - syntect's "Lisp" syntax handles these well
+        "racket" | "rkt" => "lisp",
+        "elisp" | "emacs-lisp" => "lisp",
+        "scheme" => "lisp",
+        "common-lisp" | "cl" => "lisp",
+        // Other common aliases
+        "shell" | "sh" => "bash",
+        "zsh" => "bash",
+        "dockerfile" => "bash",
+        _ => l,
+    });
+
     let syntax = lang
-        .and_then(|l| SYNTAX_SET.find_syntax_by_token(l))
+        .and_then(|_| normalized_lang.and_then(|l| SYNTAX_SET.find_syntax_by_token(l)))
         .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
     
     let theme = &THEME_SET.themes["base16-ocean.dark"];

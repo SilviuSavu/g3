@@ -1536,3 +1536,53 @@ fn stress_test_pathological() {
         fmt = make_formatter();
     }
 }
+
+#[test]
+fn test_language_aliases() {
+    let mut fmt = make_formatter();
+    
+    // Test Racket code block
+    let racket_code = r#"```racket
+(define (factorial n)
+  (if (<= n 1)
+      1
+      (* n (factorial (- n 1)))))
+```
+"#;
+    let output = fmt.process(racket_code);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    // Should have ANSI codes (syntax highlighting applied)
+    assert!(full.contains("\x1b["), "Racket should be syntax highlighted");
+    assert!(full.contains("factorial"));
+    
+    // Test elisp code block
+    let mut fmt = make_formatter();
+    let elisp_code = r#"```elisp
+(defun hello-world ()
+  "Print hello world."
+  (interactive)
+  (message "Hello, World!"))
+```
+"#;
+    let output = fmt.process(elisp_code);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    assert!(full.contains("\x1b["), "Elisp should be syntax highlighted");
+    assert!(full.contains("hello-world"));
+    
+    // Test scheme code block  
+    let mut fmt = make_formatter();
+    let scheme_code = r#"```scheme
+(define (map f lst)
+  (if (null? lst)
+      '()
+      (cons (f (car lst))
+            (map f (cdr lst)))))
+```
+"#;
+    let output = fmt.process(scheme_code);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    assert!(full.contains("\x1b["), "Scheme should be syntax highlighted");
+}
