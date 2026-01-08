@@ -1,5 +1,4 @@
 use crate::filter_json::{filter_json_tool_calls, reset_json_tool_state};
-use crate::syntax_highlight::render_markdown_with_highlighting;
 use crate::streaming_markdown::StreamingMarkdownFormatter;
 use g3_core::ui_writer::UiWriter;
 use std::io::{self, Write};
@@ -354,38 +353,30 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn print_final_output(&self, summary: &str) {
-        // Show spinner while "formatting"
-        let spinner_frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-        let message = "compacting work done...";
-
-        // Brief spinner animation (about 0.5 seconds)
-        for i in 0..5 {
-            let frame = spinner_frames[i % spinner_frames.len()];
-            print!("\r\x1b[36m{} {}\x1b[0m", frame, message);
-            let _ = io::stdout().flush();
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        }
-
-        // Clear the spinner line
-        print!("\r\x1b[2K");
-        let _ = io::stdout().flush();
-
-        // Create a styled markdown skin
-        let mut skin = MadSkin::default();
-        // Customize colors for better terminal appearance
-        skin.bold.set_fg(termimad::crossterm::style::Color::Green);
-        skin.italic.set_fg(termimad::crossterm::style::Color::Cyan);
-        skin.inline_code.set_fg(termimad::crossterm::style::Color::Rgb { r: 216, g: 177, b: 114 });
-        skin.headers[0].set_fg(termimad::crossterm::style::Color::Magenta);
-        skin.headers[1].set_fg(termimad::crossterm::style::Color::Magenta);
-
         // Print a header separator
         println!("\x1b[1;35m━━━ Summary ━━━\x1b[0m");
         println!();
-
-        // Render the markdown with syntax-highlighted code blocks
-        let rendered = render_markdown_with_highlighting(summary, &skin);
-        print!("{}", rendered);
+        
+        // Use the same streaming markdown formatter for consistency
+        let mut skin = MadSkin::default();
+        skin.bold.set_fg(termimad::crossterm::style::Color::Green);
+        skin.italic.set_fg(termimad::crossterm::style::Color::Cyan);
+        skin.inline_code.set_fg(termimad::crossterm::style::Color::Rgb {
+            r: 216,
+            g: 177,
+            b: 114,
+        });
+        
+        let mut formatter = StreamingMarkdownFormatter::new(skin);
+        
+        // Process the entire summary through the formatter
+        let formatted = formatter.process(summary);
+        print!("{}", formatted);
+        
+        // Flush any remaining buffered content
+        let remaining = formatter.finish();
+        print!("{}", remaining);
+        let _ = io::stdout().flush();
 
         // Print a footer separator
         println!();

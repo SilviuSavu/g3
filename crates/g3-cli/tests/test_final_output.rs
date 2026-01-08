@@ -1,16 +1,13 @@
-//! Quick test to verify syntax highlighting works
+//! Quick test to verify final_output rendering works with streaming markdown
 //! Run with: cargo test -p g3-cli --test test_final_output -- --nocapture
 
 use std::io::{self, Write};
 
-// We'll directly test the syntax_highlight module's public function
-// by importing it and calling it with a MadSkin
-
 #[test]
-fn test_syntax_highlighting_visual() {
-    // Import what we need
+fn test_final_output_visual() {
+    use g3_cli::streaming_markdown::StreamingMarkdownFormatter;
     use termimad::MadSkin;
-    
+
     // Create the test markdown
     let test_markdown = r##"# Task Completed Successfully
 
@@ -158,18 +155,24 @@ All changes have been tested and verified. The implementation:
     let mut skin = MadSkin::default();
     skin.bold.set_fg(termimad::crossterm::style::Color::Green);
     skin.italic.set_fg(termimad::crossterm::style::Color::Cyan);
-    skin.headers[0].set_fg(termimad::crossterm::style::Color::Magenta);
-    skin.headers[1].set_fg(termimad::crossterm::style::Color::Magenta);
+    skin.inline_code.set_fg(termimad::crossterm::style::Color::Rgb {
+        r: 216,
+        g: 177,
+        b: 114,
+    });
 
     // Print header
     println!("\n\x1b[1;35m━━━ Summary ━━━\x1b[0m\n");
 
-    // Use the syntax highlighting renderer
-    let rendered = g3_cli::syntax_highlight::render_markdown_with_highlighting(test_markdown, &skin);
-    print!("{}", rendered);
+    // Use the streaming markdown formatter (same as print_final_output now uses)
+    let mut formatter = StreamingMarkdownFormatter::new(skin);
+    let formatted = formatter.process(test_markdown);
+    print!("{}", formatted);
+    let remaining = formatter.finish();
+    print!("{}", remaining);
 
     // Print footer
     println!("\n\x1b[1;35m━━━━━━━━━━━━━━━\x1b[0m");
-    
+
     let _ = io::stdout().flush();
 }

@@ -1,6 +1,5 @@
 // JSON tool call filtering for display (moved from g3-core)
 pub mod filter_json;
-pub mod syntax_highlight;
 pub mod streaming_markdown;
 
 use anyhow::Result;
