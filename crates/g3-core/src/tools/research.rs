@@ -4,7 +4,6 @@ use anyhow::Result;
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tracing::debug;
 
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
@@ -27,7 +26,6 @@ pub async fn execute_research<W: UiWriter>(
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow::anyhow!("Missing required 'query' parameter"))?;
 
-    debug!("Research tool called with query: {}", query);
     ctx.ui_writer.print_tool_header("research", None);
     ctx.ui_writer.print_tool_arg("query", query);
     
@@ -54,10 +52,13 @@ pub async fn execute_research<W: UiWriter>(
     
     let mut reader = BufReader::new(stdout).lines();
     let mut last_line = String::new();
+
+    // Print a header for the scout output
+    ctx.ui_writer.println("\n📡 Scout agent output:");
     
-    // Read all lines, keeping track of the last one
+    // Stream all lines to UI, keeping track of the last one for the report path
     while let Some(line) = reader.next_line().await? {
-        debug!("Scout output: {}", line);
+        ctx.ui_writer.println(&format!("  {}", line));
         last_line = line;
     }
 
@@ -76,8 +77,6 @@ pub async fn execute_research<W: UiWriter>(
         return Ok("❌ Scout agent did not output a report file path".to_string());
     }
 
-    debug!("Report file path: {}", report_path);
-
     // Expand tilde if present
     let expanded_path = if report_path.starts_with('~') {
         if let Ok(home) = std::env::var("HOME") {
@@ -92,7 +91,6 @@ pub async fn execute_research<W: UiWriter>(
     // Read the report file
     match std::fs::read_to_string(&expanded_path) {
         Ok(content) => {
-            debug!("Report loaded: {} chars", content.len());
             Ok(format!("📋 Research Report:\n\n{}", content))
         }
         Err(e) => {
