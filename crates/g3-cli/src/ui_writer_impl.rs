@@ -186,6 +186,9 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn update_tool_output_line(&self, line: &str) {
+        // Truncate long lines to prevent terminal wrapping issues
+        // When lines wrap, the cursor-up escape code only moves up one visual line
+        const MAX_LINE_WIDTH: usize = 120;
         let mut current_line = self.current_output_line.lock().unwrap();
         let mut line_printed = self.output_line_printed.lock().unwrap();
 
@@ -195,8 +198,15 @@ impl UiWriter for ConsoleUiWriter {
             print!("\x1b[1A\x1b[2K");
         }
 
-        // Print the new line
-        println!("│ \x1b[2m{}\x1b[0m", line);
+        // Truncate line if needed to prevent wrapping
+        let display_line = if line.chars().count() > MAX_LINE_WIDTH {
+            let truncated: String = line.chars().take(MAX_LINE_WIDTH - 3).collect();
+            format!("{}...", truncated)
+        } else {
+            line.to_string()
+        };
+
+        println!("│ \x1b[2m{}\x1b[0m", display_line);
         let _ = io::stdout().flush();
 
         // Update state
