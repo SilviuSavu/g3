@@ -433,6 +433,7 @@ pub async fn run() -> Result<()> {
             cli.config.as_deref(),
             cli.quiet,
             cli.new_session,
+            cli.task.clone(),
         )
         .await;
     }
@@ -445,6 +446,7 @@ pub async fn run() -> Result<()> {
             cli.config.as_deref(),
             cli.quiet,
             cli.new_session,
+            cli.task.clone(),
         )
         .await;
     }
@@ -653,6 +655,7 @@ async fn run_agent_mode(
     config_path: Option<&str>,
     _quiet: bool,
     new_session: bool,
+    task: Option<String>,
 ) -> Result<()> {
     use g3_core::get_agent_system_prompt;
     use g3_core::find_incomplete_agent_session;
@@ -821,10 +824,16 @@ async fn run_agent_mode(
         // Fresh start - the agent prompt should contain instructions to start working immediately
         "Begin your analysis and work on the current project. Follow your mission and workflow as specified in your instructions."
     };
+    // Use provided task if available, otherwise use the default initial_task
+    let final_task = task.as_deref().unwrap_or(initial_task);
     
-    let _result = agent.execute_task(initial_task, None, true).await?;
+    let _result = agent.execute_task(final_task, None, true).await?;
     
-    output.print("\n✅ Agent mode completed");
+    // Don't print completion message for scout agent - it needs the last line
+    // to be the report file path for the research tool to read
+    if agent_name != "scout" {
+        output.print("\n✅ Agent mode completed");
+    }
     Ok(())
 }
 

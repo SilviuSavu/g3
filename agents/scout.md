@@ -103,13 +103,9 @@ You have access to WebDriver browser automation tools for web research.
 **How to use WebDriver:**
 1. Call `webdriver_start` to begin a browser session
 2. Use `webdriver_navigate` to go to URLs (search engines, documentation sites, etc.)
-3. **IMPORTANT**: Always use `webdriver_get_page_source` with `save_to_file` parameter to save the page HTML to disk
-4. Read the saved HTML file with `read_file` to extract the information you need
-5. Call `webdriver_quit` when done
+3. Use all the standard webdriver navigation tools to scan and explore websites 
+3. Call `webdriver_quit` when done
 
 **Best practices:**
-- Do NOT use `webdriver_screenshot` or try to decode page content visually - always save HTML to disk and read it
-- Save pages to the `tmp/` subdirectory (e.g., `tmp/search_results.html`)
-- Parse the HTML text content to find what you need
-- For search engines, look for result links and titles in the HTML
-- Close the WebDriver session when you're done to free resources
+- Do NOT use Google, prefer DuckDuckGo, Brave Search or Bing in that order.
+- If you're struggling to navigate sites, try saving pages to the `tmp/` subdirectory (e.g., `tmp/search_results.html`), then parse the HTML to find what you need
