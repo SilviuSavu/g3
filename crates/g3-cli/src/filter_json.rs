@@ -1,78 +1,160 @@
 //! JSON tool call filtering for streaming LLM responses.
 //!
 //! This module filters out JSON tool calls from LLM output streams while preserving
-//! regular text content. It uses a state machine to handle streaming chunks.
+//! regular text content. It uses a simple state machine optimized for streaming.
 //!
 //! # Design
 //!
-//! The filter detects tool calls by looking for JSON objects that start with `{"tool":`
-//! at the beginning of a line. It uses brace counting to find the complete JSON object
-//! and removes it from the output stream.
+//! The filter uses three states:
+//! - **Streaming**: Normal pass-through mode. Watches for newline + whitespace + `{`
+//! - **Buffering**: Saw potential tool call start, buffering to confirm/deny
+//! - **Suppressing**: Confirmed tool call, counting braces (string-aware) to find end
 //!
-//! # Known Edge Cases
-//!
-//! 1. **Brace counting without string awareness in main loop**: The main filtering loop
-//!    counts braces without considering whether they're inside JSON strings. This can
-//!    cause premature exit from suppression mode if a string contains `}`.
-//!
-//! 2. **Tool calls not at line start**: Tool calls that don't start at the beginning
-//!    of a line (after optional whitespace) won't be detected.
-//!
-//! 3. **Streaming chunk boundaries**: If a tool call pattern is split across chunks
-//!    (e.g., `{"to` in one chunk and `ol":` in the next), detection may fail.
+//! The key insight is that we only need to buffer a small amount (around 12 chars)
+//! to confirm whether `{` starts a tool call pattern like `{"tool":`.
 
-use regex::Regex;
 use std::cell::RefCell;
 use tracing::debug;
 
+/// Maximum chars needed to confirm/deny a tool call pattern.
+/// Pattern is: { + optional whitespace + "tool" + optional whitespace + : + optional whitespace + "
+/// Realistically: `{"tool":"` = 9 chars, with whitespace maybe 15 max
+const MAX_BUFFER_FOR_DETECTION: usize = 20;
+
 // Thread-local state for tracking JSON tool call suppression
 thread_local! {
-    static JSON_TOOL_STATE: RefCell<JsonToolState> = RefCell::new(JsonToolState::new());
+    static JSON_TOOL_STATE: RefCell<FilterState> = RefCell::new(FilterState::new());
 }
 
-/// Internal state for tracking JSON tool call filtering across streaming chunks.
+/// The three possible states of the filter
+#[derive(Debug, Clone, PartialEq)]
+enum State {
+    /// Normal streaming - pass through content, watch for newline + whitespace + {
+    Streaming,
+    /// Saw potential start, buffering to confirm/deny tool pattern
+    Buffering,
+    /// Confirmed tool call, suppressing until braces balance
+    Suppressing,
+}
+
+/// Internal state for the filter
 #[derive(Debug, Clone)]
-struct JsonToolState {
-    /// True when actively suppressing a confirmed tool call
-    suppression_mode: bool,
-    /// True when buffering potential JSON (saw { but not yet confirmed as tool call)
-    potential_json_mode: bool,
-    /// Tracks nesting depth of braces within JSON
-    brace_depth: i32,
+struct FilterState {
+    state: State,
+    /// Buffer for potential tool call detection (Buffering state)
     buffer: String,
-    json_start_in_buffer: Option<usize>, // Position where confirmed JSON tool call starts
-    content_returned_up_to: usize,       // Track how much content we've already returned
-    potential_json_start: Option<usize>, // Where the potential JSON started
+    /// Brace depth for JSON tracking (Suppressing state) - string-aware
+    brace_depth: i32,
+    /// Are we inside a JSON string? (for proper brace counting)
+    in_string: bool,
+    /// Was the previous char a backslash? (for escape handling)
+    escape_next: bool,
+    /// Track if we just saw a newline (to detect line-start patterns)
+    at_line_start: bool,
+    /// Whitespace seen after newline (before potential {)
+    pending_whitespace: String,
 }
 
-impl JsonToolState {
+impl FilterState {
     fn new() -> Self {
         Self {
-            suppression_mode: false,
-            potential_json_mode: false,
-            brace_depth: 0,
+            state: State::Streaming,
             buffer: String::new(),
-            json_start_in_buffer: None,
-            content_returned_up_to: 0,
-            potential_json_start: None,
+            brace_depth: 0,
+            in_string: false,
+            escape_next: false,
+            at_line_start: true, // Start of input counts as line start
+            pending_whitespace: String::new(),
         }
     }
 
     fn reset(&mut self) {
-        self.suppression_mode = false;
-        self.potential_json_mode = false;
-        self.brace_depth = 0;
+        self.state = State::Streaming;
         self.buffer.clear();
-        self.json_start_in_buffer = None;
-        self.content_returned_up_to = 0;
-        self.potential_json_start = None;
+        self.brace_depth = 0;
+        self.in_string = false;
+        self.escape_next = false;
+        self.at_line_start = true;
+        self.pending_whitespace.clear();
     }
+}
+
+/// Check if buffer matches the tool call pattern.
+/// Pattern: `{` followed by optional whitespace, `"tool"`, optional whitespace, `:`, optional whitespace, `"`
+/// 
+/// Returns:
+/// - Some(true) if confirmed as tool call
+/// - Some(false) if confirmed NOT a tool call  
+/// - None if need more data
+fn check_tool_pattern(buffer: &str) -> Option<bool> {
+    // Must start with {
+    if !buffer.starts_with('{') {
+        return Some(false);
+    }
+    
+    let after_brace = &buffer[1..];
+    
+    // Skip leading whitespace after {
+    let trimmed = after_brace.trim_start();
+    
+    // Need at least `"tool":"` = 8 chars after whitespace
+    if trimmed.len() < 8 {
+        // Not enough data yet - but check for early rejection
+        if trimmed.starts_with('"') {
+            let after_quote = &trimmed[1..];
+            // If we have chars after the quote, check if it starts with 't'
+            if !after_quote.is_empty() && !after_quote.starts_with('t') {
+                return Some(false); // Definitely not "tool
+            }
+            if after_quote.len() >= 2 && !after_quote.starts_with("to") {
+                return Some(false);
+            }
+            if after_quote.len() >= 3 && !after_quote.starts_with("too") {
+                return Some(false);
+            }
+            if after_quote.len() >= 4 && !after_quote.starts_with("tool") {
+                return Some(false);
+            }
+        } else if !trimmed.is_empty() && !trimmed.starts_with('"') {
+            // First non-whitespace char after { is not " - not a tool call
+            return Some(false);
+        }
+        return None; // Need more data
+    }
+    
+    // We have enough data - check the full pattern
+    // Must be: "tool" followed by optional whitespace, :, optional whitespace, "
+    if !trimmed.starts_with("\"tool\"") {
+        return Some(false);
+    }
+    
+    let after_tool = trimmed[6..].trim_start(); // 6 = len of "tool"
+    
+    if after_tool.is_empty() {
+        return None; // Need more data
+    }
+    
+    if !after_tool.starts_with(':') {
+        return Some(false);
+    }
+    
+    let after_colon = after_tool[1..].trim_start();
+    
+    if after_colon.is_empty() {
+        return None; // Need more data
+    }
+    
+    if after_colon.starts_with('"') {
+        return Some(true); // Confirmed tool call!
+    }
+    
+    Some(false) // Has : but not followed by "
 }
 
 /// Filters JSON tool calls from streaming LLM content.
 ///
-/// Processes content chunks and removes JSON tool calls while preserving regular text.
-/// Maintains state across calls to handle tool calls spanning multiple chunks.
+/// Processes content character-by-character and removes JSON tool calls 
+/// while preserving regular text. Maintains state across calls.
 ///
 /// # Arguments
 /// * `content` - A chunk of streaming content from the LLM
@@ -86,383 +168,165 @@ pub fn filter_json_tool_calls(content: &str) -> String {
 
     JSON_TOOL_STATE.with(|state| {
         let mut state = state.borrow_mut();
-
-        // Add new content to buffer
-        state.buffer.push_str(content);
-
-        // If we're already in suppression mode, continue brace counting
-        if state.suppression_mode {
-            // Count braces in the new content only
-            for ch in content.chars() {
-                match ch {
-                    '{' => state.brace_depth += 1,
-                    '}' => {
-                        state.brace_depth -= 1;
-                        // Exit suppression mode when all braces are closed
-                        if state.brace_depth <= 0 {
-                            debug!("JSON tool call completed - exiting suppression mode");
-
-                            // Extract the complete result with JSON filtered out
-                            let result = extract_content_without_json(
-                                &state.buffer,
-                                state.json_start_in_buffer.unwrap_or(0),
-                            );
-
-                            // Return only the part we haven't returned yet
-                            let new_content = if result.len() > state.content_returned_up_to {
-                                result[state.content_returned_up_to..].to_string()
-                            } else {
-                                String::new()
-                            };
-
-                            state.reset();
-                            return new_content;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            
-            // After counting braces, if still in suppression mode,
-            // check if a new tool call pattern appears. This handles truncated JSON
-            // followed by complete JSON.
-            if state.suppression_mode {
-                let current_json_start = state.json_start_in_buffer.unwrap();
-                // Don't require newline - the new JSON might be concatenated directly
-                let tool_call_regex = Regex::new(r#"\{\s*"tool"\s*:\s*""#).unwrap();
-                
-                // Look for new tool call patterns after the current one
-                if let Some(captures) = tool_call_regex.find(&state.buffer[current_json_start + 1..]) {
-                    let new_json_start = current_json_start + 1 + captures.start() + captures.as_str().find('{').unwrap();
-                    
-                    debug!("Detected new tool call at position {} while processing incomplete one at {} - discarding old", new_json_start, current_json_start);
-                    
-                    // The previous JSON was incomplete/malformed
-                    // Return content before the old JSON (if any)
-                    let content_before_old_json = if current_json_start > state.content_returned_up_to {
-                        state.buffer[state.content_returned_up_to..current_json_start].to_string()
-                    } else {
-                        String::new()
-                    };
-                    
-                    // Update state to skip the incomplete JSON and position at the new one
-                    // We'll process the new JSON on the next call
-                    state.content_returned_up_to = new_json_start;
-                    state.suppression_mode = false;
-                    state.json_start_in_buffer = None;
-                    state.brace_depth = 0;
-                    
-                    return content_before_old_json;
-                }
-            }
-            
-            // Still in suppression mode, return empty string (content is being accumulated)
-            return String::new();
-        }
-
-        // Check if we're in potential JSON mode (saw { but waiting to confirm it's a tool call)
-        if state.potential_json_mode {
-            // Check if the buffer contains a confirmed tool call pattern
-            let tool_call_regex = Regex::new(r#"(?m)^\s*\{\s*"tool"\s*:\s*""#).unwrap();
-            
-            if let Some(captures) = tool_call_regex.find(&state.buffer) {
-                // Confirmed! This is a tool call - enter suppression mode
-                let match_text = captures.as_str();
-                if let Some(brace_offset) = match_text.find('{') {
-                    let json_start = captures.start() + brace_offset;
-                    
-                    debug!("Confirmed JSON tool call at position {} - entering suppression mode", json_start);
-                    
-                    state.potential_json_mode = false;
-                    state.suppression_mode = true;
-                    state.brace_depth = 0;
-                    state.json_start_in_buffer = Some(json_start);
-                    
-                    // Count braces from json_start to see if JSON is complete
-                    let buffer_slice = state.buffer[json_start..].to_string();
-                    for ch in buffer_slice.chars() {
-                        match ch {
-                            '{' => state.brace_depth += 1,
-                            '}' => {
-                                state.brace_depth -= 1;
-                                if state.brace_depth <= 0 {
-                                    debug!("JSON tool call completed immediately");
-                                    let result = extract_content_without_json(&state.buffer, json_start);
-                                    let new_content = if result.len() > state.content_returned_up_to {
-                                        result[state.content_returned_up_to..].to_string()
-                                    } else {
-                                        String::new()
-                                    };
-                                    state.reset();
-                                    return new_content;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    // JSON incomplete, stay in suppression mode, return nothing
-                    return String::new();
-                }
-            }
-            
-            // Check if we can rule out this being a tool call
-            // If we have enough content after the { and it doesn't match the pattern, release it
-            if let Some(potential_start) = state.potential_json_start {
-                let content_after_brace = &state.buffer[potential_start..];
-                
-                // Rule out as a tool call if:
-                // 1. Closing } appears before we see the full pattern
-                // 2. Content clearly doesn't match the tool call pattern
-                // 3. Newline appears after the opening brace (tool calls should be compact)
-                
-                let has_closing_brace = content_after_brace.contains('}');
-                let has_newline = content_after_brace[1..].contains('\n'); // Skip first char which is {
-                let long_enough = content_after_brace.len() >= 10;
-                
-                // Detect non-tool JSON patterns:
-                // - { followed by " and a key that doesn't start with "tool"
-                // - { followed by "t" but not "to"
-                // - { followed by "to" but not "too", etc.
-                let not_tool_pattern = Regex::new(r#"^\{\s*"(?:[^t]|t(?:[^o]|o(?:[^o]|o(?:[^l]|l[^"\s:]))))"#).unwrap();
-                let definitely_not_tool = not_tool_pattern.is_match(content_after_brace);
-                
-                if has_closing_brace || has_newline || (long_enough && definitely_not_tool) {
-                    debug!("Potential JSON ruled out - not a tool call");
-                    state.potential_json_mode = false;
-                    state.potential_json_start = None;
-                    
-                    // Return the buffered content we've been holding
-                    let new_content = if state.buffer.len() > state.content_returned_up_to {
-                        state.buffer[state.content_returned_up_to..].to_string()
-                    } else {
-                        String::new()
-                    };
-                    state.content_returned_up_to = state.buffer.len();
-                    return new_content;
-                }
-            }
-            
-            // Still in potential mode, keep buffering
-            return String::new();
-        }
-
-        // Detect potential JSON start: { at the beginning of a line
-        let potential_json_regex = Regex::new(r"(?m)^\s*\{\s*").unwrap();
+        let mut output = String::new();
         
-        if let Some(captures) = potential_json_regex.find(&state.buffer[state.content_returned_up_to..]) {
-            let match_start = state.content_returned_up_to + captures.start();
-            let brace_pos = match_start + captures.as_str().find('{').unwrap();
-            
-            debug!("Potential JSON detected at position {} - entering buffering mode", brace_pos);
-            
-            // Fast path: check if this is already a confirmed tool call
-            let tool_call_regex = Regex::new(r#"(?m)^\s*\{\s*"tool"\s*:\s*""#).unwrap();
-            if tool_call_regex.is_match(&state.buffer[brace_pos..]) {
-                // This is a confirmed tool call! Process it immediately
-                let json_start = brace_pos;
-                debug!("Immediately confirmed tool call at position {}", json_start);
-                
-                // Return content before JSON
-                let content_before = if json_start > state.content_returned_up_to {
-                    state.buffer[state.content_returned_up_to..json_start].to_string()
-                } else {
-                    String::new()
-                };
-                
-                state.content_returned_up_to = json_start;
-                state.suppression_mode = true;
-                state.brace_depth = 0;
-                state.json_start_in_buffer = Some(json_start);
-                
-                // Count braces to see if JSON is complete
-                let buffer_slice = state.buffer[json_start..].to_string();
-                for ch in buffer_slice.chars() {
-                    match ch {
-                        '{' => state.brace_depth += 1,
-                        '}' => {
-                            state.brace_depth -= 1;
-                            if state.brace_depth <= 0 {
-                                debug!("JSON tool call completed in same chunk");
-                                let result = extract_content_without_json(&state.buffer, json_start);
-                                let content_after = if result.len() > json_start {
-                                    &result[json_start..]
-                                } else {
-                                    ""
-                                };
-                                let final_result = format!("{}{}", content_before, content_after);
-                                state.reset();
-                                return final_result;
-                            }
-                        }
-                        _ => {}
-                    }
+        for ch in content.chars() {
+            match state.state {
+                State::Streaming => {
+                    handle_streaming_char(&mut state, ch, &mut output);
                 }
-                // JSON incomplete, return content before and stay in suppression mode
-                return content_before;
-            }
-            
-            // Return content before the potential JSON
-            let content_before = if brace_pos > state.content_returned_up_to {
-                state.buffer[state.content_returned_up_to..brace_pos].to_string()
-            } else {
-                String::new()
-            };
-            
-            state.content_returned_up_to = brace_pos;
-            state.potential_json_mode = true;
-            state.potential_json_start = Some(brace_pos);
-            
-            // Optimization: immediately check if we can rule this out for single-chunk processing
-            let content_after_brace = &state.buffer[brace_pos..];
-            let has_closing_brace = content_after_brace.contains('}');
-            let has_newline = content_after_brace.len() > 1 && content_after_brace[1..].contains('\n');
-            let long_enough = content_after_brace.len() >= 10;
-            
-            let not_tool_pattern = Regex::new(r#"^\{\s*"(?:[^t]|t(?:[^o]|o(?:[^o]|o(?:[^l]|l[^"\s:]))))"#).unwrap();
-            let definitely_not_tool = not_tool_pattern.is_match(content_after_brace);
-            
-            if has_closing_brace || has_newline || (long_enough && definitely_not_tool) {
-                debug!("Immediately ruled out as not a tool call");
-                state.potential_json_mode = false;
-                state.potential_json_start = None;
-                
-                // Return all the buffered content
-                let new_content = if state.buffer.len() > state.content_returned_up_to {
-                    state.buffer[state.content_returned_up_to..].to_string()
-                } else {
-                    String::new()
-                };
-                state.content_returned_up_to = state.buffer.len();
-                return format!("{}{}", content_before, new_content);
-            }
-            
-            return content_before;
-        }
-
-        // Check for tool call pattern using corrected regex
-        let tool_call_regex = Regex::new(r#"(?m)^\s*\{\s*"tool"\s*:\s*"[^"]*""#).unwrap();
-
-        if let Some(captures) = tool_call_regex.find(&state.buffer) {
-            let match_text = captures.as_str();
-
-            // Find the position of the opening brace in the match
-            if let Some(brace_offset) = match_text.find('{') {
-                let json_start = captures.start() + brace_offset;
-
-                debug!(
-                    "Detected JSON tool call at position {} - entering suppression mode",
-                    json_start
-                );
-
-                // Return content before JSON that we haven't returned yet
-                let content_before_json = if json_start >= state.content_returned_up_to {
-                    state.buffer[state.content_returned_up_to..json_start].to_string()
-                } else {
-                    String::new()
-                };
-
-                state.content_returned_up_to = json_start;
-
-                // Enter suppression mode
-                state.suppression_mode = true;
-                state.brace_depth = 0;
-                state.json_start_in_buffer = Some(json_start);
-
-                // Count braces from the JSON start to see if it's complete
-                let buffer_clone = state.buffer.clone();
-                for ch in buffer_clone[json_start..].chars() {
-                    match ch {
-                        '{' => state.brace_depth += 1,
-                        '}' => {
-                            state.brace_depth -= 1;
-                            if state.brace_depth <= 0 {
-                                // JSON is complete in this chunk
-                                debug!("JSON tool call completed in same chunk");
-                                let result = extract_content_without_json(&buffer_clone, json_start);
-
-                                // Return content before JSON plus content after JSON
-                                let content_after_json = if result.len() > json_start {
-                                    &result[json_start..]
-                                } else {
-                                    ""
-                                };
-
-                                let final_result =
-                                    format!("{}{}", content_before_json, content_after_json);
-                                state.reset();
-                                return final_result;
-                            }
-                        }
-                        _ => {}
-                    }
+                State::Buffering => {
+                    handle_buffering_char(&mut state, ch, &mut output);
                 }
-
-                // JSON is incomplete, return only the content before JSON
-                return content_before_json;
+                State::Suppressing => {
+                    handle_suppressing_char(&mut state, ch, &mut output);
+                }
             }
         }
-
-        // No JSON tool call detected, return only the new content we haven't returned yet
-        if state.buffer.len() > state.content_returned_up_to {
-            let result = state.buffer[state.content_returned_up_to..].to_string();
-            state.content_returned_up_to = state.buffer.len();
-            result
-        } else {
-            String::new()
-        }
+        
+        output
     })
 }
 
-/// Extracts content from buffer, removing the JSON tool call.
-///
-/// Given a buffer and the start position of a JSON tool call, this function:
-/// 1. Extracts all content before the JSON
-/// 2. Finds the end of the JSON (matching closing brace)
-/// 3. Extracts all content after the JSON
-/// 4. Returns the concatenation of before + after (JSON removed)
-///
-/// # Arguments
-/// * `full_content` - The full content buffer
-/// * `json_start` - Position where the JSON tool call begins
-fn extract_content_without_json(full_content: &str, json_start: usize) -> String {
-    // Find the end of the JSON using proper brace counting with string handling
-    let mut brace_depth = 0;
-    let mut json_end = json_start;
-    let mut in_string = false;
-    let mut escape_next = false;
-
-    for (i, ch) in full_content[json_start..].char_indices() {
-        if escape_next {
-            escape_next = false;
-            continue;
+/// Handle a character in Streaming state
+fn handle_streaming_char(state: &mut FilterState, ch: char, output: &mut String) {
+    match ch {
+        '\n' => {
+            // Output the newline and any pending whitespace
+            output.push_str(&state.pending_whitespace);
+            output.push(ch);
+            state.pending_whitespace.clear();
+            state.at_line_start = true;
         }
-
-        match ch {
-            '\\' if in_string => escape_next = true,
-            '"' if !escape_next => in_string = !in_string,
-            '{' if !in_string => {
-                brace_depth += 1;
-            }
-            '}' if !in_string => {
-                brace_depth -= 1;
-                if brace_depth == 0 {
-                    json_end = json_start + i + 1; // +1 to include the closing brace
-                    break;
-                }
-            }
-            _ => {}
+        ' ' | '\t' if state.at_line_start => {
+            // Accumulate whitespace at line start
+            state.pending_whitespace.push(ch);
+        }
+        '{' if state.at_line_start => {
+            // Potential tool call! Enter buffering mode
+            debug!("Potential tool call detected - entering Buffering state");
+            state.state = State::Buffering;
+            state.buffer.clear();
+            state.buffer.push(ch);
+            // Don't output pending_whitespace yet - we might need to suppress it
+        }
+        _ => {
+            // Regular character - output any pending whitespace first
+            output.push_str(&state.pending_whitespace);
+            state.pending_whitespace.clear();
+            output.push(ch);
+            state.at_line_start = false;
         }
     }
+}
 
-    // Return content before and after the JSON (excluding the JSON itself)
-    let before = &full_content[..json_start];
-    let after = if json_end < full_content.len() {
-        &full_content[json_end..]
-    } else {
-        ""
-    };
+/// Handle a character in Buffering state
+fn handle_buffering_char(state: &mut FilterState, ch: char, output: &mut String) {
+    state.buffer.push(ch);
+    
+    // Check if we can determine tool call status
+    match check_tool_pattern(&state.buffer) {
+        Some(true) => {
+            // Confirmed tool call! Enter suppression mode
+            debug!("Confirmed tool call - entering Suppressing state");
+            state.state = State::Suppressing;
+            state.brace_depth = 1; // We already have the opening {
+            state.in_string = true; // We're inside the "tool" value string
+            state.escape_next = false;
+            // Discard pending_whitespace (it's part of the tool call line)
+            state.pending_whitespace.clear();
+            state.buffer.clear();
+        }
+        Some(false) => {
+            // Not a tool call - release buffered content
+            debug!("Not a tool call - releasing buffer");
+            output.push_str(&state.pending_whitespace);
+            output.push_str(&state.buffer);
+            state.pending_whitespace.clear();
+            state.buffer.clear();
+            state.state = State::Streaming;
+            state.at_line_start = ch == '\n';
+        }
+        None => {
+            // Need more data - check if buffer is getting too long
+            if state.buffer.len() > MAX_BUFFER_FOR_DETECTION {
+                // Too long without confirmation - not a tool call
+                debug!("Buffer exceeded max length - not a tool call");
+                output.push_str(&state.pending_whitespace);
+                output.push_str(&state.buffer);
+                state.pending_whitespace.clear();
+                state.buffer.clear();
+                state.state = State::Streaming;
+                state.at_line_start = false;
+            }
+            // Otherwise keep buffering
+        }
+    }
+}
 
-    format!("{}{}", before, after)
+/// Handle a character in Suppressing state (string-aware brace counting)  
+fn handle_suppressing_char(state: &mut FilterState, ch: char, _output: &mut String) {
+    // Track chars to detect if we see a new tool call pattern while suppressing
+    // This handles truncated JSON followed by complete JSON
+    state.buffer.push(ch);
+    
+    // Handle escape sequences
+    if state.escape_next {
+        state.escape_next = false;
+        return;
+    }
+    
+    match ch {
+        '\\' if state.in_string => {
+            state.escape_next = true;
+        }
+        '"' => {
+            state.in_string = !state.in_string;
+        }
+        '{' if !state.in_string => {
+            state.brace_depth += 1;
+        }
+        '}' if !state.in_string => {
+            state.brace_depth -= 1;
+            if state.brace_depth <= 0 {
+                // JSON complete! Return to streaming
+                debug!("Tool call complete - returning to Streaming state");
+                state.state = State::Streaming;
+                state.at_line_start = false; // We're right after the }
+                state.in_string = false;
+                state.escape_next = false;
+                state.buffer.clear();
+            }
+        }
+        _ => {}
+    }
+    
+    // Check if we're seeing a new tool call pattern (truncated JSON case)  
+    // This can happen with or without a newline before the new {
+    // Look for { followed by tool pattern in the buffer
+    if state.buffer.len() >= 10 {
+        // Find the last { that could start a new tool call
+        for (i, c) in state.buffer.char_indices().rev() {
+            if c == '{' && i > 0 {
+                let potential_tool = &state.buffer[i..];
+                if let Some(true) = check_tool_pattern(potential_tool) {
+                    // New tool call detected! Restart suppression from here
+                    debug!("New tool call detected while suppressing - restarting");
+                    state.brace_depth = 1;
+                    state.in_string = true;
+                    // Keep only the part after the new { for continued tracking
+                    state.buffer = potential_tool.to_string();
+                    return;
+                }
+            }
+        }
+        
+        // Limit buffer size to prevent unbounded growth
+        if state.buffer.len() > 200 {
+            let keep_from = state.buffer.len() - 100;
+            state.buffer = state.buffer[keep_from..].to_string();
+        }
+    }
 }
 
 /// Resets the global JSON filtering state.
@@ -474,4 +338,79 @@ pub fn reset_json_tool_state() {
         let mut state = state.borrow_mut();
         state.reset();
     });
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_tool_pattern_confirmed() {
+        assert_eq!(check_tool_pattern(r#"{"tool":""
+"#), Some(true));
+        assert_eq!(check_tool_pattern(r#"{"tool": "shell""#), Some(true));
+        assert_eq!(check_tool_pattern(r#"{ "tool" : "test""#), Some(true));
+    }
+
+    #[test]
+    fn test_check_tool_pattern_rejected() {
+        assert_eq!(check_tool_pattern(r#"{"other": "value"}"#), Some(false));
+        assert_eq!(check_tool_pattern(r#"{"tools": "value"}"#), Some(false));
+        assert_eq!(check_tool_pattern(r#"{"tool": 123}"#), Some(false)); // number not string
+    }
+
+    #[test]
+    fn test_check_tool_pattern_need_more() {
+        assert_eq!(check_tool_pattern(r#"{"#), None);
+        assert_eq!(check_tool_pattern(r#"{"tool"#), None);
+        assert_eq!(check_tool_pattern(r#"{"tool":"#), None);
+    }
+
+    #[test]
+    fn test_passthrough_no_tool() {
+        reset_json_tool_state();
+        let input = "Hello world";
+        assert_eq!(filter_json_tool_calls(input), input);
+    }
+
+    #[test]
+    fn test_simple_tool_filtered() {
+        reset_json_tool_state();
+        let input = "Before\n{\"tool\": \"shell\", \"args\": {}}\nAfter";
+        let result = filter_json_tool_calls(input);
+        assert_eq!(result, "Before\n\nAfter");
+    }
+
+    #[test]
+    fn test_tool_with_braces_in_string() {
+        reset_json_tool_state();
+        let input = "Text\n{\"tool\": \"shell\", \"args\": {\"cmd\": \"echo }\"}}\nMore";
+        let result = filter_json_tool_calls(input);
+        assert_eq!(result, "Text\n\nMore");
+    }
+
+    #[test]
+    fn test_non_tool_json_passes_through() {
+        reset_json_tool_state();
+        let input = "Text\n{\"other\": \"value\"}\nMore";
+        let result = filter_json_tool_calls(input);
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_streaming_chunks() {
+        reset_json_tool_state();
+        let chunks = vec![
+            "Before\n",
+            "{\"tool\": \"",
+            "shell\", \"args\": {}",
+            "}\nAfter",
+        ];
+        let mut result = String::new();
+        for chunk in chunks {
+            result.push_str(&filter_json_tool_calls(chunk));
+        }
+        assert_eq!(result, "Before\n\nAfter");
+    }
 }
