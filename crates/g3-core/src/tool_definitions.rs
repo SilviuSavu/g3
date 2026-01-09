@@ -158,20 +158,6 @@ fn create_core_tools() -> Vec<Tool> {
             }),
         },
         Tool {
-            name: "final_output".to_string(),
-            description: "Signal task completion with a detailed summary".to_string(),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "summary": {
-                        "type": "string",
-                        "description": "A detailed summary in markdown of what was accomplished"
-                    }
-                },
-                "required": ["summary"]
-            }),
-        },
-        Tool {
             name: "take_screenshot".to_string(),
             description: "Capture a screenshot of a specific application window. You MUST specify the window_id parameter with the application name (e.g., 'Safari', 'Terminal', 'Google Chrome'). The tool will automatically use the native screencapture command with the application's window ID for a clean capture. Use list_windows first to identify available windows.".to_string(),
             input_schema: json!({
@@ -462,8 +448,8 @@ mod tests {
         let tools = create_core_tools();
         // Should have the core tools: shell, background_process, read_file, read_image,
         // write_file, str_replace, final_output, take_screenshot,
-        // todo_read, todo_write, code_coverage, code_search (12 total)
-        assert_eq!(tools.len(), 12);
+        // todo_read, todo_write, code_coverage, code_search (11 total)
+        assert_eq!(tools.len(), 11);
     }
 
     #[test]
@@ -477,15 +463,15 @@ mod tests {
     fn test_create_tool_definitions_core_only() {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), 11);
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled() {
         let config = ToolConfig::new(true, true);
         let tools = create_tool_definitions(config);
-        // 12 core + 15 webdriver = 27
-        assert_eq!(tools.len(), 27);
+        // 11 core + 15 webdriver = 26
+        assert_eq!(tools.len(), 26);
     }
 
     #[test]

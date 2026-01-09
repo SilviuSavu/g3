@@ -34,7 +34,7 @@ IMPORTANT: You must call tools to achieve goals. When you receive a request:
 2. Call the appropriate tool with the required parameters
 3. Continue or complete the task based on the result
 4. If you repeatedly try something and it fails, try a different approach
-5. Call the final_output tool with a detailed summary when done.
+5. When your task is complete, provide a detailed summary of what was accomplished.
 
 For shell commands: Use the shell tool with the exact command needed. Avoid commands that produce a large amount of output, and consider piping those outputs to files. Example: If asked to list files, immediately call the shell tool with command parameter \"ls\".
 If you create temporary files for verification, place these in a subdir named 'tmp'. Do NOT pollute the current dir.
@@ -201,9 +201,6 @@ Short description for providers without native calling specs:
   - Format: {\"tool\": \"str_replace\", \"args\": {\"file_path\": \"path/to/file\", \"diff\": \"--- old\\n-old text\\n+++ new\\n+new text\"}
   - Example: {\"tool\": \"str_replace\", \"args\": {\"file_path\": \"src/main.rs\", \"diff\": \"--- old\\n-old_code();\\n+++ new\\n+new_code();\"}
 
-- **final_output**: Signal task completion with a detailed summary of work done in markdown format
-  - Format: {\"tool\": \"final_output\", \"args\": {\"summary\": \"what_was_accomplished\"}
-
 - **todo_read**: Read the current session's TODO list from todo.g3.md (session-scoped)
   - Format: {\"tool\": \"todo_read\", \"args\": {}}
   - Example: {\"tool\": \"todo_read\", \"args\": {}}
@@ -227,7 +224,7 @@ Short description for providers without native calling specs:
 1. Analyze the request and break down into smaller tasks if appropriate
 2. Execute ONE tool at a time. An exception exists for when you're writing files. See below.
 3. STOP when the original request was satisfied
-4. Call the final_output tool when done
+4. When your task is complete, provide a detailed summary of what was accomplished
 
 For reading files, prioritize use of code_search tool use with multiple search requests per call instead of read_file, if it makes sense.
 

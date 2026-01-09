@@ -148,9 +148,6 @@ fn extract_coach_feedback_from_logs(
     coach_agent: &g3_core::Agent<ConsoleUiWriter>,
     output: &SimpleOutput,
 ) -> Result<String> {
-    // CORRECT APPROACH: Get the session ID from the current coach agent
-    // and read its specific log file directly
-
     // Get the coach agent's session ID
     let session_id = coach_agent
         .get_session_id()
@@ -167,74 +164,78 @@ fn extract_coach_feedback_from_logs(
         logs_dir.join(format!("g3_session_{}.json", session_id))
     };
 
-    // Read the coach agent's specific log file
-    if log_file_path.exists() {
-        if let Ok(log_content) = std::fs::read_to_string(&log_file_path) {
-            if let Ok(log_json) = serde_json::from_str::<serde_json::Value>(&log_content) {
-                if let Some(context_window) = log_json.get("context_window") {
-                    if let Some(conversation_history) = context_window.get("conversation_history") {
-                        if let Some(messages) = conversation_history.as_array() {
-                            // Go backwards through the conversation to find the last tool result
-                            // that corresponds to a final_output tool call
-                            for i in (0..messages.len()).rev() {
-                                let msg = &messages[i];
-                                
-                                // Check if this is a User message with "Tool result:"
-                                if let Some(role) = msg.get("role") {
-                                    if let Some(role_str) = role.as_str() {
-                                        if role_str == "User" || role_str == "user" {
-                                            if let Some(content) = msg.get("content") {
-                                                if let Some(content_str) = content.as_str() {
-                                                    if content_str.starts_with("Tool result:") {
-                                                        // Found a tool result, now check the preceding message
-                                                        // to verify it was a final_output tool call
-                                                        if i > 0 {
-                                                            let prev_msg = &messages[i - 1];
-                                                            if let Some(prev_role) = prev_msg.get("role") {
-                                                                if let Some(prev_role_str) = prev_role.as_str() {
-                                                                    if prev_role_str == "assistant" || prev_role_str == "Assistant" {
-                                                                        if let Some(prev_content) = prev_msg.get("content") {
-                                                                            if let Some(prev_content_str) = prev_content.as_str() {
-                                                                                // Check if the previous assistant message contains a final_output tool call
-                                                                                if prev_content_str.contains("\"tool\": \"final_output\"") {
-                                                                                    // This is a final_output tool result
-                                                                                    let feedback = if content_str.starts_with("Tool result: ") {
-                                                                                        content_str.strip_prefix("Tool result: ")
-                                                                                            .unwrap_or(content_str)
-                                                                                            .to_string()
-                                                                                    } else {
-                                                                                        content_str.to_string()
-                                                                                    };
-                                                                                    
-                                                                                    output.print(&format!(
-                                                                                        "Coach feedback extracted: {} characters (from {} total)",
-                                                                                        feedback.len(),
-                                                                                        content_str.len()
-                                                                                    ));
-                                                                                    output.print(&format!("Coach feedback:\n{}", feedback));
-                                                                                    
-                                                                                    output.print(&format!(
-                                                                                        "✅ Extracted coach feedback from session: {} (verified final_output tool)",
-                                                                                        session_id
-                                                                                    ));
-                                                                                    return Ok(feedback);
-                                                                                } else {
-                                                                                    output.print(&format!(
-                                                                                        "⚠️  Skipping tool result at index {} - not a final_output tool call",
-                                                                                        i
-                                                                                    ));
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+    // Try to extract from session log
+    if let Some(feedback) = try_extract_feedback_from_log(&log_file_path, output) {
+        output.print(&format!(
+            "✅ Extracted coach feedback from session: {}",
+            session_id
+        ));
+        return Ok(feedback);
+    }
+
+    // Fallback: use the TaskResult's extract_summary method
+    let fallback = coach_result.extract_summary();
+    if !fallback.is_empty() {
+        output.print(&format!(
+            "✅ Extracted coach feedback from response: {} chars",
+            fallback.len()
+        ));
+        return Ok(fallback);
+    }
+
+    // Last resort: return an error instead of panicking
+    Err(anyhow::anyhow!(
+        "Could not extract coach feedback from session: {}\n\
+         Log file path: {:?}\n\
+         Log file exists: {}\n\
+         Coach result response length: {} chars",
+        session_id,
+        log_file_path,
+        log_file_path.exists(),
+        coach_result.response.len()
+    ))
+}
+
+/// Helper function to extract feedback from a session log file
+/// Looks for the last assistant message with substantial text content
+fn try_extract_feedback_from_log(
+    log_file_path: &std::path::Path,
+    _output: &SimpleOutput,
+) -> Option<String> {
+    if !log_file_path.exists() {
+        return None;
+    }
+
+    let log_content = std::fs::read_to_string(log_file_path).ok()?;
+    let log_json: serde_json::Value = serde_json::from_str(&log_content).ok()?;
+
+    let messages = log_json
+        .get("context_window")?
+        .get("conversation_history")?
+        .as_array()?;
+
+    // Search backwards for the last assistant message with text content
+    for msg in messages.iter().rev() {
+        let role = msg.get("role").and_then(|v| v.as_str())?;
+
+        if role.eq_ignore_ascii_case("assistant") {
+            if let Some(content) = msg.get("content") {
+                // Handle string content
+                if let Some(content_str) = content.as_str() {
+                    let trimmed = content_str.trim();
+                    // Skip empty or very short responses (likely just tool calls)
+                    if !trimmed.is_empty() && trimmed.len() > 10 {
+                        return Some(trimmed.to_string());
+                    }
+                }
+                // Handle array content (native tool calling format)
+                if let Some(content_array) = content.as_array() {
+                    for block in content_array {
+                        if block.get("type").and_then(|v| v.as_str()) == Some("text") {
+                            if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
+                                let trimmed = text.trim();
+                                if !trimmed.is_empty() && trimmed.len() > 10 {
+                                    return Some(trimmed.to_string());
                                 }
                             }
                         }
@@ -244,18 +245,7 @@ fn extract_coach_feedback_from_logs(
         }
     }
 
-    // If we couldn't extract from logs, panic with detailed error
-    panic!(
-        "CRITICAL: Could not extract coach feedback from session: {}\n\
-         Log file path: {:?}\n\
-         Log file exists: {}\n\
-         This indicates the coach did not call final_output tool or the log is corrupted.\n\
-         Coach result response length: {} chars",
-        session_id,
-        log_file_path,
-        log_file_path.exists(),
-        coach_result.response.len()
-    );
+    None
 }
 
 use clap::Parser;
@@ -1492,7 +1482,7 @@ async fn run_interactive<W: UiWriter>(
             "   Context: {:.1}% used",
             continuation.context_percentage
         ));
-        if let Some(ref summary) = continuation.final_output_summary {
+        if let Some(ref summary) = continuation.summary {
             let preview: String = summary.chars().take(80).collect();
             output.print(&format!("   Last output: {}...", preview));
         }
@@ -2614,16 +2604,16 @@ Review the current state of the project and provide a concise critique focusing 
 5. Use UI tools such as webdriver to test functionality thoroughly
 
 CRITICAL INSTRUCTIONS:
-1. You MUST use the final_output tool to provide your feedback
-2. The summary in final_output should be CONCISE and ACTIONABLE
+1. Provide your feedback as your final response message
+2. Your feedback should be CONCISE and ACTIONABLE
 3. Focus ONLY on what needs to be fixed or improved
-4. Do NOT include your analysis process, file contents, or compilation output in the summary
+4. Do NOT include your analysis process, file contents, or compilation output in your final feedback
 
 If the implementation thoroughly meets all requirements, compiles and is fully tested (especially UI flows) *WITHOUT* minor gaps or errors:
-- Call final_output with summary: 'IMPLEMENTATION_APPROVED'
+- Respond with: 'IMPLEMENTATION_APPROVED'
 
 If improvements are needed:
-- Call final_output with a brief summary listing ONLY the specific issues to fix
+- Respond with a brief summary listing ONLY the specific issues to fix
 
 Remember: Be clear in your review and concise in your feedback. APPROVE iff the implementation works and thoroughly fits the requirements (implementation > 95% complete). Be rigorous, especially by testing that all UI features work.",
             requirements

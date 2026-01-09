@@ -108,8 +108,4 @@ impl UiWriter for MachineUiWriter {
         0
     }
 
-    fn print_final_output(&self, summary: &str) {
-        println!("FINAL_OUTPUT:");
-        println!("{}", summary);
-    }
 }

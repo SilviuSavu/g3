@@ -304,9 +304,6 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
         0 // Default to first option
     }
     
-    fn print_final_output(&self, summary: &str) {
-        println!("\n📝 Final Output:\n{}", summary);
-    }
 }
 
 /// Call LLM to refine requirements using a full Agent with tool execution

@@ -1,4 +1,4 @@
-//! Miscellaneous tools: final_output, take_screenshot, code_coverage, code_search.
+//! Miscellaneous tools: take_screenshot, code_coverage, code_search.
 
 use anyhow::Result;
 use tracing::debug;
@@ -7,42 +7,6 @@ use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
 use super::executor::ToolContext;
-
-/// Execute the `final_output` tool.
-pub async fn execute_final_output<W: UiWriter>(
-    tool_call: &ToolCall,
-    ctx: &ToolContext<'_, W>,
-) -> Result<String> {
-    debug!("Processing final_output tool call");
-    
-    let summary_str = tool_call.args.get("summary").and_then(|v| v.as_str());
-
-    // In autonomous mode, check for incomplete TODO items before allowing completion
-    if ctx.is_autonomous {
-        let todo_content = ctx.todo_content.read().await;
-        let has_incomplete_todos = todo_content
-            .lines()
-            .any(|line| line.trim().starts_with("- [ ]"));
-        drop(todo_content);
-
-        if has_incomplete_todos {
-            return Ok(
-                "There are still incomplete TODO items. Please continue until \
-                *ALL* TODO items in *ALL* phases are marked complete, and \
-                *ONLY* then call `final_output`."
-                    .to_string(),
-            );
-        }
-    }
-
-    // Return the summary or a default message
-    // Note: Session continuation saving is handled by the caller (Agent)
-    if let Some(summary) = summary_str {
-        Ok(summary.to_string())
-    } else {
-        Ok("✅ Turn completed".to_string())
-    }
-}
 
 /// Execute the `take_screenshot` tool.
 pub async fn execute_take_screenshot<W: UiWriter>(

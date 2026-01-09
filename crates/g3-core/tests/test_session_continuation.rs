@@ -42,7 +42,7 @@ fn test_session_continuation_creation() {
 
     assert_eq!(continuation.session_id, "test_session_123");
     assert_eq!(
-        continuation.final_output_summary,
+        continuation.summary,
         Some("Task completed successfully".to_string())
     );
     assert_eq!(continuation.context_percentage, 45.0);
@@ -108,7 +108,7 @@ fn test_save_and_load_continuation() {
         .expect("No continuation found");
 
     assert_eq!(loaded.session_id, original.session_id);
-    assert_eq!(loaded.final_output_summary, original.final_output_summary);
+    assert_eq!(loaded.summary, original.summary);
     assert_eq!(loaded.session_log_path, original.session_log_path);
     assert!((loaded.context_percentage - original.context_percentage).abs() < 0.01);
     assert_eq!(loaded.todo_snapshot, original.todo_snapshot);
@@ -358,7 +358,7 @@ fn test_continuation_serialization_format() {
 
     assert_eq!(parsed["version"], "1.0");
     assert_eq!(parsed["session_id"], "format_test");
-    assert_eq!(parsed["final_output_summary"], "Test summary");
+    assert_eq!(parsed["summary"], "Test summary");
     assert_eq!(parsed["session_log_path"], "/path/to/session.json");
     assert!((parsed["context_percentage"].as_f64().unwrap() - 42.5).abs() < 0.01);
     assert_eq!(parsed["todo_snapshot"], "- [x] Done\n- [ ] Todo");
@@ -410,7 +410,7 @@ fn test_multiple_saves_update_symlink() {
         .expect("No continuation");
     assert_eq!(loaded.session_id, "second_session");
     assert_eq!(
-        loaded.final_output_summary,
+        loaded.summary,
         Some("Second summary".to_string())
     );
 

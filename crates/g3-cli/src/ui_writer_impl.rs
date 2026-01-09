@@ -362,36 +362,6 @@ impl UiWriter for ConsoleUiWriter {
         }
     }
 
-    fn print_final_output(&self, summary: &str) {
-        // Print a header separator
-        println!("\x1b[1;35m━━━ Summary ━━━\x1b[0m");
-        println!();
-        
-        // Use the same streaming markdown formatter for consistency
-        let mut skin = MadSkin::default();
-        skin.bold.set_fg(termimad::crossterm::style::Color::Green);
-        skin.italic.set_fg(termimad::crossterm::style::Color::Cyan);
-        skin.inline_code.set_fg(termimad::crossterm::style::Color::Rgb {
-            r: 216,
-            g: 177,
-            b: 114,
-        });
-        
-        let mut formatter = StreamingMarkdownFormatter::new(skin);
-        
-        // Process the entire summary through the formatter
-        let formatted = formatter.process(summary);
-        print!("{}", formatted);
-        
-        // Flush any remaining buffered content
-        let remaining = formatter.finish();
-        print!("{}", remaining);
-        let _ = io::stdout().flush();
-
-        // Print a footer separator
-        println!();
-        println!("\x1b[1;35m━━━━━━━━━━━━━━━\x1b[0m");
-    }
 
     fn filter_json_tool_calls(&self, content: &str) -> String {
         // Apply JSON tool call filtering for display

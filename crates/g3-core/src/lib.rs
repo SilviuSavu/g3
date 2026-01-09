@@ -1365,8 +1365,8 @@ impl<W: UiWriter> Agent<W> {
     }
 
     /// Save a session continuation artifact
-    /// Called when final_output is invoked to enable session resumption
-    pub fn save_session_continuation(&self, final_output_summary: Option<String>) {
+    /// Save session continuation for potential resumption
+    pub fn save_session_continuation(&self, summary: Option<String>) {
         use crate::session_continuation::{save_continuation, SessionContinuation};
         
         let session_id = match &self.session_id {
@@ -1398,7 +1398,7 @@ impl<W: UiWriter> Agent<W> {
             self.is_agent_mode,
             self.agent_name.clone(),
             session_id,
-            final_output_summary,
+            summary,
             session_log_path.to_string_lossy().to_string(),
             self.context_window.percentage_used(),
             todo_snapshot,
@@ -1494,9 +1494,9 @@ impl<W: UiWriter> Agent<W> {
             }
         }
         
-        // Fall back to using final_output summary + TODO
+        // Fall back to using session summary + TODO
         let mut context_msg = String::new();
-        if let Some(ref summary) = continuation.final_output_summary {
+        if let Some(ref summary) = continuation.summary {
             context_msg.push_str(&format!("Previous session summary:\n{}\n\n", summary));
         }
         if let Some(ref todo) = continuation.todo_snapshot {
@@ -1601,7 +1601,7 @@ impl<W: UiWriter> Agent<W> {
         let mut any_tool_executed = false; // Track if ANY tool was executed across all iterations
         let mut auto_summary_attempts = 0; // Track auto-summary prompt attempts
         const MAX_AUTO_SUMMARY_ATTEMPTS: usize = 5; // Limit auto-summary retries (increased from 2 for better recovery)
-        let final_output_called = false; // Track if final_output was called
+        // 
         // Note: Session-level duplicate tracking was removed - we only prevent sequential duplicates (DUP IN CHUNK, DUP IN MSG)
         let mut turn_accumulated_usage: Option<g3_providers::Usage> = None; // Track token usage for timing footer
 
@@ -2004,8 +2004,8 @@ impl<W: UiWriter> Agent<W> {
                                     String::new()
                                 };
 
-                            // Don't display text before final_output - it will be in the summary
-                            if !new_content.trim().is_empty() && tool_call.tool != "final_output" {
+                            // Display any new text content
+                            if !new_content.trim().is_empty()  {
                                 #[allow(unused_assignments)]
                                 if !response_started {
                                     self.ui_writer.print_agent_prompt();
@@ -2019,40 +2019,37 @@ impl<W: UiWriter> Agent<W> {
 
                             // Execute the tool with formatted output
 
-                            // Skip printing tool call details for final_output
-                            if tool_call.tool != "final_output" {
-                                // Finish streaming markdown before showing tool output
-                                self.ui_writer.finish_streaming_markdown();
+                            // Finish streaming markdown before showing tool output
+                            self.ui_writer.finish_streaming_markdown();
 
-                                // Tool call header
-                                self.ui_writer.print_tool_header(&tool_call.tool, Some(&tool_call.args));
-                                if let Some(args_obj) = tool_call.args.as_object() {
-                                    for (key, value) in args_obj {
-                                        let value_str = match value {
-                                            serde_json::Value::String(s) => {
-                                                if tool_call.tool == "shell" && key == "command" {
-                                                    if let Some(first_line) = s.lines().next() {
-                                                        if s.lines().count() > 1 {
-                                                            format!("{}...", first_line)
-                                                        } else {
-                                                            first_line.to_string()
-                                                        }
+                            // Tool call header
+                            self.ui_writer.print_tool_header(&tool_call.tool, Some(&tool_call.args));
+                            if let Some(args_obj) = tool_call.args.as_object() {
+                                for (key, value) in args_obj {
+                                    let value_str = match value {
+                                        serde_json::Value::String(s) => {
+                                            if tool_call.tool == "shell" && key == "command" {
+                                                if let Some(first_line) = s.lines().next() {
+                                                    if s.lines().count() > 1 {
+                                                        format!("{}...", first_line)
                                                     } else {
-                                                        s.clone()
+                                                        first_line.to_string()
                                                     }
-                                                } else if s.chars().count() > 100 {
-                                                    streaming::truncate_for_display(s, 100)
                                                 } else {
                                                     s.clone()
                                                 }
+                                            } else if s.chars().count() > 100 {
+                                                streaming::truncate_for_display(s, 100)
+                                            } else {
+                                                s.clone()
                                             }
-                                            _ => value.to_string(),
-                                        };
-                                        self.ui_writer.print_tool_arg(key, &value_str);
-                                    }
+                                        }
+                                        _ => value.to_string(),
+                                    };
+                                    self.ui_writer.print_tool_arg(key, &value_str);
                                 }
-                                self.ui_writer.print_tool_output_header();
                             }
+                            self.ui_writer.print_tool_output_header();
 
                             // Clone working_dir to avoid borrow checker issues
                             let working_dir = self.working_dir.clone();
@@ -2082,11 +2079,7 @@ impl<W: UiWriter> Agent<W> {
                             ));
 
                             // Display tool execution result with proper indentation
-                            if tool_call.tool == "final_output" {
-                                // For final_output, use the dedicated method that renders markdown
-                                // with a spinner animation
-                                self.ui_writer.print_final_output(&tool_result);
-                            } else {
+                            {
                                 let output_lines: Vec<&str> = tool_result.lines().collect();
 
                                 // Check if UI wants full output (machine mode) or truncated (human mode)
@@ -2192,47 +2185,13 @@ impl<W: UiWriter> Agent<W> {
                             self.context_window.add_message(tool_message);
                             self.context_window.add_message(result_message);
 
-                            // Check if this was a final_output tool call
-                            if tool_call.tool == "final_output" {
-                                // Finish the streaming markdown formatter before final_output
-                                self.ui_writer.finish_streaming_markdown();
-
-                                // Save context window BEFORE returning so the session log includes final_output
-                                self.save_context_window("completed");
-                                
-                                // The summary was already displayed via print_final_output
-                                // Don't add it to full_response to avoid duplicate printing
-                                // full_response is intentionally left empty/unchanged
-                                let _ttft =
-                                    first_token_time.unwrap_or_else(|| stream_start.elapsed());
-
-                                // Add timing if needed
-                                let final_response = if show_timing {
-                                    format!(
-                                        "🕝 {} | 💭 {}",
-                                        Self::format_duration(stream_start.elapsed()),
-                                        Self::format_duration(_ttft)
-                                    )
-                                } else {
-                                    // Return empty string since content was already displayed
-                                    String::new()
-                                };
-
-                                return Ok(TaskResult::new(
-                                    final_response,
-                                    self.context_window.clone(),
-                                ));
-                            }
-
                             // Closure marker with timing
-                            if tool_call.tool != "final_output" {
-                                let tokens_delta = self.context_window.used_tokens.saturating_sub(tokens_before);
-                                self.ui_writer
-                                    .print_tool_timing(&Self::format_duration(exec_duration),
-                                        tokens_delta,
-                                        self.context_window.percentage_used());
-                                self.ui_writer.print_agent_prompt();
-                            }
+                            let tokens_delta = self.context_window.used_tokens.saturating_sub(tokens_before);
+                            self.ui_writer
+                                .print_tool_timing(&Self::format_duration(exec_duration),
+                                    tokens_delta,
+                                    self.context_window.percentage_used());
+                            self.ui_writer.print_agent_prompt();
 
                             // Update the request with the new context for next iteration
                             request.messages = self.context_window.conversation_history.clone();
@@ -2251,7 +2210,7 @@ impl<W: UiWriter> Agent<W> {
                             // The content was already displayed during streaming and added to current_response.
                             // Adding it again would cause duplication when the agent message is printed.
                             // The only time we should add to full_response is:
-                            // 1. For final_output tool (handled separately)
+                            // 1. At the end when no tools were executed
                             // 2. At the end when no tools were executed (handled in the "no tool executed" branch)
 
                             tool_executed = true;
@@ -2324,7 +2283,7 @@ impl<W: UiWriter> Agent<W> {
                                 // No tools were executed in this iteration
                                 // Check if we got any meaningful response at all
                                 // We need to check the parser's text buffer as well, since the LLM
-                                // might have responded with text but no final_output tool call
+                                // might have responded with text but no tool calls
                                 let text_content = parser.get_text_content();
                                 let has_text_response = !text_content.trim().is_empty()
                                     || !current_response.trim().is_empty();
@@ -2376,10 +2335,10 @@ impl<W: UiWriter> Agent<W> {
                                     ));
                                 }
 
-                                // If tools were executed in previous iterations but final_output wasn't called,
+                                // If tools were executed in previous iterations,
                                 // break to let the outer loop's auto-continue logic handle it
-                                if any_tool_executed && !final_output_called {
-                                    debug!("Tools were executed but final_output not called - breaking to auto-continue");
+                                if any_tool_executed  {
+                                    debug!("Tools were executed, continuing - breaking to auto-continue");
                                     // NOTE: We intentionally do NOT set full_response here.
                                     // The content was already displayed during streaming.
                                     // Setting full_response would cause duplication when the
@@ -2529,15 +2488,15 @@ impl<W: UiWriter> Agent<W> {
                     warn!("Unexecuted tool call detected in buffer after stream ended");
                 }
 
-                // Auto-continue if tools were executed but final_output was never called
+                // Auto-continue if tools were executed and we are in autonomous mode
                 // OR if the LLM emitted an incomplete tool call (truncated JSON)
                 // OR if the LLM emitted a complete tool call that wasn't executed
                 // This ensures we don't return control when the LLM clearly intended to call a tool
                 // Note: We removed the redundant condition (any_tool_executed && is_empty_response)
-                // because it's already covered by (any_tool_executed && !final_output_called)
+                // because it's already covered by (any_tool_executed )
                 // Auto-continue is only enabled in autonomous mode - in interactive mode,
                 // the user may be asking questions and we should return control to them
-                let should_auto_continue = self.is_autonomous && ((any_tool_executed && !final_output_called) 
+                let should_auto_continue = self.is_autonomous && ((any_tool_executed ) 
                     || has_incomplete_tool_call 
                     || has_unexecuted_tool_call);
                 if should_auto_continue {
@@ -2569,11 +2528,11 @@ impl<W: UiWriter> Agent<W> {
                             );
                         } else {
                             warn!(
-                                "LLM stopped without calling final_output after executing tools ({} iterations, auto-continue attempt {}/{})",
+                                "LLM stopped after executing tools ({} iterations, auto-continue attempt {}/{})",
                                 iteration_count, auto_summary_attempts, MAX_AUTO_SUMMARY_ATTEMPTS
                             );
                             self.ui_writer.print_context_status(
-                                "\n🔄 Model stopped without calling final_output. Auto-continuing...\n"
+                                "\n🔄 Model stopped without providing summary. Auto-continuing...\n"
                             );
                         }
                         
@@ -2602,7 +2561,7 @@ impl<W: UiWriter> Agent<W> {
                         } else {
                             Message::new(
                                 MessageRole::User,
-                                "Please continue until you are done. You **MUST** call `final_output` with a summary when done.".to_string(),
+                                "Please continue until you are done. Provide a summary when complete.".to_string(),
                             )
                         };
                         self.context_window.add_message(continue_prompt);
@@ -2613,22 +2572,22 @@ impl<W: UiWriter> Agent<W> {
                     } else {
                         // Max attempts reached, give up gracefully
                         warn!(
-                            "Max auto-continue attempts ({}) reached after {} iterations. Conditions: any_tool_executed={}, final_output_called={}, has_incomplete={}, has_unexecuted={}, is_empty_response={}",
+                            "Max auto-continue attempts ({}) reached after {} iterations. Conditions: any_tool_executed={}, has_incomplete={}, has_unexecuted={}, is_empty_response={}",
                             MAX_AUTO_SUMMARY_ATTEMPTS,
                             iteration_count,
                             any_tool_executed,
-                            final_output_called,
+                            
                             has_incomplete_tool_call,
                             has_unexecuted_tool_call,
                             is_empty_response
                         );
                         self.ui_writer.print_agent_response(
-                            &format!("\n⚠️ The model stopped without calling final_output after {} auto-continue attempts.\n", MAX_AUTO_SUMMARY_ATTEMPTS)
+                            &format!("\n⚠️ The model stopped without providing a summary after {} auto-continue attempts.\n", MAX_AUTO_SUMMARY_ATTEMPTS)
                         );
                     }
                 } else if has_response {
                     // Only set full_response if it's empty (first iteration without tools)
-                    // This prevents duplication when the agent responds without calling final_output
+                    // This prevents duplication when the agent responds
                     // NOTE: We intentionally do NOT set full_response here anymore.
                     // The content was already displayed during streaming via print_agent_response().
                     // Setting full_response would cause the CLI to print it again.
@@ -2771,12 +2730,6 @@ impl<W: UiWriter> Agent<W> {
 
         // Dispatch to the appropriate tool handler
         let result = tool_dispatch::dispatch_tool(tool_call, &mut ctx).await?;
-
-        // Handle special case: final_output needs to save session continuation
-        if tool_call.tool == "final_output" {
-            let summary = tool_call.args.get("summary").and_then(|v| v.as_str());
-            self.save_session_continuation(summary.map(|s| s.to_string()));
-        }
 
         Ok(result)
     }

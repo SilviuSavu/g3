@@ -100,21 +100,29 @@ pub fn extract_coach_feedback<W>(
 where
     W: UiWriter + Clone + Send + Sync + 'static,
 {
-    // Try session log first (most reliable)
+    // Try session log first - now looks for last assistant message (primary method)
+    if let Some(session_id) = agent.get_session_id() {
+        if let Some(feedback) = try_extract_last_assistant_message(&session_id, config) {
+            debug!("Extracted coach feedback from last assistant message: {} chars", feedback.len());
+            return ExtractedFeedback::new(feedback, FeedbackSource::ConversationHistory);
+        }
+    }
+
+    // Fallback: Try session log with final_output pattern (backwards compatibility)
     if let Some(session_id) = agent.get_session_id() {
         if let Some(feedback) = try_extract_from_session_log(&session_id, config) {
-            debug!("Extracted coach feedback from session log: {} chars", feedback.len());
+            debug!("Extracted coach feedback from session log (final_output): {} chars", feedback.len());
             return ExtractedFeedback::new(feedback, FeedbackSource::SessionLog);
         }
     }
 
-    // Try native tool call JSON parsing
+    // Fallback: Try native tool call JSON parsing (backwards compatibility)
     if let Some(feedback) = try_extract_from_native_tool_call(&coach_result.response) {
         debug!("Extracted coach feedback from native tool call: {} chars", feedback.len());
         return ExtractedFeedback::new(feedback, FeedbackSource::NativeToolCall);
     }
 
-    // Try conversation history
+    // Fallback: Try conversation history with final_output pattern (backwards compatibility)
     if let Some(session_id) = agent.get_session_id() {
         if let Some(feedback) = try_extract_from_conversation_history(&session_id, config) {
             debug!("Extracted coach feedback from conversation history: {} chars", feedback.len());
@@ -122,7 +130,7 @@ where
         }
     }
 
-    // Try TaskResult parsing
+    // Fallback: Try TaskResult parsing (extracts last text block)
     let extracted = coach_result.extract_final_output();
     if !extracted.is_empty() {
         debug!("Extracted coach feedback from task result: {} chars", extracted.len());
@@ -132,6 +140,73 @@ where
     // Fallback to default
     warn!("Could not extract coach feedback, using default");
     ExtractedFeedback::new(config.default_feedback.clone(), FeedbackSource::DefaultFallback)
+}
+
+/// Try to extract the last assistant message from session log (PRIMARY method)
+/// This is the preferred extraction method - looks for the last substantial
+/// assistant message content, regardless of whether it used final_output tool.
+fn try_extract_last_assistant_message(
+    session_id: &str,
+    config: &FeedbackExtractionConfig,
+) -> Option<String> {
+    // Try new .g3/sessions/<session_id>/session.json path first
+    let log_file_path = crate::get_session_file(session_id);
+    
+    // Fall back to old logs/ path if new path doesn't exist
+    let log_file_path = if log_file_path.exists() {
+        log_file_path
+    } else {
+        let logs_path = config.logs_dir.clone().unwrap_or_else(logs_dir);
+        logs_path.join(format!("g3_session_{}.json", session_id))
+    };
+
+    if !log_file_path.exists() {
+        debug!("Session log file not found: {:?}", log_file_path);
+        return None;
+    }
+
+    let log_content = std::fs::read_to_string(&log_file_path).ok()?;
+    let log_json: Value = serde_json::from_str(&log_content).ok()?;
+
+    // Try to get conversation history from context_window
+    let messages = log_json
+        .get("context_window")?
+        .get("conversation_history")?
+        .as_array()?;
+
+    // Search backwards for the last assistant message with text content
+    for msg in messages.iter().rev() {
+        let role = msg.get("role").and_then(|v| v.as_str())?;
+        
+        if role.eq_ignore_ascii_case("assistant") {
+            if let Some(content) = msg.get("content") {
+                // Handle string content
+                if let Some(content_str) = content.as_str() {
+                    let trimmed = content_str.trim();
+                    // Skip empty or very short responses (likely just tool calls)
+                    if !trimmed.is_empty() && trimmed.len() > 10 {
+                        return Some(trimmed.to_string());
+                    }
+                }
+                // Handle array content (native tool calling format)
+                // Look for text blocks in the array
+                if let Some(content_array) = content.as_array() {
+                    for block in content_array {
+                        if block.get("type").and_then(|v| v.as_str()) == Some("text") {
+                            if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
+                                let trimmed = text.trim();
+                                if !trimmed.is_empty() && trimmed.len() > 10 {
+                                    return Some(trimmed.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    None
 }
 
 /// Try to extract feedback from session log file

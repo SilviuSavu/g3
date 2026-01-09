@@ -37,11 +37,6 @@ pub async fn dispatch_tool<W: UiWriter>(
         "todo_write" => todo::execute_todo_write(tool_call, ctx).await,
 
         // Miscellaneous tools
-        "final_output" => {
-            let result = misc::execute_final_output(tool_call, ctx).await?;
-            // Note: Session continuation saving is handled by the caller
-            Ok(result)
-        }
         "take_screenshot" => misc::execute_take_screenshot(tool_call, ctx).await,
         "code_coverage" => misc::execute_code_coverage(tool_call, ctx).await,
         "code_search" => misc::execute_code_search(tool_call, ctx).await,

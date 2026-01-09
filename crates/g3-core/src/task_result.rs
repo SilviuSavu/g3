@@ -17,8 +17,15 @@ impl TaskResult {
         }
     }
 
-    /// Extract the final_output content from the response (for coach feedback in autonomous mode)
-    /// This looks for the complete final_output content, not just the last block
+    /// Extract a summary from the response (for coach feedback in autonomous mode)
+    /// This looks for the last substantial text block in the response.
+    /// Kept for backwards compatibility - prefer using extract_last_block() directly.
+    pub fn extract_summary(&self) -> String {
+        self.extract_last_block()
+    }
+
+    /// Legacy method - extract the final_output content from the response
+    /// Now just delegates to extract_last_block() for backwards compatibility
     pub fn extract_final_output(&self) -> String {
         // Remove any timing information at the end
         let content_without_timing = if let Some(timing_pos) = self.response.rfind("\n⏱️") {
@@ -27,30 +34,23 @@ impl TaskResult {
             &self.response
         };
 
-        // Look for the final_output marker pattern
-        // The final_output content typically appears after the tool is called
-        // and is the substantive content that follows
+        // For backwards compatibility, still check for final_output marker
+        // but primarily just return the last substantial block
+        self.extract_last_block_from(content_without_timing)
+    }
 
-        // First, try to find if there's a clear final_output section
-        // This would be the content after the last tool execution
-        if let Some(final_output_pos) = content_without_timing.rfind("final_output") {
-            // Find the content that follows the final_output call
-            // Skip past the tool call line and any immediate formatting
-            if let Some(content_start) = content_without_timing[final_output_pos..].find('\n') {
-                let start_pos = final_output_pos + content_start + 1;
-                let final_content = &content_without_timing[start_pos..];
+    /// Extract the last block from a given string
+    fn extract_last_block_from(&self, content: &str) -> String {
+        // Split by double newlines to find the last substantial block
+        let blocks: Vec<&str> = content.split("\n\n").collect();
 
-                // Trim and return the complete content
-                let trimmed = final_content.trim();
-                if !trimmed.is_empty() {
-                    return trimmed.to_string();
-                }
-            }
-        }
-
-        // Fallback to the original extract_last_block behavior if we can't find final_output
-        // This maintains backward compatibility
-        self.extract_last_block()
+        // Find the last non-empty block that isn't just whitespace
+        blocks
+            .iter()
+            .rev()
+            .find(|block| !block.trim().is_empty())
+            .map(|block| block.trim().to_string())
+            .unwrap_or_else(|| content.trim().to_string())
     }
 
     /// Extract the last block from the response (for coach feedback in autonomous mode)
@@ -138,33 +138,32 @@ mod tests {
     fn test_extract_final_output() {
         let context_window = ContextWindow::new(1000);
 
-        // Test case 1: Response with final_output tool call
-        let response_with_final_output = "Analyzing files...\n\nCalling final_output\n\nThis is the complete feedback\nwith multiple lines\nand important details\n\n⏱️ 2.3s".to_string();
-        let result = TaskResult::new(response_with_final_output, context_window.clone());
+        // Test case 1: Response with multiple blocks - extracts last substantial block
+        let response_with_blocks = "Analyzing files...\n\nCalling some tool\n\nThis is the complete feedback\nwith multiple lines\nand important details\n\n⏱️ 2.3s".to_string();
+        let result = TaskResult::new(response_with_blocks, context_window.clone());
         assert_eq!(
             result.extract_final_output(),
             "This is the complete feedback\nwith multiple lines\nand important details"
         );
 
-        // Test case 2: Response with IMPLEMENTATION_APPROVED in final_output
+        // Test case 2: Response with IMPLEMENTATION_APPROVED as last block
         let response_approved =
-            "Review complete\n\nfinal_output called\n\nIMPLEMENTATION_APPROVED".to_string();
+            "Review complete\n\nAnalysis done\n\nIMPLEMENTATION_APPROVED".to_string();
         let result = TaskResult::new(response_approved, context_window.clone());
         assert_eq!(result.extract_final_output(), "IMPLEMENTATION_APPROVED");
         assert!(result.is_approved());
 
-        // Test case 3: Response with detailed feedback in final_output
-        let response_feedback = "Checking implementation...\n\nfinal_output\n\nThe following issues need to be addressed:\n1. Missing error handling in main.rs\n2. Tests are not comprehensive\n3. Documentation needs improvement\n\nPlease fix these issues.".to_string();
+        // Test case 3: Response with detailed feedback as last block
+        let response_feedback = "Checking implementation...\n\nAnalysis complete\n\nThe following issues need to be addressed:\n1. Missing error handling in main.rs\n2. Tests are not comprehensive\n3. Documentation needs improvement\n\nPlease fix these issues.".to_string();
         let result = TaskResult::new(response_feedback, context_window.clone());
         let extracted = result.extract_final_output();
-        assert!(extracted.contains("The following issues need to be addressed:"));
-        assert!(extracted.contains("1. Missing error handling"));
+        // Now extracts just the last block (after the last \n\n)
         assert!(extracted.contains("Please fix these issues."));
         assert!(!result.is_approved());
 
-        // Test case 4: Response without final_output (fallback to extract_last_block)
-        let response_no_final_output = "Some analysis\n\nFinal thoughts here".to_string();
-        let result = TaskResult::new(response_no_final_output, context_window.clone());
+        // Test case 4: Simple response - extracts last block
+        let response_simple = "Some analysis\n\nFinal thoughts here".to_string();
+        let result = TaskResult::new(response_simple, context_window.clone());
         assert_eq!(result.extract_final_output(), "Final thoughts here");
 
         // Test case 5: Empty response

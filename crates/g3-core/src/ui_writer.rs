@@ -66,10 +66,6 @@ pub trait UiWriter: Send + Sync {
     /// Returns the index of the selected option
     fn prompt_user_choice(&self, message: &str, options: &[&str]) -> usize;
 
-    /// Print the final output summary with markdown formatting
-    /// Shows a spinner while formatting, then renders the markdown
-    fn print_final_output(&self, summary: &str);
-
     /// Filter JSON tool calls from streaming content for display.
     /// This is a UI concern - the raw content should be preserved for logging.
     /// Default implementation passes through unchanged.
@@ -124,8 +120,5 @@ impl UiWriter for NullUiWriter {
     }
     fn prompt_user_choice(&self, _message: &str, _options: &[&str]) -> usize {
         0
-    }
-    fn print_final_output(&self, _summary: &str) {
-        // No-op for null writer
     }
 }
