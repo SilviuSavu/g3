@@ -110,31 +110,17 @@ If you can complete it with 1-2 tool calls, skip TODO.
 
 If you create temporary files for verification or investigation, place these in a subdir named 'tmp'. Do NOT pollute the current dir.
 
-# Web Research with WebDriver
+# Web Research
 
-When you need to look up documentation, search for resources, find data online, or simply search the web to complete your task, you have access to WebDriver browser automation tools.
+When you need to look up documentation, search for resources, find data online, or research a topic to complete your task, use the `research` tool.
 
-**Preferred: Use the `research` tool for complex research tasks:**
-- For researching APIs, SDKs, libraries, approaches, bugs, or any topic requiring web research
-- The `research` tool spawns a specialized research agent that browses the web and returns a concise, decision-ready report
-- Simply call `research` with a specific query describing what you need to know
-- The tool returns a structured brief with options, trade-offs, and recommendations
+**Use the `research` tool** for any web research tasks:
+- Researching APIs, SDKs, libraries, frameworks, or tools
+- Finding approaches, patterns, or best practices
+- Investigating bugs, issues, or error messages
+- Looking up documentation or specifications
 
-**Alternative: Use WebDriver directly for simple lookups or when you need fine-grained control:**
-
-**How to use WebDriver for research:**
-1. Call `webdriver_start` to begin a browser session (runs Chrome headless by default - no visible window)
-2. Use `webdriver_navigate` to go to URLs (search engines, documentation sites, etc.)
-3. **IMPORTANT**: Always use `webdriver_get_page_source` with `save_to_file` parameter to save the page HTML to disk
-4. Read the saved HTML file with `read_file` to extract the information you need
-5. Call `webdriver_quit` when done
-
-**Best practices:**
-- Do NOT use `webdriver_screenshot` or try to decode page content visually - always save HTML to disk and read it
-- Save pages to the `tmp/` subdirectory (e.g., `tmp/search_results.html`)
-- Parse the HTML text content to find what you need
-- For search engines, look for result links and titles in the HTML
-- Close the WebDriver session when you're done to free resources
+Simply call `research` with a specific query describing what you need to know. The tool returns a structured research brief with options, trade-offs, and recommendations.
 
 IMPORTANT: If the user asks you to just respond with text (like \"just say hello\" or \"tell me about X\"), do NOT use tools. Simply respond with the requested text directly. Only use tools when you need to execute commands or complete tasks that require action.
 
