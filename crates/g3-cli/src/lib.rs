@@ -434,6 +434,8 @@ pub async fn run() -> Result<()> {
             cli.quiet,
             cli.new_session,
             cli.task.clone(),
+            cli.chrome_headless,
+            cli.safari,
         )
         .await;
     }
@@ -447,6 +449,8 @@ pub async fn run() -> Result<()> {
             cli.quiet,
             cli.new_session,
             cli.task.clone(),
+            cli.chrome_headless,
+            cli.safari,
         )
         .await;
     }
@@ -656,6 +660,8 @@ async fn run_agent_mode(
     _quiet: bool,
     new_session: bool,
     task: Option<String>,
+    chrome_headless: bool,
+    safari: bool,
 ) -> Result<()> {
     use g3_core::get_agent_system_prompt;
     use g3_core::find_incomplete_agent_session;
@@ -749,7 +755,19 @@ async fn run_agent_mode(
     output.print(&format!("📁 Working directory: {:?}", workspace_dir));
     
     // Load config
-    let config = g3_config::Config::load(config_path)?;
+    let mut config = g3_config::Config::load(config_path)?;
+    
+    // Apply chrome-headless flag override
+    if chrome_headless {
+        config.webdriver.enabled = true;
+        config.webdriver.browser = g3_config::WebDriverBrowser::ChromeHeadless;
+    }
+    
+    // Apply safari flag override
+    if safari {
+        config.webdriver.enabled = true;
+        config.webdriver.browser = g3_config::WebDriverBrowser::Safari;
+    }
     
     // Generate the combined system prompt (agent prompt + tool instructions)
     // Note: allow_multiple_tool_calls parameter is deprecated but kept for API compatibility
