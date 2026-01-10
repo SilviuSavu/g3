@@ -272,6 +272,22 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
         });
     }
 
+    // Project memory tool (memory is auto-loaded at startup, only remember is needed)
+    tools.push(Tool {
+        name: "remember".to_string(),
+        description: "Update the project memory with new discoveries. Call this at the END of your turn (before your summary) if you discovered something worth noting. Provide your notes in markdown format - they will be merged with existing memory.".to_string(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "type": "string",
+                    "description": "New discoveries to add to memory in markdown format. Use the format:\n### Feature Name\n- `file/path.rs` [start..end] - `function_name()`, `StructName`\n\nDo not include content already in memory."
+                }
+            },
+            "required": ["notes"]
+        }),
+    });
+
     tools
 }
 
@@ -477,8 +493,9 @@ mod tests {
         let tools = create_core_tools(false);
         // Should have the core tools: shell, background_process, read_file, read_image,
         // write_file, str_replace, take_screenshot,
-        // todo_read, todo_write, code_coverage, code_search, research (12 total)
-        assert_eq!(tools.len(), 12);
+        // todo_read, todo_write, code_coverage, code_search, research, remember
+        // (13 total - memory is auto-loaded, only remember tool needed)
+        assert_eq!(tools.len(), 13);
     }
 
     #[test]
@@ -492,15 +509,15 @@ mod tests {
     fn test_create_tool_definitions_core_only() {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), 13);
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled() {
         let config = ToolConfig::new(true, true);
         let tools = create_tool_definitions(config);
-        // 12 core + 15 webdriver = 27
-        assert_eq!(tools.len(), 27);
+        // 13 core + 15 webdriver = 28
+        assert_eq!(tools.len(), 28);
     }
 
     #[test]
@@ -518,8 +535,8 @@ mod tests {
         let tools_with_research = create_core_tools(false);
         let tools_without_research = create_core_tools(true);
         
-        assert_eq!(tools_with_research.len(), 12);
-        assert_eq!(tools_without_research.len(), 11);
+        assert_eq!(tools_with_research.len(), 13);
+        assert_eq!(tools_without_research.len(), 12);
         
         assert!(tools_with_research.iter().any(|t| t.name == "research"));
         assert!(!tools_without_research.iter().any(|t| t.name == "research"));

@@ -1425,7 +1425,6 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
- "const_format",
  "futures-util",
  "g3-computer-control",
  "g3-config",

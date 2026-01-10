@@ -43,7 +43,6 @@ tree-sitter-scheme = "0.24"
 streaming-iterator = "0.1"
 walkdir = "2.4"
 
-const_format = "0.2"
 base64 = "0.22.1"
 
 [dev-dependencies]

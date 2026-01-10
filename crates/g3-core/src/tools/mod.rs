@@ -8,9 +8,11 @@
 //! - `webdriver` - Browser automation via WebDriver
 //! - `misc` - Other tools (screenshots, code search, etc.)
 //! - `research` - Web research via scout agent
+//! - `memory` - Project memory (read_memory, remember)
 
 pub mod executor;
 pub mod file_ops;
+pub mod memory;
 pub mod misc;
 pub mod research;
 pub mod shell;

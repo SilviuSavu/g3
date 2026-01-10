@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{file_ops, misc, research, shell, todo, webdriver};
+use crate::tools::{file_ops, memory, misc, research, shell, todo, webdriver};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -43,6 +43,9 @@ pub async fn dispatch_tool<W: UiWriter>(
 
         // Research tool
         "research" => research::execute_research(tool_call, ctx).await,
+
+        // Project memory tools
+        "remember" => memory::execute_remember(tool_call, ctx).await,
 
         // WebDriver tools
         "webdriver_start" => webdriver::execute_webdriver_start(tool_call, ctx).await,
