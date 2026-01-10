@@ -391,7 +391,7 @@ Before making suggestions, please:
 After understanding the context, update the `{codepath}/g3-plan/new_requirements.md` file by prepending
 your refined requirements under the heading `{{{{CURRENT REQUIREMENTS}}}}`.
 
-Use final_output when you are done to indicate completion."#,
+When you are done, provide a brief summary of the refinements you made."#,
         codepath = codepath
     )
 }

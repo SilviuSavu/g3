@@ -553,7 +553,6 @@ pub fn get_planner_tools() -> Vec<&'static str> {
         "shell",
         "code_search",
         "str_replace",
-        "final_output",
     ]
 }
 
@@ -673,7 +672,7 @@ pub async fn run_coach_player_loop(
         ).await?;
         
         let coach_prompt = format!(
-            "You are G3 in coach mode. Review the implementation against these requirements:\n\n{}\n\nCheck:\n1. Are requirements implemented correctly?\n2. Does the code compile?\n3. What's missing?\n\nUse the final_output tool to provide your feedback.\nIf implementation is COMPLETE, include 'IMPLEMENTATION_APPROVED' in your feedback.\nOtherwise, provide specific feedback for the player to fix.",
+            "You are G3 in coach mode. Review the implementation against these requirements:\n\n{}\n\nCheck:\n1. Are requirements implemented correctly?\n2. Does the code compile?\n3. What's missing?\n\nProvide your feedback as a summary.\nIf implementation is COMPLETE, include 'IMPLEMENTATION_APPROVED' in your feedback.\nOtherwise, provide specific feedback for the player to fix.",
             requirements_content
         );
         

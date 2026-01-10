@@ -327,27 +327,6 @@ mod todo_tests {
 }
 
 // =============================================================================
-// Test: final_output tool
-// =============================================================================
-
-mod final_output_tests {
-    use super::*;
-
-    #[test]
-    fn test_final_output_tool_call() {
-        let tool_call = make_tool_call(
-            "final_output",
-            json!({
-                "summary": "Task completed successfully.\n\n## Changes Made\n- Added feature X"
-            }),
-        );
-
-        assert_eq!(tool_call.tool, "final_output");
-        assert!(tool_call.args.get("summary").is_some());
-    }
-}
-
-// =============================================================================
 // Test: code_search tool
 // =============================================================================
 

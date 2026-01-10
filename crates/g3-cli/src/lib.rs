@@ -2789,7 +2789,7 @@ Remember: Be clear in your review and concise in your feedback. APPROVE iff the 
         // We have a valid coach result, process it
         let coach_result = coach_result_opt.unwrap();
 
-        // Extract the complete coach feedback from final_output
+        // Extract the complete coach feedback from the response
         let coach_feedback_text =
             extract_coach_feedback_from_logs(&coach_result, &coach_agent, &output)?;
 
@@ -2800,7 +2800,7 @@ Remember: Be clear in your review and concise in your feedback. APPROVE iff the 
             coach_result.response.len()
         );
 
-        // Check if we got empty feedback (this can happen if the coach doesn't call final_output)
+        // Check if we got empty feedback (this can happen if the coach doesn't provide substantive feedback)
         if coach_feedback_text.is_empty() {
             output.print("⚠️ Coach did not provide feedback. This may be a model issue.");
             coach_feedback = "The implementation needs review. Please ensure all requirements are met and the code compiles without errors.".to_string();

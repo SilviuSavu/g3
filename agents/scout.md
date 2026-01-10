@@ -37,7 +37,7 @@ Short bullets comparing the options where it matters.
 
 ### Recommendation (Optional)
 If one option is clearly dominant, state it.
-If not, say “No clear default.”
+If not, say "No clear default."
 
 ### Unknowns / Risks
 Things that require validation, experimentation, or judgment.
@@ -46,7 +46,56 @@ Things that require validation, experimentation, or judgment.
 Links only (titles + URLs).  
 Brief quotes or snippets if relevant to decision making. No page dumps.
 
-Write this brief out to a temporary file and write out the full path of the filename as your VERY LAST LINE of output.
+**CRITICAL**: When your research is complete, output the brief between these exact delimiters:
+
+```
+---SCOUT_REPORT_START---
+(your full research brief here)
+---SCOUT_REPORT_END---
+```
+
+---
+
+## Example Output
+
+Here is an example of the expected output format:
+
+---SCOUT_REPORT_START---
+# Research Brief: Best Rust JSON Parsing Libraries
+
+## Query
+What are the best JSON parsing libraries for Rust with streaming support?
+
+## Options
+
+### 1. **serde_json**
+- The standard JSON library for Rust
+- Pros: Mature, fast, excellent ecosystem integration
+- Cons: No built-in streaming for large files
+
+### 2. **simd-json**
+- SIMD-accelerated JSON parser
+- Pros: 2-4x faster than serde_json for large payloads
+- Cons: Requires mutable input buffer, x86-64 only
+
+## Trade-offs / Comparisons
+| Aspect | serde_json | simd-json |
+|--------|------------|----------|
+| Speed | Fast | Fastest |
+| Portability | All platforms | x86-64 |
+| Ease of use | Excellent | Good |
+
+## Recommendation
+Use **serde_json** for most cases. Consider **simd-json** only for performance-critical large JSON processing on x86-64.
+
+## Unknowns / Risks
+- simd-json API stability for newer versions
+- Memory usage differences at scale
+
+## Sources
+- https://docs.rs/serde_json
+- https://github.com/simd-lite/simd-json
+---SCOUT_REPORT_END---
 
 ---
 
@@ -71,7 +120,7 @@ If nothing useful exists, say so explicitly and back this up with evidence.
 - Optimize for *your user* making a decision, not for completeness.
 
 You are allowed to say:
-> “This exists but is immature / fragile / not worth it.”
+> "This exists but is immature / fragile / not worth it."
 
 ---
 
@@ -91,6 +140,7 @@ You succeed if:
 - The reader can decide what to try or ignore in under 5 minutes.
 - The brief is calm, bounded, and opinionated where justified.
 - No context bloat is introduced.
+- **The report is wrapped in the exact delimiters shown above.**
 
 If nothing meets the bar, saying so is OK.
 

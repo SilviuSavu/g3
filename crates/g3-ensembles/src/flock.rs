@@ -236,7 +236,7 @@ impl FlockMode {
                - The specific requirements that belong to this module\n\
                - Any dependencies on other modules\n\n\
             4. Return your final partitioning exactly once, prefixed by the marker '{{PARTITION JSON}}' followed by a fenced code block that starts with \"```json\" and ends with \"```\". Place only the JSON array inside the fence.\n\
-            5. Use the final_output tool to provide your partitioning as a JSON array of objects, where each object has:\n\
+            5. The JSON array should contain objects, where each object has:\n\
                - \"module_name\": string\n\
                - \"requirements\": string (the requirements text for this module)\n\
                - \"dependencies\": array of strings (names of other modules this depends on)\n\n\

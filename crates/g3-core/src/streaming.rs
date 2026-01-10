@@ -22,7 +22,6 @@ pub struct StreamingState {
     pub response_started: bool,
     pub any_tool_executed: bool,
     pub auto_summary_attempts: usize,
-    pub final_output_called: bool,
     pub turn_accumulated_usage: Option<g3_providers::Usage>,
 }
 
@@ -36,7 +35,6 @@ impl StreamingState {
             response_started: false,
             any_tool_executed: false,
             auto_summary_attempts: 0,
-            final_output_called: false,
             turn_accumulated_usage: None,
         }
     }

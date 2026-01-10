@@ -4,7 +4,6 @@
 //! 1. Empty/trivial responses (just timing lines)
 //! 2. Incomplete tool calls
 //! 3. Unexecuted tool calls
-//! 4. Missing final_output after tool execution
 
 /// Helper function to check if a response is considered "empty" or trivial
 /// This mirrors the logic in lib.rs for detecting empty responses
@@ -117,37 +116,26 @@ fn test_max_auto_summary_attempts_is_reasonable() {
 // =============================================================================
 
 /// Simulates the should_auto_continue logic from lib.rs
+/// After removing final_output, the logic is simpler:
+/// - Continue if there's an incomplete tool call
+/// - Continue if there's an unexecuted tool call  
+/// - Continue if tool executed but response is empty (LLM stuttered)
 fn should_auto_continue(
     any_tool_executed: bool,
-    final_output_called: bool,
     has_incomplete_tool_call: bool,
     has_unexecuted_tool_call: bool,
     is_empty_response: bool,
 ) -> bool {
-    (any_tool_executed && !final_output_called)
-        || has_incomplete_tool_call
+    has_incomplete_tool_call
         || has_unexecuted_tool_call
         || (any_tool_executed && is_empty_response)
 }
 
 #[test]
-fn test_auto_continue_after_tool_no_final_output() {
-    // Tool executed but no final_output - should continue
-    assert!(should_auto_continue(
-        true,  // any_tool_executed
-        false, // final_output_called
-        false, // has_incomplete_tool_call
-        false, // has_unexecuted_tool_call
-        false, // is_empty_response
-    ));
-}
-
-#[test]
-fn test_auto_continue_with_final_output() {
-    // Tool executed AND final_output called - should NOT continue
+fn test_auto_continue_tool_executed_with_response() {
+    // Tool executed with substantive response - should NOT continue
     assert!(!should_auto_continue(
         true,  // any_tool_executed
-        true,  // final_output_called
         false, // has_incomplete_tool_call
         false, // has_unexecuted_tool_call
         false, // is_empty_response
@@ -159,7 +147,6 @@ fn test_auto_continue_incomplete_tool_call() {
     // Incomplete tool call - should continue regardless of other flags
     assert!(should_auto_continue(
         false, // any_tool_executed
-        false, // final_output_called
         true,  // has_incomplete_tool_call
         false, // has_unexecuted_tool_call
         false, // is_empty_response
@@ -171,7 +158,6 @@ fn test_auto_continue_unexecuted_tool_call() {
     // Unexecuted tool call - should continue
     assert!(should_auto_continue(
         false, // any_tool_executed
-        false, // final_output_called
         false, // has_incomplete_tool_call
         true,  // has_unexecuted_tool_call
         false, // is_empty_response
@@ -183,7 +169,6 @@ fn test_auto_continue_empty_response_after_tool() {
     // Empty response after tool execution - should continue
     assert!(should_auto_continue(
         true,  // any_tool_executed
-        false, // final_output_called
         false, // has_incomplete_tool_call
         false, // has_unexecuted_tool_call
         true,  // is_empty_response
@@ -196,7 +181,6 @@ fn test_auto_continue_empty_response_no_tool() {
     // (This is a normal case where LLM just didn't respond)
     assert!(!should_auto_continue(
         false, // any_tool_executed
-        false, // final_output_called
         false, // has_incomplete_tool_call
         false, // has_unexecuted_tool_call
         true,  // is_empty_response
@@ -208,7 +192,6 @@ fn test_auto_continue_no_conditions_met() {
     // No tools, no incomplete calls, substantive response - should NOT continue
     assert!(!should_auto_continue(
         false, // any_tool_executed
-        false, // final_output_called
         false, // has_incomplete_tool_call
         false, // has_unexecuted_tool_call
         false, // is_empty_response
@@ -216,19 +199,22 @@ fn test_auto_continue_no_conditions_met() {
 }
 
 // =============================================================================
-// Test: Redundant condition detection
+// Test: Edge cases
 // =============================================================================
 
 #[test]
-fn test_redundant_empty_response_condition() {
-    // This test documents that (any_tool_executed && is_empty_response) is redundant
-    // when (any_tool_executed && !final_output_called) is already true
+fn test_auto_continue_multiple_conditions() {
+    // Multiple conditions true - should still continue
+    assert!(should_auto_continue(
+        true,  // any_tool_executed
+        true,  // has_incomplete_tool_call
+        true,  // has_unexecuted_tool_call
+        true,  // is_empty_response
+    ));
     
-    // Case: tool executed, no final_output, empty response
-    let result_with_empty = should_auto_continue(true, false, false, false, true);
-    let result_without_empty = should_auto_continue(true, false, false, false, false);
+    // Only incomplete tool call
+    assert!(should_auto_continue(false, true, false, false));
     
-    // Both should be true because (any_tool_executed && !final_output_called) is true
-    assert_eq!(result_with_empty, result_without_empty, 
-        "The is_empty_response condition is redundant when any_tool_executed && !final_output_called");
+    // Only unexecuted tool call  
+    assert!(should_auto_continue(false, false, true, false));
 }
