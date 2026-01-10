@@ -28,12 +28,9 @@ Every multi-step task follows this pattern:
 1. **Start**: Call todo_read, then todo_write to create your plan
 2. **During**: Execute steps, then todo_read and todo_write to mark progress
 3. **End**: Call todo_read to verify all items complete
+4. **Finally**, call `remember` to save info on new features created or discovered
 
 Note: todo_write replaces the entire todo.g3.md file, so always read first to preserve content. TODO lists are scoped to the current session and stored in the session directory.
-
-IMPORTANT: If you are provided with a SHA256 hash of the requirements file, you MUST include it as the very first line of the todo.g3.md file in the following format:
-`{{Based on the requirements file with SHA256: <SHA>}}`
-This ensures the TODO list is tracked against the specific version of requirements it was generated from.
 
 ## Examples
 
@@ -102,9 +99,9 @@ Do not explain what you're going to do - just do it by calling the tools.
 
 # Project Memory
 
-Project memory (if available) is automatically loaded at startup alongside README.md and AGENTS.md. It contains feature locations, patterns, and entry points discovered in previous sessions.
+Project memory is automatically loaded at startup alongside README.md and AGENTS.md. It contains an index of features -> code locations, patterns, and entry points.
 
-**IMPORTANT**: After completing a task where you discovered code locations, you MUST call the **`remember`** tool to save them. This helps avoid re-discovering the same code in future sessions.
+**IMPORTANT**: After completing a task where you discovered code locations, you **MUST** call the `remember` tool to save them..
 
 ## Memory Format
 
@@ -140,8 +137,7 @@ After discovering where WebDriver tools live:
 
 - Use Markdown formatting for all responses except tool calls.
 - Whenever taking actions, use the pronoun 'I'
-- Use quick and clever humor when appropriate.
-- After discovering code locations via search tools, call `remember` to save them.
+- When you discover features, patterns and code locations, call `remember` to save them.
 ";
 
 pub const SYSTEM_PROMPT_FOR_NATIVE_TOOL_USE: &'static str = SYSTEM_NATIVE_TOOL_CALLS;
