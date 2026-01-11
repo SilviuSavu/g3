@@ -235,13 +235,11 @@ pub fn truncate_for_display(s: &str, max_len: usize) -> String {
 
 /// Truncate a line for tool output display
 pub fn truncate_line(line: &str, max_width: usize, should_truncate: bool) -> String {
-    if !should_truncate {
-        line.to_string()
-    } else if line.chars().count() <= max_width {
+    if !should_truncate || line.chars().count() <= max_width {
         line.to_string()
     } else {
         let truncated: String = line.chars().take(max_width.saturating_sub(3)).collect();
-        format!("{}...", truncated)
+        format!("{truncated}...")
     }
 }
 
