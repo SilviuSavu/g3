@@ -440,6 +440,7 @@ pub async fn run() -> Result<()> {
             cli.task.clone(),
             cli.chrome_headless,
             cli.safari,
+            cli.auto_memory,
         )
         .await;
     }
@@ -455,6 +456,7 @@ pub async fn run() -> Result<()> {
             cli.task.clone(),
             cli.chrome_headless,
             cli.safari,
+            cli.auto_memory,
         )
         .await;
     }
@@ -701,6 +703,7 @@ async fn run_agent_mode(
     task: Option<String>,
     chrome_headless: bool,
     safari: bool,
+    auto_memory: bool,
 ) -> Result<()> {
     use g3_core::get_agent_system_prompt;
     use g3_core::find_incomplete_agent_session;
@@ -832,6 +835,11 @@ async fn run_agent_mode(
     // Set agent mode for session tracking
     agent.set_agent_mode(agent_name);
     
+    // Apply auto-memory flag if enabled
+    if auto_memory {
+        agent.set_auto_memory(true);
+    }
+    
     // If resuming a session, restore context and TODO
     let initial_task = if let Some(ref incomplete_session) = resuming_session {
         // Restore the session context
@@ -885,6 +893,11 @@ async fn run_agent_mode(
     let final_task = task.as_deref().unwrap_or(initial_task);
     
     let _result = agent.execute_task(final_task, None, true).await?;
+    
+    // Send auto-memory reminder if enabled and tools were called
+    if let Err(e) = agent.send_auto_memory_reminder().await {
+        debug!("Auto-memory reminder failed: {}", e);
+    }
     
     // Save session continuation for resume capability
     agent.save_session_continuation(None);
