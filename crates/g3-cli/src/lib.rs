@@ -1,253 +1,17 @@
-// JSON tool call filtering for display (moved from g3-core)
+//! G3 CLI - Command-line interface for the G3 AI coding agent.
+
 pub mod filter_json;
+pub mod metrics;
+pub mod project_files;
 pub mod streaming_markdown;
+
+mod coach_feedback;
+mod machine_ui_writer;
+mod simple_output;
+mod ui_writer_impl;
 
 use anyhow::Result;
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
-use std::time::{Duration, Instant};
-
-#[derive(Debug, Clone)]
-struct TurnMetrics {
-    turn_number: usize,
-    tokens_used: u32,
-    wall_clock_time: Duration,
-}
-
-/// Generate a histogram showing tokens used and wall clock time per turn
-fn generate_turn_histogram(turn_metrics: &[TurnMetrics]) -> String {
-    if turn_metrics.is_empty() {
-        return "   No turn data available".to_string();
-    }
-
-    let mut histogram = String::new();
-
-    // Find max values for scaling
-    let max_tokens = turn_metrics
-        .iter()
-        .map(|t| t.tokens_used)
-        .max()
-        .unwrap_or(1);
-    let max_time_ms = turn_metrics
-        .iter()
-        .map(|t| t.wall_clock_time.as_millis().min(u32::MAX as u128) as u32)
-        .max()
-        .unwrap_or(1);
-
-    // Constants for histogram display
-    const MAX_BAR_WIDTH: usize = 40;
-    const TOKEN_CHAR: char = '█';
-    const TIME_CHAR: char = '▓';
-
-    histogram.push_str("\n📊 Per-Turn Performance Histogram:\n");
-    histogram.push_str(&format!(
-        "   {} = Tokens Used (max: {})\n",
-        TOKEN_CHAR, max_tokens
-    ));
-    histogram.push_str(&format!(
-        "   {} = Wall Clock Time (max: {:.1}s)\n\n",
-        TIME_CHAR,
-        max_time_ms as f64 / 1000.0
-    ));
-
-    for metrics in turn_metrics {
-        let turn_time_ms = metrics.wall_clock_time.as_millis().min(u32::MAX as u128) as u32;
-
-        // Calculate bar lengths (proportional to max values)
-        let token_bar_len = if max_tokens > 0 {
-            ((metrics.tokens_used as f64 / max_tokens as f64) * MAX_BAR_WIDTH as f64) as usize
-        } else {
-            0
-        };
-
-        let time_bar_len = if max_time_ms > 0 {
-            ((turn_time_ms as f64 / max_time_ms as f64) * MAX_BAR_WIDTH as f64) as usize
-        } else {
-            0
-        };
-
-        // Format time duration
-        let time_str = if turn_time_ms < 1000 {
-            format!("{}ms", turn_time_ms)
-        } else if turn_time_ms < 60_000 {
-            format!("{:.1}s", turn_time_ms as f64 / 1000.0)
-        } else {
-            let minutes = turn_time_ms / 60_000;
-            let seconds = (turn_time_ms % 60_000) as f64 / 1000.0;
-            format!("{}m{:.1}s", minutes, seconds)
-        };
-
-        // Create the bars
-        let token_bar = TOKEN_CHAR.to_string().repeat(token_bar_len);
-        let time_bar = TIME_CHAR.to_string().repeat(time_bar_len);
-
-        // Add turn information
-        histogram.push_str(&format!(
-            "   Turn {:2}: {:>6} tokens │{:<40}│\n",
-            metrics.turn_number, metrics.tokens_used, token_bar
-        ));
-        histogram.push_str(&format!(
-            "           {:>6}       │{:<40}│\n",
-            time_str, time_bar
-        ));
-
-        // Add separator line between turns (except for last turn)
-        if metrics.turn_number != turn_metrics.last().unwrap().turn_number {
-            histogram
-                .push_str("           ────────────┼────────────────────────────────────────┤\n");
-        }
-    }
-
-    // Add summary statistics
-    let total_tokens: u32 = turn_metrics.iter().map(|t| t.tokens_used).sum();
-    let total_time: Duration = turn_metrics.iter().map(|t| t.wall_clock_time).sum();
-    let avg_tokens = total_tokens as f64 / turn_metrics.len() as f64;
-    let avg_time_ms = total_time.as_millis() as f64 / turn_metrics.len() as f64;
-
-    histogram.push_str("\n📈 Summary Statistics:\n");
-    histogram.push_str(&format!(
-        "   • Total Tokens: {} across {} turns\n",
-        total_tokens,
-        turn_metrics.len()
-    ));
-    histogram.push_str(&format!("   • Average Tokens/Turn: {:.1}\n", avg_tokens));
-    histogram.push_str(&format!(
-        "   • Total Time: {:.1}s\n",
-        total_time.as_secs_f64()
-    ));
-    histogram.push_str(&format!(
-        "   • Average Time/Turn: {:.1}s\n",
-        avg_time_ms / 1000.0
-    ));
-
-    histogram
-}
-
-/// Format a Duration as human-readable elapsed time (e.g., "1h 23m 45s", "5m 30s", "45s")
-fn format_elapsed_time(duration: Duration) -> String {
-    let total_secs = duration.as_secs();
-    let hours = total_secs / 3600;
-    let minutes = (total_secs % 3600) / 60;
-    let seconds = total_secs % 60;
-
-    if hours > 0 {
-        format!("{}h {}m {}s", hours, minutes, seconds)
-    } else if minutes > 0 {
-        format!("{}m {}s", minutes, seconds)
-    } else if seconds > 0 {
-        format!("{}s", seconds)
-    } else {
-        // For very short durations, show milliseconds
-        format!("{}ms", duration.as_millis())
-    }
-}
-
-/// Extract coach feedback by reading from the coach agent's specific log file
-/// Uses the coach agent's session ID to find the exact log file
-fn extract_coach_feedback_from_logs(
-    coach_result: &g3_core::TaskResult,
-    coach_agent: &g3_core::Agent<ConsoleUiWriter>,
-    output: &SimpleOutput,
-) -> Result<String> {
-    // Get the coach agent's session ID
-    let session_id = coach_agent
-        .get_session_id()
-        .ok_or_else(|| anyhow::anyhow!("Coach agent has no session ID"))?;
-
-    // Try new .g3/sessions/<session_id>/session.json path first
-    let log_file_path = g3_core::get_session_file(&session_id);
-    
-    // Fall back to old logs/ path if new path doesn't exist
-    let log_file_path = if log_file_path.exists() {
-        log_file_path
-    } else {
-        let logs_dir = std::path::Path::new("logs");
-        logs_dir.join(format!("g3_session_{}.json", session_id))
-    };
-
-    // Try to extract from session log
-    if let Some(feedback) = try_extract_feedback_from_log(&log_file_path, output) {
-        output.print(&format!(
-            "✅ Extracted coach feedback from session: {}",
-            session_id
-        ));
-        return Ok(feedback);
-    }
-
-    // Fallback: use the TaskResult's extract_summary method
-    let fallback = coach_result.extract_summary();
-    if !fallback.is_empty() {
-        output.print(&format!(
-            "✅ Extracted coach feedback from response: {} chars",
-            fallback.len()
-        ));
-        return Ok(fallback);
-    }
-
-    // Last resort: return an error instead of panicking
-    Err(anyhow::anyhow!(
-        "Could not extract coach feedback from session: {}\n\
-         Log file path: {:?}\n\
-         Log file exists: {}\n\
-         Coach result response length: {} chars",
-        session_id,
-        log_file_path,
-        log_file_path.exists(),
-        coach_result.response.len()
-    ))
-}
-
-/// Helper function to extract feedback from a session log file
-/// Looks for the last assistant message with substantial text content
-fn try_extract_feedback_from_log(
-    log_file_path: &std::path::Path,
-    _output: &SimpleOutput,
-) -> Option<String> {
-    if !log_file_path.exists() {
-        return None;
-    }
-
-    let log_content = std::fs::read_to_string(log_file_path).ok()?;
-    let log_json: serde_json::Value = serde_json::from_str(&log_content).ok()?;
-
-    let messages = log_json
-        .get("context_window")?
-        .get("conversation_history")?
-        .as_array()?;
-
-    // Search backwards for the last assistant message with text content
-    for msg in messages.iter().rev() {
-        let role = msg.get("role").and_then(|v| v.as_str())?;
-
-        if role.eq_ignore_ascii_case("assistant") {
-            if let Some(content) = msg.get("content") {
-                // Handle string content
-                if let Some(content_str) = content.as_str() {
-                    let trimmed = content_str.trim();
-                    // Skip empty or very short responses (likely just tool calls)
-                    if !trimmed.is_empty() && trimmed.len() > 10 {
-                        return Some(trimmed.to_string());
-                    }
-                }
-                // Handle array content (native tool calling format)
-                if let Some(content_array) = content.as_array() {
-                    for block in content_array {
-                        if block.get("type").and_then(|v| v.as_str()) == Some("text") {
-                            if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
-                                let trimmed = text.trim();
-                                if !trimmed.is_empty() && trimmed.len() > 10 {
-                                    return Some(trimmed.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
-
 use clap::Parser;
 use g3_config::Config;
 use g3_core::{project::Project, ui_writer::UiWriter, Agent, DiscoveryOptions};
@@ -257,15 +21,15 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
+use std::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 
 use g3_core::error_handling::{classify_error, ErrorType, RecoverableError};
-mod simple_output;
-mod ui_writer_impl;
-use simple_output::SimpleOutput;
-mod machine_ui_writer;
 use machine_ui_writer::MachineUiWriter;
+use metrics::{format_elapsed_time, generate_turn_histogram, TurnMetrics};
+use project_files::{extract_readme_heading, read_agents_config, read_project_memory, read_project_readme};
+use simple_output::SimpleOutput;
 use ui_writer_impl::ConsoleUiWriter;
 
 #[derive(Parser, Clone)]
@@ -1423,173 +1187,6 @@ async fn run_with_machine_mode(
 }
 
 /// Check if we're in a project directory and read AGENTS.md if available
-fn read_agents_config(workspace_dir: &Path) -> Option<String> {
-    // Look for AGENTS.md in the current directory
-    let agents_path = workspace_dir.join("AGENTS.md");
-
-    if agents_path.exists() {
-        match std::fs::read_to_string(&agents_path) {
-            Ok(content) => {
-                // Return the content with a note about which file was read
-                Some(format!(
-                    "🤖 Agent Configuration (from AGENTS.md):\n\n{}",
-                    content
-                ))
-            }
-            Err(e) => {
-                // Log the error but continue without the agents config
-                error!("Failed to read AGENTS.md: {}", e);
-                None
-            }
-        }
-    } else {
-        // Check for alternative names
-        let alt_path = workspace_dir.join("agents.md");
-        if alt_path.exists() {
-            match std::fs::read_to_string(&alt_path) {
-                Ok(content) => Some(format!(
-                    "🤖 Agent Configuration (from agents.md):\n\n{}",
-                    content
-                )),
-                Err(e) => {
-                    error!("Failed to read agents.md: {}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        }
-    }
-}
-
-/// Check if we're in a project directory and read README if available
-fn read_project_readme(workspace_dir: &Path) -> Option<String> {
-    // Check if we're in a project directory (contains .g3 or .git)
-    let is_project_dir = workspace_dir.join(".g3").exists() || workspace_dir.join(".git").exists();
-
-    if !is_project_dir {
-        return None;
-    }
-
-    // Look for README files in common formats
-    let readme_names = [
-        "README.md",
-        "README.MD",
-        "readme.md",
-        "Readme.md",
-        "README",
-        "README.txt",
-        "README.rst",
-    ];
-
-    for readme_name in &readme_names {
-        let readme_path = workspace_dir.join(readme_name);
-        if readme_path.exists() {
-            match std::fs::read_to_string(&readme_path) {
-                Ok(content) => {
-                    // Return the content with a note about which file was read
-                    return Some(format!(
-                        "📚 Project README (from {}):\n\n{}",
-                        readme_name, content
-                    ));
-                }
-                Err(e) => {
-                    // Log the error but continue looking for other README files
-                    error!("Failed to read {}: {}", readme_path.display(), e);
-                }
-            }
-        }
-    }
-
-    None
-}
-
-/// Read project memory if available
-fn read_project_memory(workspace_dir: &Path) -> Option<String> {
-    let memory_path = workspace_dir.join(".g3").join("memory.md");
-
-    if memory_path.exists() {
-        match std::fs::read_to_string(&memory_path) {
-            Ok(content) => {
-                let size = if content.len() < 1000 {
-                    format!("{} chars", content.len())
-                } else {
-                    format!("{:.1}k chars", content.len() as f64 / 1000.0)
-                };
-                Some(format!(
-                    "🧠 Project Memory ({}):\n\n{}",
-                    size, content
-                ))
-            }
-            Err(_) => None,
-        }
-    } else {
-        None
-    }
-}
-
-/// Extract the main heading or title from README content
-fn extract_readme_heading(readme_content: &str) -> Option<String> {
-    // Find the README section in the combined content
-    // The README section starts with "📚 Project README (from"
-    let readme_start = readme_content.find("📚 Project README (from");
-
-    // If we can't find the README marker, the content might be just README
-    // or might not contain README at all
-    let content_to_search = match readme_start {
-        Some(pos) => &readme_content[pos..],
-        None => readme_content,
-    };
-
-    // Process the content line by line, skipping the prefix line
-    let mut content_lines = Vec::new();
-    for line in content_to_search.lines() {
-        // Skip the "📚 Project README (from ...):" line
-        if line.starts_with("📚 Project README") {
-            continue;
-        }
-        content_lines.push(line);
-    }
-    let content = content_lines.join("\n");
-
-    // Look for the first markdown heading
-    for line in content.lines() {
-        let trimmed = line.trim();
-
-        // Check for H1 heading (# Title)
-        if let Some(stripped) = trimmed.strip_prefix("# ") {
-            let title = stripped.trim();
-            if !title.is_empty() {
-                // Return the full title (including any description after dash)
-                return Some(title.to_string());
-            }
-        }
-
-        // Skip other markdown headings for now (##, ###, etc.)
-        // We're only looking for the main H1 heading
-    }
-
-    // If no H1 heading found, look for the first non-empty, non-metadata line as a fallback
-    for line in content.lines().take(5) {
-        let trimmed = line.trim();
-        // Skip empty lines, other heading markers, and metadata
-        if !trimmed.is_empty()
-            && !trimmed.starts_with("📚")
-            && !trimmed.starts_with('#')
-            && !trimmed.starts_with("==")
-            && !trimmed.starts_with("--")
-        {
-            // Limit length for display
-            return Some(if trimmed.len() > 100 {
-                format!("{}...", &trimmed[..97])
-            } else {
-                trimmed.to_string()
-            });
-        }
-    }
-    None
-}
-
 async fn run_interactive<W: UiWriter>(
     mut agent: Agent<W>,
     show_prompt: bool,
@@ -3063,7 +2660,7 @@ Remember: Be clear in your review and concise in your feedback. APPROVE iff the 
 
         // Extract the complete coach feedback from the response
         let coach_feedback_text =
-            extract_coach_feedback_from_logs(&coach_result, &coach_agent, &output)?;
+            coach_feedback::extract_from_logs(&coach_result, &coach_agent, &output)?;
 
         // Log the size of the feedback for debugging
         debug!(
