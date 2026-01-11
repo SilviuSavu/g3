@@ -1,127 +1,106 @@
 # Observed Layering
 
-## Layer Structure
+## Derivation Method
 
-Based on crate dependencies and file imports, the following layers are observed:
+Layers derived mechanically from:
+1. Crate dependency direction in Cargo.toml
+2. Path-based grouping within crates
+3. Import directionality between files
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      LAYER 5: Binaries                      │
-│                                                             │
-│   g3 (src/main.rs)           g3-console (src/main.rs)       │
-│         │                           │                       │
-└─────────┼───────────────────────────┼───────────────────────┘
-          │                           │
-          ▼                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   LAYER 4: Application                      │
-│                                                             │
-│   g3-cli                      g3-console (lib)              │
-│   ├── Interactive CLI         ├── Web API                   │
-│   ├── TUI rendering           ├── Process management        │
-│   └── Session management      └── Log parsing               │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   LAYER 3: Orchestration                    │
-│                                                             │
-│   g3-planner                  g3-ensembles                  │
-│   ├── Planning workflow       ├── Flock mode                │
-│   ├── Git integration         └── Multi-agent status        │
-│   └── LLM coordination                                      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      LAYER 2: Core                          │
-│                                                             │
-│   g3-core                                                   │
-│   ├── Agent engine (lib.rs)                                 │
-│   ├── Context window management                             │
-│   ├── Tool dispatch & execution                             │
-│   ├── Streaming parser                                      │
-│   ├── Error handling & retry                                │
-│   └── Code search (tree-sitter)                             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   LAYER 1: Foundation                       │
-│                                                             │
-│   g3-providers        g3-config       g3-execution          │
-│   ├── Anthropic       ├── TOML        └── Coverage tools    │
-│   ├── Databricks      │   parsing                           │
-│   ├── OpenAI          └── Settings    g3-computer-control   │
-│   ├── Embedded                        ├── Platform (macOS/  │
-│   └── OAuth                           │   Linux/Windows)    │
-│                                       ├── OCR               │
-│                                       ├── WebDriver         │
-│                                       └── MacAX             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+## Crate Layers
 
-## Layer Dependency Rules
+### Layer 0: Foundation (No internal dependencies)
 
-| From Layer | May Depend On |
-|------------|---------------|
-| 5 (Binaries) | 4, 1 |
-| 4 (Application) | 3, 2, 1 |
-| 3 (Orchestration) | 2, 1 |
-| 2 (Core) | 1 |
-| 1 (Foundation) | (none - leaf) |
+| Crate | Purpose (from Cargo.toml description) |
+|-------|---------------------------------------|
+| g3-config | Configuration management |
+| g3-execution | Code execution engine |
+| g3-providers | LLM provider abstractions |
+| g3-computer-control | Computer control (no description) |
 
-## Observed Violations
+### Layer 1: Core Services
+
+| Crate | Dependencies |
+|-------|-------------|
+| g3-core | g3-providers, g3-config, g3-execution, g3-computer-control |
+
+### Layer 2: Higher-Level Services
+
+| Crate | Dependencies |
+|-------|-------------|
+| g3-ensembles | g3-core, g3-config |
+| g3-planner | g3-providers, g3-core, g3-config |
+
+### Layer 3: Application
+
+| Crate | Dependencies |
+|-------|-------------|
+| g3-cli | g3-core, g3-config, g3-planner, g3-computer-control, g3-providers, g3-ensembles |
+| g3 (root) | g3-cli, g3-providers |
+
+## Module Groupings Within Crates
+
+### g3-core (60 files)
+
+| Group | Files | Purpose |
+|-------|-------|--------|
+| tools/ | 9 | Tool implementations (file_ops, shell, webdriver, etc.) |
+| code_search/ | 2 | Tree-sitter based code search |
+| root modules | 22 | Core functionality (agent, context, streaming, etc.) |
+| tests/ | 27 | Integration and unit tests |
+
+### g3-computer-control (29 files)
+
+| Group | Files | Purpose |
+|-------|-------|--------|
+| platform/ | 5 | OS-specific implementations (macos, linux, windows) |
+| webdriver/ | 4 | Browser automation (safari, chrome) |
+| ocr/ | 3 | Text recognition (tesseract, vision) |
+| macax/ | 3 | macOS accessibility |
+| examples/ | 12 | Usage examples |
+
+### g3-providers (10 files)
+
+| Group | Files | Purpose |
+|-------|-------|--------|
+| providers | 5 | LLM implementations (anthropic, databricks, openai, embedded) |
+| support | 3 | OAuth, streaming utilities |
+| tests/ | 3 | Provider tests |
+
+### g3-planner (12 files)
+
+| Group | Files | Purpose |
+|-------|-------|--------|
+| core | 7 | Planner logic (planner, state, llm, git, history) |
+| tests/ | 4 | Planner tests |
+
+## Observed Directionality
+
+### Cross-Crate Import Patterns
+
+| From Crate | To Crate | Edge Count |
+|------------|----------|------------|
+| g3-cli | g3-core | 5 |
+| g3-cli | g3-config | 2 |
+| g3-cli | g3-computer-control | 1 |
+| g3-core | g3-providers | 18 |
+| g3-core | g3-config | 6 |
+| g3-core | g3-computer-control | 2 |
+| g3-planner | g3-providers | 3 |
+| g3-planner | g3-core | 5 |
+| g3-planner | g3-config | 1 |
+| g3-ensembles | g3-core | 1 |
+| g3-ensembles | g3-config | 1 |
+
+### Layer Violations
 
 **None detected.**
 
-All observed dependencies follow the layering rules:
-- Higher layers depend only on lower layers
-- No skip-level violations that bypass intermediate layers inappropriately
-- No upward dependencies
+All observed imports follow the declared crate dependency direction.
+No file imports from a crate that is not declared as a dependency.
 
-## Cross-Cutting Concerns
+## Uncertainty
 
-### g3-config
-Used by: g3-cli, g3-core, g3-planner, g3-ensembles
-- Provides `Config` struct across all layers
-- Appropriate as foundation-level shared configuration
-
-### g3-providers
-Used by: g3, g3-cli, g3-core, g3-planner
-- Provides `Message`, `MessageRole`, `LLMProvider` types
-- Core abstraction for LLM communication
-- Appropriate as foundation-level abstraction
-
-### UiWriter trait (g3-core/src/ui_writer.rs)
-Used by: 10 files within g3-core, implemented by g3-cli
-- Abstraction for output rendering
-- Defined in core, implemented in application layer
-- Follows dependency inversion principle
-
-## Module Groupings by Path Convention
-
-| Path Pattern | Purpose | Crates |
-|--------------|---------|--------|
-| `src/tools/*` | Tool implementations | g3-core |
-| `src/api/*` | HTTP API handlers | g3-console |
-| `src/models/*` | Data structures | g3-console |
-| `src/process/*` | Process management | g3-console |
-| `src/platform/*` | OS-specific code | g3-computer-control |
-| `src/ocr/*` | OCR implementations | g3-computer-control |
-| `src/webdriver/*` | Browser automation | g3-computer-control |
-| `src/macax/*` | macOS accessibility | g3-computer-control |
-| `src/code_search/*` | Tree-sitter search | g3-core |
-
-## Confidence Assessment
-
-| Aspect | Confidence | Notes |
-|--------|------------|-------|
-| Crate-level layering | High | Derived from Cargo.toml |
-| File-level layering | Medium | Based on import analysis |
-| Violation detection | Medium | May miss dynamic/conditional deps |
-| Module groupings | High | Based on path conventions |
+- Internal `use crate::` imports not fully resolved to specific files
+- Some module relationships inferred from `mod` declarations only
+- Test files may have additional dev-dependencies not tracked

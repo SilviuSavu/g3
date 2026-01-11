@@ -1,95 +1,101 @@
-# Dependency Hotspots
+# Coupling Hotspots
 
-## Definition
+## Identification Method
 
-Hotspots are code artifacts with disproportionate coupling, measured by:
-- **Fan-in**: Number of files/crates that depend on this artifact
-- **Fan-out**: Number of files/crates this artifact depends on
-- **Cross-group edges**: Dependencies that cross module/crate boundaries
+Hotspots identified by:
+1. Fan-in: Number of incoming edges (dependents)
+2. Fan-out: Number of outgoing edges (dependencies)
+3. Cross-crate edges: Files with imports from multiple external crates
 
 ## Crate-Level Hotspots
 
-### High Fan-In Crates
+### By Fan-In (Most Depended Upon)
 
-| Crate | Fan-In | Evidence |
-|-------|--------|----------|
-| g3-config | 5 | Depended on by: g3-cli, g3-core, g3-planner, g3-ensembles, (tests) |
-| g3-providers | 4 | Depended on by: g3, g3-cli, g3-core, g3-planner |
-| g3-core | 3 | Depended on by: g3-cli, g3-planner, g3-ensembles |
+| Crate | Fan-In | Dependents |
+|-------|--------|------------|
+| g3-core | 43 | g3-cli, g3-ensembles, g3-planner + 40 file imports |
+| g3-providers | 27 | g3-core, g3-planner + 25 file imports |
+| g3-config | 16 | g3-cli, g3-core, g3-ensembles, g3-planner + 12 file imports |
+| g3-computer-control | 12 | g3-cli, g3-core + 10 file imports |
 
-### High Fan-Out Crates
+### By Fan-Out (Most Dependencies)
 
-| Crate | Fan-Out | Evidence |
-|-------|---------|----------|
-| g3-cli | 5 | Depends on: g3-core, g3-config, g3-planner, g3-providers, g3-ensembles |
-| g3-core | 4 | Depends on: g3-providers, g3-config, g3-execution, g3-computer-control |
-| g3-planner | 3 | Depends on: g3-providers, g3-core, g3-config |
+| Crate | Fan-Out | Dependencies |
+|-------|---------|-------------|
+| g3-cli | 6 | g3-core, g3-config, g3-planner, g3-computer-control, g3-providers, g3-ensembles |
+| g3-core | 4 | g3-providers, g3-config, g3-execution, g3-computer-control |
+| g3-planner | 3 | g3-providers, g3-core, g3-config |
+| g3-ensembles | 2 | g3-core, g3-config |
 
 ## File-Level Hotspots
 
-### High Fan-In Files
+### By Fan-Out (Files with Most Dependencies)
 
-| File | Fan-In | Importing Files |
-|------|--------|----------------|
-| `g3-core/src/ui_writer.rs` | 10 | lib.rs, tool_dispatch.rs, retry.rs, feedback_extraction.rs, tools/file_ops.rs, tools/shell.rs, tools/misc.rs, tools/todo.rs, tools/webdriver.rs, tools/executor.rs |
-| `g3-core/src/lib.rs` | 8 | streaming_parser.rs, feedback_extraction.rs, retry.rs, task_result_comprehensive_tests.rs, (external: g3-cli, g3-planner, g3-ensembles) |
-| `g3-providers/src/lib.rs` | 7 | anthropic.rs, databricks.rs, openai.rs, embedded.rs, (external: g3-core, g3-planner, examples) |
-| `g3-config/src/lib.rs` | 5 | (external: g3-core, g3-cli, g3-planner, g3-ensembles, tools/executor.rs) |
-| `g3-computer-control/src/types.rs` | 5 | platform/macos.rs, platform/linux.rs, platform/windows.rs, ocr/mod.rs, ocr/vision.rs, ocr/tesseract.rs |
-| `g3-console/src/models/mod.rs` | 5 | api/instances.rs, api/control.rs, logs.rs, process/controller.rs, process/detector.rs |
-
-### High Fan-Out Files
-
-| File | Fan-Out | Dependencies |
+| File | Fan-Out | Description |
 |------|---------|-------------|
-| `g3-core/src/tools/executor.rs` | 5 | background_process.rs, paths.rs, ui_writer.rs, webdriver_session.rs, g3-config |
-| `g3-core/src/tool_dispatch.rs` | 4 | tools/executor.rs, tools/mod.rs, ui_writer.rs, ToolCall |
-| `g3-core/src/retry.rs` | 4 | error_handling.rs, ui_writer.rs, lib.rs (Agent, TaskResult) |
-| `g3-planner/src/llm.rs` | 5 | g3-config, g3-core/project, g3-core/Agent, g3-core/error_handling, g3-providers, prompts.rs |
-| `g3-console/src/api/instances.rs` | 3 | logs.rs, models, process/detector.rs |
+| ./crates/g3-core/src/lib.rs | 27 | Core library root - declares 22 modules + 5 external imports |
+| ./crates/g3-cli/src/lib.rs | 12 | CLI library root - 5 modules + 7 external imports |
+| ./crates/g3-core/src/tools/mod.rs | 8 | Tools module - declares 8 submodules |
+| ./crates/g3-planner/src/lib.rs | 8 | Planner library root - 7 modules + 1 external import |
+| ./crates/g3-providers/src/lib.rs | 6 | Providers library root - 5 modules + 1 internal |
+| ./crates/g3-computer-control/src/lib.rs | 5 | Computer control root - 5 modules |
+| ./crates/g3-planner/src/llm.rs | 5 | LLM integration - 5 external imports |
 
-## Cross-Boundary Dependencies
+### Files with Cross-Crate Imports
 
-### External Crate Imports (Cross-Crate)
+| File | External Crates Imported |
+|------|-------------------------|
+| ./crates/g3-cli/src/lib.rs | g3-config, g3-core |
+| ./crates/g3-core/src/lib.rs | g3-config, g3-providers |
+| ./crates/g3-core/src/context_window.rs | g3-providers |
+| ./crates/g3-core/src/streaming.rs | g3-providers |
+| ./crates/g3-core/src/tool_definitions.rs | g3-providers |
+| ./crates/g3-core/src/tools/executor.rs | g3-config |
+| ./crates/g3-core/src/tools/research.rs | g3-config |
+| ./crates/g3-core/src/tools/webdriver.rs | g3-computer-control |
+| ./crates/g3-core/src/webdriver_session.rs | g3-computer-control |
+| ./crates/g3-planner/src/llm.rs | g3-config, g3-core, g3-providers |
+| ./crates/g3-planner/src/lib.rs | g3-providers |
+| ./crates/g3-ensembles/src/flock.rs | g3-config |
 
-| From Crate | To Crate | Import Count | Key Types |
-|------------|----------|--------------|----------|
-| g3-core | g3-providers | 5 | Message, MessageRole, Usage, CacheControl, Tool, CompletionRequest, ProviderRegistry |
-| g3-core | g3-config | 3 | Config |
-| g3-core | g3-computer-control | 2 | WebDriverController, ChromeDriver, SafariDriver, WebElement |
-| g3-cli | g3-core | 3 | Agent, UiWriter, DiscoveryOptions, Project, error_handling |
-| g3-planner | g3-core | 3 | Agent, Project, error_handling |
-| g3-planner | g3-providers | 2 | Message, MessageRole, LLMProvider, CompletionRequest |
-| g3-ensembles | g3-core | 1 | (via g3-config) |
+## High-Coupling Observations
 
-## Coupling Metrics Summary
+### g3-core/src/lib.rs
 
-| Metric | Value | Threshold | Status |
-|--------|-------|-----------|--------|
-| Max crate fan-in | 5 (g3-config) | - | Expected for config |
-| Max crate fan-out | 5 (g3-cli) | - | Expected for CLI |
-| Max file fan-in | 10 (ui_writer.rs) | - | Trait abstraction |
-| Max file fan-out | 5 (executor.rs, llm.rs) | - | Orchestration files |
-| Cross-crate edges | 16 | - | Moderate |
+- Fan-out: 27 (highest in codebase)
+- Declares 22 public modules
+- Imports from: g3-config, g3-providers
+- Central hub for all core functionality
 
-## Observations
+### g3-providers
 
-1. **ui_writer.rs** has highest file-level fan-in (10 dependents)
-   - This is a trait definition, high fan-in is expected
-   - Implements dependency inversion pattern
+- Fan-in: 27 (second highest)
+- Imported by 25 files across 3 crates
+- Provides: Message, MessageRole, CompletionRequest, LLMProvider, etc.
+- Core abstraction layer for LLM communication
 
-2. **g3-config** has highest crate-level fan-in (5 dependents)
-   - Configuration is appropriately centralized
-   - No code duplication observed
+### g3-config
 
-3. **g3-cli** has highest crate-level fan-out (5 dependencies)
-   - Expected for application entry point
-   - Orchestrates all major subsystems
+- Fan-in: 16
+- Imported by 12 files across 4 crates
+- Provides: Config struct
+- Shared configuration across all layers
 
-4. **tools/executor.rs** has high fan-out within g3-core
-   - Central tool execution context
-   - Coordinates background processes, paths, webdriver, config
+## Representative Evidence
 
-5. **g3-console** is isolated
-   - No dependencies on other workspace crates
-   - Standalone monitoring application
+### g3-core imports from g3-providers (18 edges)
+
+```
+./crates/g3-core/src/lib.rs: use g3_providers::{CacheControl, CompletionRequest, Message, MessageRole, ProviderRegistry};
+./crates/g3-core/src/context_window.rs: use g3_providers::{Message, MessageRole, Usage};
+./crates/g3-core/src/streaming.rs: use g3_providers::{CompletionRequest, MessageRole};
+./crates/g3-core/src/tool_definitions.rs: use g3_providers::Tool;
+```
+
+### g3-planner imports from g3-core (5 edges)
+
+```
+./crates/g3-planner/src/llm.rs: use g3_core::project::Project;
+./crates/g3-planner/src/llm.rs: use g3_core::Agent;
+./crates/g3-planner/src/llm.rs: use g3_core::error_handling::{classify_error, ErrorType};
+```

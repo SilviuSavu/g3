@@ -2,27 +2,47 @@
 
 ## Overview
 
-| Metric | Value |
+| Metric | Count |
 |--------|-------|
-| Total Crates | 10 |
-| Total Source Files | 139 |
-| Crate-Level Dependency Edges | 16 |
-| File-Level Dependency Edges | 72 |
+| Total nodes | 143 |
+| Crate nodes | 9 |
+| File nodes | 134 |
+| Total edges | 189 |
 
-## Crate Inventory
+## Node Distribution
 
-| Crate | Type | File Count | Path |
-|-------|------|------------|------|
-| g3 | binary | 2 | . |
-| g3-cli | library | 11 | crates/g3-cli |
-| g3-core | library | 55 | crates/g3-core |
-| g3-config | library | 3 | crates/g3-config |
-| g3-providers | library | 9 | crates/g3-providers |
-| g3-planner | library | 12 | crates/g3-planner |
-| g3-execution | library | 2 | crates/g3-execution |
-| g3-computer-control | library | 28 | crates/g3-computer-control |
-| g3-console | binary+library | 18 | crates/g3-console |
-| g3-ensembles | library | 5 | crates/g3-ensembles |
+### Files by Crate
+
+| Crate | File Count |
+|-------|------------|
+| g3-core | 60 |
+| g3-computer-control | 29 |
+| g3-cli | 12 |
+| g3-planner | 12 |
+| g3-providers | 10 |
+| g3-ensembles | 5 |
+| g3 (root) | 2 |
+| g3-config | 2 |
+| g3-execution | 2 |
+
+### Files by Type
+
+| Type | Count |
+|------|-------|
+| module | 72 |
+| test | 37 |
+| example | 15 |
+| lib | 8 |
+| build | 1 |
+| main | 1 |
+
+## Edge Distribution
+
+| Edge Type | Count | Description |
+|-----------|-------|-------------|
+| file_to_crate | 101 | File imports from external crate |
+| mod_declaration | 71 | Module declaration within crate |
+| crate_dependency | 17 | Cargo.toml dependency |
 
 ## Crate Dependency Structure
 
@@ -39,6 +59,7 @@ g3 (root binary)
 │   │   ├── g3-providers
 │   │   ├── g3-core
 │   │   └── g3-config
+│   ├── g3-computer-control
 │   ├── g3-providers
 │   └── g3-ensembles
 │       ├── g3-core
@@ -46,69 +67,49 @@ g3 (root binary)
 └── g3-providers
 ```
 
-## Fan-In Analysis (Crates Depended Upon)
+## Top Fan-In Nodes (Most Depended Upon)
 
-| Crate | Fan-In | Dependents |
-|-------|--------|------------|
-| g3-config | 5 | g3-cli, g3-core, g3-planner, g3-ensembles |
-| g3-providers | 4 | g3, g3-cli, g3-core, g3-planner |
-| g3-core | 3 | g3-cli, g3-planner, g3-ensembles |
-| g3-cli | 1 | g3 |
-| g3-planner | 1 | g3-cli |
-| g3-ensembles | 1 | g3-cli |
-| g3-execution | 1 | g3-core |
-| g3-computer-control | 1 | g3-core |
-| g3-console | 0 | (standalone) |
-| g3 | 0 | (root) |
+| Node | Fan-In |
+|------|--------|
+| g3-core | 43 |
+| g3-providers | 27 |
+| g3-config | 16 |
+| g3-computer-control | 12 |
+| g3-planner | 10 |
+| g3-cli | 5 |
+| g3-ensembles | 3 |
+| g3-execution | 2 |
 
-## Fan-Out Analysis (Crates Depending On Others)
+## Top Fan-Out Nodes (Most Dependencies)
 
-| Crate | Fan-Out | Dependencies |
-|-------|---------|-------------|
-| g3-cli | 5 | g3-core, g3-config, g3-planner, g3-providers, g3-ensembles |
-| g3-core | 4 | g3-providers, g3-config, g3-execution, g3-computer-control |
-| g3-planner | 3 | g3-providers, g3-core, g3-config |
-| g3-ensembles | 2 | g3-core, g3-config |
-| g3 | 2 | g3-cli, g3-providers |
-| g3-config | 0 | (leaf) |
-| g3-providers | 0 | (leaf) |
-| g3-execution | 0 | (leaf) |
-| g3-computer-control | 0 | (leaf) |
-| g3-console | 0 | (standalone) |
+| Node | Fan-Out |
+|------|--------|
+| ./crates/g3-core/src/lib.rs | 27 |
+| ./crates/g3-cli/src/lib.rs | 12 |
+| ./crates/g3-core/src/tools/mod.rs | 8 |
+| ./crates/g3-planner/src/lib.rs | 8 |
+| ./crates/g3-providers/src/lib.rs | 6 |
+| g3-cli | 6 |
+| ./crates/g3-computer-control/src/lib.rs | 5 |
+| ./crates/g3-planner/src/llm.rs | 5 |
 
 ## Entrypoints
 
-| Binary | Entry File |
-|--------|------------|
-| g3 | src/main.rs |
-| g3-console | crates/g3-console/src/main.rs |
+| File | Type | Description |
+|------|------|-------------|
+| ./src/main.rs | main | Root binary entrypoint |
+| ./crates/g3-cli/src/lib.rs | lib | CLI library root |
+| ./crates/g3-core/src/lib.rs | lib | Core engine library root |
+| ./crates/g3-providers/src/lib.rs | lib | LLM providers library root |
+| ./crates/g3-config/src/lib.rs | lib | Configuration library root |
+| ./crates/g3-execution/src/lib.rs | lib | Execution library root |
+| ./crates/g3-computer-control/src/lib.rs | lib | Computer control library root |
+| ./crates/g3-ensembles/src/lib.rs | lib | Ensembles library root |
+| ./crates/g3-planner/src/lib.rs | lib | Planner library root |
 
-## High Fan-In Files (Within Crates)
+## Extraction Method
 
-| File | Fan-In | Role |
-|------|--------|------|
-| g3-core/src/ui_writer.rs | 10 | UI abstraction trait |
-| g3-core/src/lib.rs | 8 | Core agent types (Agent, ToolCall, etc.) |
-| g3-providers/src/lib.rs | 7 | Provider types (Message, MessageRole, etc.) |
-| g3-config/src/lib.rs | 5 | Configuration (Config) |
-| g3-core/src/utils.rs | 2 | Utility functions |
-| g3-core/src/paths.rs | 2 | Path utilities |
-| g3-core/src/webdriver_session.rs | 2 | WebDriver session management |
-| g3-computer-control/src/types.rs | 5 | Type definitions |
-| g3-console/src/models/mod.rs | 5 | Data models |
-
-## Leaf Crates (No Internal Dependencies)
-
-- g3-config
-- g3-providers  
-- g3-execution
-- g3-computer-control
-- g3-console
-
-## Extraction Limitations
-
-1. **Dynamic imports**: Conditional compilation (`#[cfg(...)]`) may hide platform-specific dependencies
-2. **Macro-generated imports**: Imports generated by macros are not captured
-3. **Re-exports**: Transitive re-exports through `pub use` are not fully traced
-4. **Test dependencies**: Test-only dependencies (dev-dependencies) are included but not distinguished in file-level analysis
-5. **Build scripts**: build.rs dependencies are not analyzed for import relationships
+- Crate dependencies: Parsed from `Cargo.toml` files
+- File-to-crate edges: Extracted from `use g3_*::` statements
+- Module declarations: Extracted from `mod` and `pub mod` statements
+- File classification: Based on path patterns and filename conventions
