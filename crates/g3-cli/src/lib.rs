@@ -28,7 +28,7 @@ use tracing::{debug, error};
 use g3_core::error_handling::{classify_error, ErrorType, RecoverableError};
 use machine_ui_writer::MachineUiWriter;
 use metrics::{format_elapsed_time, generate_turn_histogram, TurnMetrics};
-use project_files::{extract_readme_heading, read_agents_config, read_project_memory, read_project_readme};
+use project_files::{extract_readme_heading, read_agents_config, read_project_memory, read_project_readme, truncate_for_display, truncate_path_for_display};
 use simple_output::SimpleOutput;
 use ui_writer_impl::ConsoleUiWriter;
 
@@ -539,9 +539,6 @@ async fn run_agent_mode(
         ))?
     };
     
-    output.print(&format!("🤖 Running as agent: {}", agent_name));
-    output.print(&format!("📁 Working directory: {:?}", workspace_dir));
-    
     // Load config
     let mut config = g3_config::Config::load(config_path)?;
     
@@ -562,20 +559,23 @@ async fn run_agent_mode(
     let system_prompt = get_agent_system_prompt(&agent_prompt, true);
     
     // Load AGENTS.md, README, and memory - same as normal mode
-    let agents_content = read_agents_config(&workspace_dir);
-    let readme_content = read_project_readme(&workspace_dir);
-    let memory_content = read_project_memory(&workspace_dir);
+    let agents_content_opt = read_agents_config(&workspace_dir);
+    let readme_content_opt = read_project_readme(&workspace_dir);
+    let memory_content_opt = read_project_memory(&workspace_dir);
+    let has_agents = agents_content_opt.is_some();
+    let has_readme = readme_content_opt.is_some();
+    let has_memory = memory_content_opt.is_some();
     
     // Combine all content for the agent's context
     let combined_content = {
         let mut parts = Vec::new();
-        if let Some(agents) = agents_content {
+        if let Some(agents) = agents_content_opt {
             parts.push(agents);
         }
-        if let Some(readme) = readme_content {
+        if let Some(readme) = readme_content_opt {
             parts.push(readme);
         }
-        if let Some(memory) = memory_content {
+        if let Some(memory) = memory_content_opt {
             parts.push(memory);
         }
         if parts.is_empty() {
@@ -584,6 +584,31 @@ async fn run_agent_mode(
             Some(parts.join("\n\n"))
         }
     };
+    
+    // Print fancy agent header
+    let agent_upper = agent_name.to_uppercase();
+    output.print("");
+    output.print("┌─────────────────────────────────────────────────────────┐");
+    output.print(&format!("│  🤖 AGENT: {:<46} │", agent_upper));
+    output.print("├─────────────────────────────────────────────────────────┤");
+    output.print(&format!("│  📁 {:<53} │", 
+        truncate_path_for_display(&workspace_dir, 53)));
+    output.print("├─────────────────────────────────────────────────────────┤");
+    
+    // Show what was loaded
+    let readme_status = if has_readme { "✓" } else { "·" };
+    let agents_status = if has_agents { "✓" } else { "·" };
+    let memory_status = if has_memory { "✓" } else { "·" };
+    output.print(&format!("│  {} README    {} AGENTS.md    {} Memory                  │",
+        readme_status, agents_status, memory_status));
+    output.print("└─────────────────────────────────────────────────────────┘");
+    output.print("");
+    
+    // Show task if provided
+    if let Some(ref task) = task {
+        output.print(&format!("📋 Task: {}", truncate_for_display(task, 60)));
+        output.print("");
+    }
     
     // Create agent with custom system prompt
     let ui_writer = ConsoleUiWriter::new();

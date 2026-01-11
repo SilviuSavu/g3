@@ -140,11 +140,26 @@ fn find_fallback_title(content: &str) -> Option<String> {
 }
 
 /// Truncate a string for display, adding ellipsis if needed.
-fn truncate_for_display(s: &str, max_len: usize) -> String {
+/// Used for displaying long strings in fixed-width UI elements.
+pub fn truncate_for_display(s: &str, max_len: usize) -> String {
     if s.len() > max_len {
         format!("{}...", &s[..max_len - 3])
     } else {
         s.to_string()
+    }
+}
+
+/// Truncate a path for display, showing the end portion if too long.
+/// For paths, we want to show the most relevant part (the end).
+pub fn truncate_path_for_display(path: &std::path::Path, max_len: usize) -> String {
+    let path_str = path.display().to_string();
+    if path_str.len() > max_len {
+        // Show the end of the path with ... prefix
+        let start = path_str.len() - (max_len - 3);
+        // Find a path separator to break at cleanly if possible
+        format!("...{}", &path_str[start..])
+    } else {
+        path_str
     }
 }
 
