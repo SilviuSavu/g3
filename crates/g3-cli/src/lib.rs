@@ -440,7 +440,6 @@ pub async fn run() -> Result<()> {
             cli.task.clone(),
             cli.chrome_headless,
             cli.safari,
-            cli.auto_memory,
         )
         .await;
     }
@@ -456,7 +455,6 @@ pub async fn run() -> Result<()> {
             cli.task.clone(),
             cli.chrome_headless,
             cli.safari,
-            cli.auto_memory,
         )
         .await;
     }
@@ -703,7 +701,6 @@ async fn run_agent_mode(
     task: Option<String>,
     chrome_headless: bool,
     safari: bool,
-    auto_memory: bool,
 ) -> Result<()> {
     use g3_core::get_agent_system_prompt;
     use g3_core::find_incomplete_agent_session;
@@ -835,10 +832,9 @@ async fn run_agent_mode(
     // Set agent mode for session tracking
     agent.set_agent_mode(agent_name);
     
-    // Apply auto-memory flag if enabled
-    if auto_memory {
-        agent.set_auto_memory(true);
-    }
+    // Auto-memory is always enabled in agent mode
+    // This prompts the LLM to save discoveries to project memory after each turn
+    agent.set_auto_memory(true);
     
     // If resuming a session, restore context and TODO
     let initial_task = if let Some(ref incomplete_session) = resuming_session {
