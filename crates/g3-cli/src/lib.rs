@@ -387,6 +387,10 @@ pub struct Cli {
     /// Skip session resumption and force a new session (for agent mode)
     #[arg(long)]
     pub new_session: bool,
+
+    /// Automatically remind LLM to call remember tool after turns with tool calls
+    #[arg(long)]
+    pub auto_memory: bool,
 }
 
 pub async fn run() -> Result<()> {
@@ -615,7 +619,7 @@ pub async fn run() -> Result<()> {
 
         let ui_writer = MachineUiWriter::new();
 
-        let agent = if cli.autonomous {
+        let mut agent = if cli.autonomous {
             Agent::new_autonomous_with_readme_and_quiet(
                 config.clone(),
                 ui_writer,
@@ -632,6 +636,11 @@ pub async fn run() -> Result<()> {
             )
             .await?
         };
+
+        // Apply auto-memory flag if enabled
+        if cli.auto_memory {
+            agent.set_auto_memory(true);
+        }
 
         run_with_machine_mode(agent, cli, project).await?;
     } else {
@@ -653,7 +662,7 @@ pub async fn run() -> Result<()> {
 
         let ui_writer = ConsoleUiWriter::new();
 
-        let agent = if cli.autonomous {
+        let mut agent = if cli.autonomous {
             Agent::new_autonomous_with_readme_and_quiet(
                 config.clone(),
                 ui_writer,
@@ -670,6 +679,11 @@ pub async fn run() -> Result<()> {
             )
             .await?
         };
+
+        // Apply auto-memory flag if enabled
+        if cli.auto_memory {
+            agent.set_auto_memory(true);
+        }
 
         run_with_console_mode(agent, cli, project, combined_content).await?;
     }
@@ -1326,6 +1340,11 @@ async fn run_with_console_mode(
             )
             .await?;
         output.print_smart(&result.response);
+        
+        // Send auto-memory reminder if enabled and tools were called
+        if let Err(e) = agent.send_auto_memory_reminder().await {
+            debug!("Auto-memory reminder failed: {}", e);
+        }
         // Save session continuation for resume capability
         agent.save_session_continuation(Some(result.response.clone()));
     } else {
@@ -1376,6 +1395,11 @@ async fn run_with_machine_mode(
         println!("AGENT_RESPONSE:");
         println!("{}", result.response);
         println!("END_AGENT_RESPONSE");
+        
+        // Send auto-memory reminder if enabled and tools were called
+        if let Err(e) = agent.send_auto_memory_reminder().await {
+            debug!("Auto-memory reminder failed: {}", e);
+        }
         // Save session continuation for resume capability
         agent.save_session_continuation(Some(result.response.clone()));
     } else {
@@ -1739,6 +1763,11 @@ async fn run_interactive<W: UiWriter>(
 
                     // Process the multiline input
                     execute_task(&mut agent, &input, show_prompt, show_code, &output).await;
+
+                    // Send auto-memory reminder if enabled and tools were called
+                    if let Err(e) = agent.send_auto_memory_reminder().await {
+                        debug!("Auto-memory reminder failed: {}", e);
+                    }
                 } else {
                     // Single line input
                     let input = line.trim().to_string();
@@ -1907,6 +1936,11 @@ async fn run_interactive<W: UiWriter>(
 
                     // Process the single line input
                     execute_task(&mut agent, &input, show_prompt, show_code, &output).await;
+
+                    // Send auto-memory reminder if enabled and tools were called
+                    if let Err(e) = agent.send_auto_memory_reminder().await {
+                        debug!("Auto-memory reminder failed: {}", e);
+                    }
                 }
             }
             Err(ReadlineError::Interrupted) => {
@@ -2187,6 +2221,12 @@ async fn run_interactive_machine(
                 // Execute task
                 println!("TASK_START");
                 execute_task_machine(&mut agent, &input, show_prompt, show_code).await;
+
+                // Send auto-memory reminder if enabled and tools were called
+                if let Err(e) = agent.send_auto_memory_reminder().await {
+                    debug!("Auto-memory reminder failed: {}", e);
+                }
+
                 println!("TASK_END");
             }
             Err(ReadlineError::Interrupted) => continue,
