@@ -51,6 +51,8 @@ pub struct Fragment {
     pub topics: Vec<String>,
     /// ID of the preceding fragment in the chain (None for first fragment)
     pub preceding_fragment_id: Option<String>,
+    /// The first user message (task) in full for forensics
+    pub first_user_message: Option<String>,
 }
 
 impl Fragment {
@@ -83,6 +85,13 @@ impl Fragment {
         // Extract topics
         let topics = extract_topics(&messages);
 
+        // Extract first user message for forensics
+        let first_user_message = messages
+            .iter()
+            .find(|m| matches!(m.role, g3_providers::MessageRole::User))
+            .filter(|m| !m.content.starts_with("Tool result"))
+            .map(|m| m.content.clone());
+
         Self {
             fragment_id,
             created_at,
@@ -93,6 +102,7 @@ impl Fragment {
             estimated_tokens,
             topics,
             preceding_fragment_id,
+            first_user_message,
             messages,
         }
     }
@@ -101,6 +111,11 @@ impl Fragment {
     pub fn generate_stub(&self) -> String {
         let mut stub = String::new();
         stub.push_str("---\n");
+        // Include the full first user message (task) for forensics
+        if let Some(ref task) = self.first_user_message {
+            stub.push_str(&format!("📋 Task: {}\n\n", task));
+        }
+
         stub.push_str(&format!(
             "⚡ DEHYDRATED CONTEXT (fragment_id: {})\n",
             self.fragment_id
@@ -126,16 +141,6 @@ impl Fragment {
         }
 
         stub.push_str(&format!("   • ~{} tokens saved\n", self.estimated_tokens));
-
-        if !self.topics.is_empty() {
-            let topics_str = self
-                .topics
-                .iter()
-                .map(|t| format!("\"{}\"", t))
-                .collect::<Vec<_>>()
-                .join(", ");
-            stub.push_str(&format!("   • Topics: {}\n", topics_str));
-        }
 
         stub.push_str("\n");
         stub.push_str(&format!(
