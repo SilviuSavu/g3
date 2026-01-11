@@ -92,24 +92,23 @@ pub async fn execute_todo_write<W: UiWriter>(
     if !in_planner_mode
         && !has_incomplete
         && (content_str.contains("- [x]") || content_str.contains("- [X]"))
+        && todo_path.exists()
     {
-        if todo_path.exists() {
-            match std::fs::remove_file(&todo_path) {
-                Ok(_) => {
-                    let mut todo = ctx.todo_content.write().await;
-                    *todo = String::new();
-                    // Show the final completed TODOs before deletion
-                    let mut result =
-                        String::from("✅ All TODOs completed! Removed todo.g3.md\n\nFinal status:\n");
-                    for line in content_str.lines() {
-                        ctx.ui_writer.print_tool_output_line(line);
-                        result.push_str(line);
-                        result.push('\n');
-                    }
-                    return Ok(result);
+        match std::fs::remove_file(&todo_path) {
+            Ok(_) => {
+                let mut todo = ctx.todo_content.write().await;
+                *todo = String::new();
+                // Show the final completed TODOs before deletion
+                let mut result =
+                    String::from("✅ All TODOs completed! Removed todo.g3.md\n\nFinal status:\n");
+                for line in content_str.lines() {
+                    ctx.ui_writer.print_tool_output_line(line);
+                    result.push_str(line);
+                    result.push('\n');
                 }
-                Err(e) => return Ok(format!("❌ Failed to remove todo.g3.md: {}", e)),
+                return Ok(result);
             }
+            Err(e) => return Ok(format!("❌ Failed to remove todo.g3.md: {}", e)),
         }
     }
 

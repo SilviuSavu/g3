@@ -306,12 +306,12 @@ fn try_extract_anthropic_tool_use(response: &str) -> Option<String> {
         if let Some(json_str) = extract_balanced_json(&response[start..]) {
             if let Ok(blocks) = serde_json::from_str::<Vec<Value>>(&json_str) {
                 for block in blocks {
-                    if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
-                        if block.get("name").and_then(|v| v.as_str()) == Some("final_output") {
-                            if let Some(input) = block.get("input") {
-                                if let Some(summary) = input.get("summary").and_then(|v| v.as_str()) {
-                                    return Some(summary.to_string());
-                                }
+                    if block.get("type").and_then(|v| v.as_str()) == Some("tool_use")
+                        && block.get("name").and_then(|v| v.as_str()) == Some("final_output")
+                    {
+                        if let Some(input) = block.get("input") {
+                            if let Some(summary) = input.get("summary").and_then(|v| v.as_str()) {
+                                return Some(summary.to_string());
                             }
                         }
                     }
@@ -427,12 +427,12 @@ fn extract_final_output_from_messages(messages: &[Value]) -> Option<String> {
                     }
                 } else if let Some(content_array) = content.as_array() {
                     for block in content_array {
-                        if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
-                            if block.get("name").and_then(|v| v.as_str()) == Some("final_output") {
-                                if let Some(input) = block.get("input") {
-                                    if let Some(summary) = input.get("summary").and_then(|v| v.as_str()) {
-                                        return Some(summary.to_string());
-                                    }
+                        if block.get("type").and_then(|v| v.as_str()) == Some("tool_use")
+                            && block.get("name").and_then(|v| v.as_str()) == Some("final_output")
+                        {
+                            if let Some(input) = block.get("input") {
+                                if let Some(summary) = input.get("summary").and_then(|v| v.as_str()) {
+                                    return Some(summary.to_string());
                                 }
                             }
                         }
@@ -468,10 +468,10 @@ fn is_final_output_tool_call(msg: &Value) -> bool {
         // Check array content (native tool calling)
         if let Some(content_array) = content.as_array() {
             for block in content_array {
-                if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
-                    if block.get("name").and_then(|v| v.as_str()) == Some("final_output") {
-                        return true;
-                    }
+                if block.get("type").and_then(|v| v.as_str()) == Some("tool_use")
+                    && block.get("name").and_then(|v| v.as_str()) == Some("final_output")
+                {
+                    return true;
                 }
             }
         }
