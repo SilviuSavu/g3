@@ -1770,3 +1770,112 @@ fn test_code_block_with_4space_indent() {
     // So "nested" should be part of the highlighted code
     assert!(full.contains("nested"), "nested should be in output");
 }
+
+#[test]
+fn test_bold_inside_header() {
+    let mut fmt = make_formatter();
+    
+    // Bold inside header - valid per CommonMark spec
+    let input = "# **Bold Header**\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+    
+    // Should NOT contain raw ** in output
+    assert!(!full.contains("**"), "Should not contain raw ** markers, got: {}", full);
+    
+    // Should have header formatting (magenta)
+    assert!(full.contains("\x1b[1;35m"), "Should have bold magenta header formatting");
+    
+    // Should have bold formatting (green) for the bold text inside
+    assert!(full.contains("\x1b[1;32m"), "Should have green bold formatting for **Bold Header**");
+}
+
+#[test]
+fn test_italic_inside_header() {
+    let mut fmt = make_formatter();
+    
+    // Italic inside header - valid per CommonMark spec
+    let input = "## *Italic Header*\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+    
+    // Should NOT contain raw * in output (except as part of ANSI codes)
+    // Count asterisks that are NOT part of ANSI escape sequences
+    let without_ansi = strip_ansi(&full);
+    assert!(!without_ansi.contains('*'), "Should not contain raw * markers, got: {}", without_ansi);
+    
+    // Should have header formatting (magenta)
+    assert!(full.contains("\x1b[35m"), "Should have magenta header formatting");
+    
+    // Should have italic formatting (cyan) for the italic text inside
+    assert!(full.contains("\x1b[3;36m"), "Should have cyan italic formatting for *Italic Header*");
+}
+
+#[test]
+fn test_code_inside_header() {
+    let mut fmt = make_formatter();
+    
+    // Inline code inside header - valid per CommonMark spec
+    let input = "### Header with `code`\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+    
+    // Should NOT contain raw backticks in output
+    let without_ansi = strip_ansi(&full);
+    assert!(!without_ansi.contains('`'), "Should not contain raw backticks, got: {}", without_ansi);
+    
+    // Should have header formatting (magenta)
+    assert!(full.contains("\x1b[35m"), "Should have magenta header formatting");
+    
+    // Should have code formatting (orange) for the inline code
+    assert!(full.contains("\x1b[38;2;216;177;114m"), "Should have orange code formatting");
+}
+
+#[test]
+fn test_mixed_formatting_inside_header() {
+    let mut fmt = make_formatter();
+    
+    // Mixed formatting inside header
+    let input = "# **Bold** and *italic* header\n";
+    
+    println!("Input: {:?}", input);
+    
+    let output = fmt.process(input);
+    let remaining = fmt.finish();
+    let full = format!("{}{}", output, remaining);
+    
+    println!("Output: {:?}", full);
+    
+    // Should NOT contain raw markdown markers
+    let without_ansi = strip_ansi(&full);
+    assert!(!without_ansi.contains("**"), "Should not contain raw ** markers");
+    assert!(!without_ansi.contains("*italic*"), "Should not contain raw *italic* markers");
+    
+    // Should have both bold and italic formatting
+    assert!(full.contains("\x1b[1;32m"), "Should have green bold formatting");
+    assert!(full.contains("\x1b[3;36m"), "Should have cyan italic formatting");
+}
+
+/// Helper to strip ANSI escape codes for easier assertion
+fn strip_ansi(s: &str) -> String {
+    let re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+    re.replace_all(s, "").to_string()
+}

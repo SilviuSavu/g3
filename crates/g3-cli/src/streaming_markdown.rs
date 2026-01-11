@@ -557,11 +557,17 @@ impl StreamingMarkdownFormatter {
         let content: String = chars.collect();
         let content = content.trim_end();
         
+        // Process inline formatting (bold, italic, code, etc.) within the header
+        let formatted_content = self.format_inline_content(content);
+        // Remove trailing newline from format_inline_content since we add our own
+        let formatted_content = formatted_content.trim_end();
+        
         // Format based on level (magenta, bold for h1/h2)
+        // We wrap the already-formatted content in header color, then reset at the end
         match level {
-            1 => format!("\x1b[1;35m{}\x1b[0m\n", content),  // Bold magenta
-            2 => format!("\x1b[35m{}\x1b[0m\n", content),    // Magenta
-            _ => format!("\x1b[35m{}\x1b[0m\n", content),    // Magenta for h3+
+            1 => format!("\x1b[1;35m{}\x1b[0m\n", formatted_content),  // Bold magenta
+            2 => format!("\x1b[35m{}\x1b[0m\n", formatted_content),    // Magenta
+            _ => format!("\x1b[35m{}\x1b[0m\n", formatted_content),    // Magenta for h3+
         }
     }
     
