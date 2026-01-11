@@ -117,10 +117,10 @@ impl UiWriter for ConsoleUiWriter {
         // This ensures the header isn't cleared by update_tool_output_line
         *self.output_line_printed.lock().unwrap() = false;
         // Now print the tool header with the most important arg
-        // Use royal blue in agent mode, bold green otherwise
+        // Use light gray/silver in agent mode, bold green otherwise
         let is_agent_mode = *self.is_agent_mode.lock().unwrap();
-        // Royal blue: \x1b[38;5;69m, Bold green: \x1b[1;32m
-        let tool_color = if is_agent_mode { "\x1b[1;38;5;69m" } else { "\x1b[1;32m" };
+        // Light gray/silver: \x1b[38;5;250m, Bold green: \x1b[1;32m
+        let tool_color = if is_agent_mode { "\x1b[1;38;5;250m" } else { "\x1b[1;32m" };
         if let Some(tool_name) = self.current_tool_name.lock().unwrap().as_ref() {
             let args = self.current_tool_args.lock().unwrap();
 

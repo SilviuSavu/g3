@@ -823,7 +823,7 @@ async fn run_agent_mode(
     
     // Create agent with custom system prompt
     let ui_writer = ConsoleUiWriter::new();
-    // Set agent mode on UI writer for visual differentiation (royal blue tool names)
+    // Set agent mode on UI writer for visual differentiation (light gray tool names)
     ui_writer.set_agent_mode(true);
     let mut agent = Agent::new_with_custom_prompt(
         config,
