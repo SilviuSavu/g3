@@ -144,3 +144,31 @@ pub fn load_config_with_cli_overrides(cli: &Cli) -> Result<Config> {
 
     Ok(config)
 }
+
+/// Initialize logging based on CLI verbosity settings.
+pub fn initialize_logging(verbose: bool) {
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
+    let filter = if verbose {
+        EnvFilter::from_default_env()
+            .add_directive(format!("{}=debug", env!("CARGO_PKG_NAME")).parse().unwrap())
+            .add_directive("g3_core=debug".parse().unwrap())
+            .add_directive("g3_cli=debug".parse().unwrap())
+            .add_directive("g3_execution=debug".parse().unwrap())
+            .add_directive("g3_providers=debug".parse().unwrap())
+    } else {
+        EnvFilter::from_default_env()
+            .add_directive(format!("{}=info", env!("CARGO_PKG_NAME")).parse().unwrap())
+            .add_directive("g3_core=info".parse().unwrap())
+            .add_directive("g3_cli=info".parse().unwrap())
+            .add_directive("g3_execution=info".parse().unwrap())
+            .add_directive("g3_providers=info".parse().unwrap())
+            .add_directive("llama_cpp=off".parse().unwrap())
+            .add_directive("llama=off".parse().unwrap())
+    };
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(filter)
+        .init();
+}

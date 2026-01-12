@@ -29,12 +29,12 @@ use clap::Parser;
 
 use accumulative::run_accumulative_mode;
 use agent_mode::run_agent_mode;
-use autonomous::run_autonomous;
+use autonomous::{run_autonomous, run_flock_mode};
 use interactive::run_interactive;
 use project_files::{combine_project_content, read_agents_config, read_project_memory, read_project_readme};
 use simple_output::SimpleOutput;
 use ui_writer_impl::ConsoleUiWriter;
-use utils::{load_config_with_cli_overrides, setup_workspace_directory};
+use utils::{initialize_logging, load_config_with_cli_overrides, setup_workspace_directory};
 
 pub async fn run() -> Result<()> {
     let cli = Cli::parse();
@@ -85,7 +85,7 @@ pub async fn run() -> Result<()> {
     }
 
     // Initialize logging
-    initialize_logging(&cli);
+    initialize_logging(cli.verbose);
 
     // Set up workspace directory
     let workspace_dir = determine_workspace_dir(&cli)?;
@@ -112,33 +112,6 @@ pub async fn run() -> Result<()> {
 }
 
 // --- Helper functions ---
-
-fn initialize_logging(cli: &Cli) {
-    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-
-    let filter = if cli.verbose {
-        EnvFilter::from_default_env()
-            .add_directive(format!("{}=debug", env!("CARGO_PKG_NAME")).parse().unwrap())
-            .add_directive("g3_core=debug".parse().unwrap())
-            .add_directive("g3_cli=debug".parse().unwrap())
-            .add_directive("g3_execution=debug".parse().unwrap())
-            .add_directive("g3_providers=debug".parse().unwrap())
-    } else {
-        EnvFilter::from_default_env()
-            .add_directive(format!("{}=info", env!("CARGO_PKG_NAME")).parse().unwrap())
-            .add_directive("g3_core=info".parse().unwrap())
-            .add_directive("g3_cli=info".parse().unwrap())
-            .add_directive("g3_execution=info".parse().unwrap())
-            .add_directive("g3_providers=info".parse().unwrap())
-            .add_directive("llama_cpp=off".parse().unwrap())
-            .add_directive("llama=off".parse().unwrap())
-    };
-
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(filter)
-        .init();
-}
 
 fn determine_workspace_dir(cli: &Cli) -> Result<PathBuf> {
     if let Some(ws) = &cli.workspace {
@@ -240,35 +213,4 @@ async fn run_console_mode(
         )
         .await
     }
-}
-
-/// Run flock mode - parallel multi-agent development
-async fn run_flock_mode(
-    project_dir: PathBuf,
-    flock_workspace: PathBuf,
-    num_segments: usize,
-    max_turns: usize,
-) -> Result<()> {
-    let output = SimpleOutput::new();
-
-    output.print("");
-    output.print("🦅 G3 FLOCK MODE - Parallel Multi-Agent Development");
-    output.print("");
-    output.print(&format!("📁 Project: {}", project_dir.display()));
-    output.print(&format!("🗂️  Workspace: {}", flock_workspace.display()));
-    output.print(&format!("🔢 Segments: {}", num_segments));
-    output.print(&format!("🔄 Max Turns per Segment: {}", max_turns));
-    output.print("");
-
-    let config = g3_ensembles::FlockConfig::new(project_dir, flock_workspace, num_segments)?
-        .with_max_turns(max_turns);
-
-    let mut flock = g3_ensembles::FlockMode::new(config)?;
-
-    match flock.run().await {
-        Ok(_) => output.print("\n✅ Flock mode completed successfully"),
-        Err(e) => output.print(&format!("\n❌ Flock mode failed: {}", e)),
-    }
-
-    Ok(())
 }
