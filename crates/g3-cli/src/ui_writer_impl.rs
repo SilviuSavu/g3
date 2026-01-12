@@ -16,6 +16,10 @@ pub struct ConsoleUiWriter {
     is_shell_compact: std::sync::Mutex<bool>,
     /// Streaming markdown formatter for agent responses
     markdown_formatter: Mutex<Option<StreamingMarkdownFormatter>>,
+    /// Track if the last output was text (for spacing between text and tool calls)
+    last_output_was_text: std::sync::Mutex<bool>,
+    /// Track if the last output was a tool call (for spacing between tool calls and text)
+    last_output_was_tool: std::sync::Mutex<bool>,
 }
 
 impl ConsoleUiWriter {
@@ -28,6 +32,8 @@ impl ConsoleUiWriter {
             is_agent_mode: std::sync::Mutex::new(false),
             is_shell_compact: std::sync::Mutex::new(false),
             markdown_formatter: Mutex::new(None),
+            last_output_was_text: std::sync::Mutex::new(false),
+            last_output_was_tool: std::sync::Mutex::new(false),
         }
     }
 }
@@ -115,7 +121,15 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn print_tool_output_header(&self) {
-        println!();
+        // Add blank line if last output was text (for visual separation)
+        let mut last_was_text = self.last_output_was_text.lock().unwrap();
+        if *last_was_text {
+            println!();
+        }
+        *last_was_text = false; // We're now outputting a tool call
+        *self.last_output_was_tool.lock().unwrap() = true;
+        drop(last_was_text); // Release lock early
+
         // Reset output_line_printed at the start of a new tool output
         // This ensures the header isn't cleared by update_tool_output_line
         *self.output_line_printed.lock().unwrap() = false;
@@ -271,6 +285,14 @@ impl UiWriter for ConsoleUiWriter {
         if !is_compact_tool {
             return false;
         }
+
+        // Add blank line if last output was text (for visual separation)
+        let mut last_was_text = self.last_output_was_text.lock().unwrap();
+        if *last_was_text {
+            println!();
+        }
+        *last_was_text = false; // We're now outputting a tool call
+        *self.last_output_was_tool.lock().unwrap() = true;
 
         let args = self.current_tool_args.lock().unwrap();
         let is_agent_mode = *self.is_agent_mode.lock().unwrap();
@@ -447,8 +469,21 @@ impl UiWriter for ConsoleUiWriter {
         
         // Process the chunk through the formatter
         if let Some(ref mut formatter) = *formatter_guard {
+            // Add blank line if last output was a tool call (for visual separation)
+            // Only do this once at the start of new text content
+            let mut last_was_tool = self.last_output_was_tool.lock().unwrap();
+            if *last_was_tool && !content.trim().is_empty() {
+                println!();
+                *last_was_tool = false;
+            }
+            drop(last_was_tool);
+
             let formatted = formatter.process(content);
             print!("{}", formatted);
+            // Track that we just output text (only if non-empty)
+            if !content.trim().is_empty() {
+                *self.last_output_was_text.lock().unwrap() = true;
+            }
             let _ = io::stdout().flush();
         }
     }
