@@ -266,8 +266,8 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn print_tool_compact(&self, tool_name: &str, summary: &str, duration_str: &str, tokens_delta: u32, _context_percentage: f32) -> bool {
-        // Only handle file operation tools in compact format
-        let is_compact_tool = matches!(tool_name, "read_file" | "write_file" | "str_replace");
+        // Handle file operation tools and other compact tools
+        let is_compact_tool = matches!(tool_name, "read_file" | "write_file" | "str_replace" | "remember" | "take_screenshot" | "code_coverage" | "rehydrate");
         if !is_compact_tool {
             return false;
         }
@@ -275,23 +275,29 @@ impl UiWriter for ConsoleUiWriter {
         let args = self.current_tool_args.lock().unwrap();
         let is_agent_mode = *self.is_agent_mode.lock().unwrap();
 
-        // Get file path
+        // Get file path (for file operation tools)
         let file_path = args
             .iter()
             .find(|(k, _)| k == "file_path")
             .map(|(_, v)| v.as_str())
-            .unwrap_or("?");
+            .unwrap_or("");
 
-        // Truncate long paths
-        let display_path = if file_path.len() > 60 {
-            let truncate_at = file_path
-                .char_indices()
-                .nth(57)
-                .map(|(i, _)| i)
-                .unwrap_or(file_path.len());
-            format!("{}...", &file_path[..truncate_at])
+        // For tools without file_path, get other relevant args
+        let display_arg = if file_path.is_empty() {
+            // For remember, take_screenshot, etc. - no path to show
+            String::new()
         } else {
-            file_path.to_string()
+            // Truncate long paths
+            if file_path.len() > 60 {
+                let truncate_at = file_path
+                    .char_indices()
+                    .nth(57)
+                    .map(|(i, _)| i)
+                    .unwrap_or(file_path.len());
+                format!("{}", &file_path[..truncate_at])
+            } else {
+                file_path.to_string()
+            }
         };
 
         // Build range suffix for read_file
@@ -320,18 +326,30 @@ impl UiWriter for ConsoleUiWriter {
         // Color for tool name
         let tool_color = if is_agent_mode { "\x1b[38;5;250m" } else { "\x1b[32m" };
 
-        // Print compact single line:
-        // " ● read_file | path [range] | summary | tokens ◉ time"
-        println!(
-            " \x1b[2m●\x1b[0m {}{} \x1b[2m|\x1b[0m \x1b[35m{}{}\x1b[0m \x1b[2m| {}\x1b[0m \x1b[2m| {} ◉ {}\x1b[0m",
-            tool_color,
-            tool_name,
-            display_path,
-            range_suffix,
-            summary,
-            tokens_delta,
-            duration_str
-        );
+        // Print compact single line - different format for tools with/without path
+        if display_arg.is_empty() {
+            // Tools without file path: " ● tool_name | summary | tokens ◉ time"
+            println!(
+                " \x1b[2m●\x1b[0m {}{} \x1b[2m| {}\x1b[0m \x1b[2m| {} ◉ {}\x1b[0m",
+                tool_color,
+                tool_name,
+                summary,
+                tokens_delta,
+                duration_str
+            );
+        } else {
+            // Tools with file path: " ● tool_name | path [range] | summary | tokens ◉ time"
+            println!(
+                " \x1b[2m●\x1b[0m {}{} \x1b[2m|\x1b[0m \x1b[35m{}{}\x1b[0m \x1b[2m| {}\x1b[0m \x1b[2m| {} ◉ {}\x1b[0m",
+                tool_color,
+                tool_name,
+                display_arg,
+                range_suffix,
+                summary,
+                tokens_delta,
+                duration_str
+            );
+        }
 
         // Clear the stored tool info
         drop(args); // Release the lock before clearing

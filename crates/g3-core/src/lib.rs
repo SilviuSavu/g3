@@ -2144,7 +2144,7 @@ impl<W: UiWriter> Agent<W> {
                             }
 
                             // Check if this is a compact tool (file operations)
-                            let is_compact_tool = matches!(tool_call.tool.as_str(), "read_file" | "write_file" | "str_replace");
+                            let is_compact_tool = matches!(tool_call.tool.as_str(), "read_file" | "write_file" | "str_replace" | "remember" | "take_screenshot" | "code_coverage" | "rehydrate");
                             
                             // Only print output header for non-compact tools
                             if !is_compact_tool {
@@ -2208,7 +2208,23 @@ impl<W: UiWriter> Agent<W> {
                                             let (ins, del) = parse_diff_stats(&tool_result);
                                             Some(streaming::format_str_replace_summary(ins, del))
                                         }
-                                        _ => Some(streaming::format_read_file_summary(output_len, tool_result.len()))
+                                        "remember" => {
+                                            // Extract size from result like "Memory updated. Size: 1.2k"
+                                            Some(streaming::format_remember_summary(&tool_result))
+                                        }
+                                        "take_screenshot" => {
+                                            // Extract path from result
+                                            Some(streaming::format_screenshot_summary(&tool_result))
+                                        }
+                                        "code_coverage" => {
+                                            // Show coverage summary
+                                            Some(streaming::format_coverage_summary(&tool_result))
+                                        }
+                                        "rehydrate" => {
+                                            // Show fragment info
+                                            Some(streaming::format_rehydrate_summary(&tool_result))
+                                        }
+                                        _ => Some(format!("✅ completed"))
                                     }
                                 } else if is_todo_tool {
                                     // Skip - todo tools print their own content

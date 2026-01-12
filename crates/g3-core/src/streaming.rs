@@ -313,6 +313,58 @@ pub fn format_str_replace_summary(insertions: i32, deletions: i32) -> String {
     }
 }
 
+/// Format a remember tool result summary.
+pub fn format_remember_summary(result: &str) -> String {
+    // Result format: "Memory updated. Size: 1.2k" or similar
+    if let Some(size_pos) = result.find("Size: ") {
+        let size_str = &result[size_pos + 6..];
+        let size = size_str.split_whitespace().next().unwrap_or("?");
+        format!("📝 memory updated ({})", size)
+    } else {
+        "📝 memory updated".to_string()
+    }
+}
+
+/// Format a take_screenshot result summary.
+pub fn format_screenshot_summary(result: &str) -> String {
+    // Result format: "✅ Screenshot of X saved to: /path/to/file.png"
+    if let Some(path_pos) = result.find("saved to: ") {
+        let path = &result[path_pos + 10..].trim();
+        format!("📸 {}", path)
+    } else if result.contains("❌") {
+        "❌ failed".to_string()
+    } else {
+        "📸 saved".to_string()
+    }
+}
+
+/// Format a code_coverage result summary.
+pub fn format_coverage_summary(result: &str) -> String {
+    // Try to extract coverage percentage from result
+    if result.contains("❌") {
+        "❌ failed".to_string()
+    } else {
+        "📊 report generated".to_string()
+    }
+}
+
+/// Format a rehydrate result summary.
+pub fn format_rehydrate_summary(result: &str) -> String {
+    // Result format: "✅ Rehydrated fragment 'abc123' (47 messages, ~18500 tokens)"
+    if let Some(start) = result.find("fragment '") {
+        let after = &result[start + 10..];
+        if let Some(end) = after.find("'") {
+            let fragment_id = &after[..end];
+            return format!("🔄 restored '{}'", fragment_id);
+        }
+    }
+    if result.contains("❌") {
+        "❌ failed".to_string()
+    } else {
+        "🔄 restored".to_string()
+    }
+}
+
 /// Determine if a response is essentially empty (whitespace or timing only)
 pub fn is_empty_response(response: &str) -> bool {
     response.trim().is_empty()

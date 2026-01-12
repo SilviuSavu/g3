@@ -1,5 +1,5 @@
 # Project Memory
-> Updated: 2026-01-12T05:55:00Z | Size: 10.3k chars
+> Updated: 2026-01-12T09:14:13Z | Size: 10.5k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -176,3 +176,7 @@ if s.chars().count() <= max_len { ... }
 - Previously was at `.g3/memory.md` (gitignored, ephemeral)
 - `crates/g3-core/src/tools/memory.rs` - `get_memory_path()` returns `analysis/memory.md`
 - `crates/g3-cli/src/project_files.rs` - `read_project_memory()` reads from `analysis/memory.md`
+
+### Compact Tool Output
+- `crates/g3-cli/src/ui_writer_impl.rs` - `print_tool_compact()` handles compact display for file ops and other tools
+- `crates/g3-core/src/streaming.rs` - `format_*_summary()` functions for each tool type
