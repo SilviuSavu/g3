@@ -223,9 +223,11 @@ pub fn log_stream_error(
     error!("=== END STREAM ERROR ===");
 }
 
-/// Truncate a string value for display, respecting UTF-8 boundaries
+/// Truncate a string value for display, respecting UTF-8 boundaries.
+/// Takes only the first line to avoid multi-line output in compact display.
 pub fn truncate_for_display(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
+    let s = s.lines().next().unwrap_or(s);
+    if s.chars().count() <= max_len {
         s.to_string()
     } else {
         let truncated: String = s.char_indices().take(max_len).map(|(_, c)| c).collect();
@@ -420,6 +422,9 @@ mod tests {
     fn test_truncate_for_display() {
         assert_eq!(truncate_for_display("short", 10), "short");
         assert_eq!(truncate_for_display("this is long", 5), "this ...");
+        // Multi-line input should only use first line
+        assert_eq!(truncate_for_display("first line\nsecond line", 20), "first line");
+        assert_eq!(truncate_for_display("❌ Error\nDetails here", 10), "❌ Error");
     }
 
     #[test]
