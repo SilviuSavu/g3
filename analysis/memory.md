@@ -56,7 +56,6 @@
 ### UI Abstraction Layer
 - `crates/g3-core/src/ui_writer.rs` [0..4500] - `UiWriter` trait, `NullUiWriter`
 - `crates/g3-cli/src/ui_writer_impl.rs` [0..14000] - `ConsoleUiWriter` implementation
-- `crates/g3-cli/src/machine_ui_writer.rs` [0..4000] - `MachineUiWriter` implementation
 - `crates/g3-cli/src/simple_output.rs` [0..1200] - `SimpleOutput` helper (separate from UiWriter)
 
 ### Feedback Extraction

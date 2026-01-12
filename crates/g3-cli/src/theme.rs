@@ -4,7 +4,11 @@ use std::fs;
 use std::path::Path;
 use anyhow::Result;
 
-/// Color theme configuration for the retro TUI
+/// Color theme configuration for the TUI.
+/// 
+/// Note: The "retro" theme is the default theme (inspired by Alien terminals).
+/// This is a theme option, not a separate TUI mode. The theme can be selected
+/// via config file or the `from_name()` method ("default" and "retro" are equivalent).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorTheme {
     /// Name of the theme

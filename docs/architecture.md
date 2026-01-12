@@ -49,8 +49,7 @@ G3 follows a **tool-first philosophy**: instead of just providing advice, it act
          ┌───────────────────────┼───────────────────────┐
          │                       │                       │
 ┌─────────────────┐    ┌─────────────────┐
-│ g3-ensembles    │    │   g3-console    │
-│                 │    │   studio        │
+│ g3-ensembles    │    │     studio      │
 │ • Flock mode    │    │                 │
 │ • Multi-agent   │    │ • Worktree mgmt │
 │ • Parallel dev  │    │ • Session mgmt  │
