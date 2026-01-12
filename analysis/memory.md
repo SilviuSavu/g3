@@ -1,5 +1,5 @@
 # Project Memory
-> Updated: 2026-01-12T04:44:39Z | Size: 9.9k chars
+> Updated: 2026-01-12T05:55:00Z | Size: 10.3k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -118,6 +118,8 @@
 }
 ```
 
+
+
 ### UTF-8 Safe String Slicing Pattern
 **Problem**: Rust string slices (`&s[..n]`) use byte indices, not character indices. Multi-byte UTF-8 characters (emoji, bullets `•`, `×`, `⚡`) cause panics if sliced mid-character.
 
@@ -133,6 +135,8 @@ let truncated = &s[..byte_idx];
 // For length checks, use chars().count() not len()
 if s.chars().count() <= max_len { ... }
 ```
+
+
 
 **Danger zones**: Display truncation, ACD stubs, user input handling, any string with non-ASCII characters.
 
@@ -165,3 +169,10 @@ if s.chars().count() <= max_len { ... }
   "timestamp": "..."
 }
 ```
+
+
+### Project Memory Location
+- Memory is now stored at `analysis/memory.md` (version controlled, shared across worktrees)
+- Previously was at `.g3/memory.md` (gitignored, ephemeral)
+- `crates/g3-core/src/tools/memory.rs` - `get_memory_path()` returns `analysis/memory.md`
+- `crates/g3-cli/src/project_files.rs` - `read_project_memory()` reads from `analysis/memory.md`
