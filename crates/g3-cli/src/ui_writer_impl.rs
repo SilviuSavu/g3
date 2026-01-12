@@ -70,13 +70,13 @@ impl UiWriter for ConsoleUiWriter {
 
         // Quick flash animation
         for frame in &frames {
-            print!("\r{} ✨ {} ✨\x1b[0m", frame, message);
+            print!("\r{} ✨ {} ✨\x1b[0m\x1b[K", frame, message);
             let _ = io::stdout().flush();
             std::thread::sleep(std::time::Duration::from_millis(80));
         }
 
         // Final display with bright cyan and sparkle emojis
-        print!("\r\x1b[1;96m✨ {} ✨\x1b[0m", message);
+        print!("\r\x1b[1;96m✨ {} ✨\x1b[0m\x1b[K", message);
         println!();
 
         // Add a subtle "success" indicator line
