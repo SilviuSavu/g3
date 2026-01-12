@@ -1,101 +1,112 @@
 # Coupling Hotspots
 
-## Identification Method
+## Method
 
 Hotspots identified by:
-1. Fan-in: Number of incoming edges (dependents)
-2. Fan-out: Number of outgoing edges (dependencies)
-3. Cross-crate edges: Files with imports from multiple external crates
+1. Fan-in > 2× average (high incoming dependencies)
+2. Fan-out > 2× average (high outgoing dependencies)
+3. Cross-group edge concentration
+
+## Metrics
+
+### Crate Level
+
+| Metric | Value |
+|--------|-------|
+| Average fan-in | 2.0 |
+| Average fan-out | 1.7 |
+| Threshold (2×) | 4.0 / 3.4 |
+
+### File Level
+
+| Metric | Value |
+|--------|-------|
+| Total edges | 123 |
+| Total files | 95 |
+| Average fan-out | 1.3 |
+| Threshold (2×) | 2.6 |
 
 ## Crate-Level Hotspots
 
-### By Fan-In (Most Depended Upon)
+### High Fan-In (Most Depended Upon)
 
-| Crate | Fan-In | Dependents |
-|-------|--------|------------|
-| g3-core | 43 | g3-cli, g3-ensembles, g3-planner + 40 file imports |
-| g3-providers | 27 | g3-core, g3-planner + 25 file imports |
-| g3-config | 16 | g3-cli, g3-core, g3-ensembles, g3-planner + 12 file imports |
-| g3-computer-control | 12 | g3-cli, g3-core + 10 file imports |
+| Crate | Fan-In | Status |
+|-------|--------|--------|
+| g3-config | 4 | **HOTSPOT** (2× avg) |
+| g3-providers | 4 | **HOTSPOT** (2× avg) |
+| g3-core | 3 | Near threshold |
 
-### By Fan-Out (Most Dependencies)
+**Evidence for g3-config:**
+- Depended on by: g3-cli, g3-core, g3-planner, g3-ensembles
+- Contains: Configuration types, loading logic
 
-| Crate | Fan-Out | Dependencies |
-|-------|---------|-------------|
-| g3-cli | 6 | g3-core, g3-config, g3-planner, g3-computer-control, g3-providers, g3-ensembles |
-| g3-core | 4 | g3-providers, g3-config, g3-execution, g3-computer-control |
-| g3-planner | 3 | g3-providers, g3-core, g3-config |
-| g3-ensembles | 2 | g3-core, g3-config |
+**Evidence for g3-providers:**
+- Depended on by: g3, g3-cli, g3-core, g3-planner
+- Contains: LLM provider trait, message types, streaming
+
+### High Fan-Out (Most Dependencies)
+
+| Crate | Fan-Out | Status |
+|-------|---------|--------|
+| g3-cli | 6 | **HOTSPOT** (3.5× avg) |
+| g3-core | 4 | **HOTSPOT** (2.4× avg) |
+| g3-planner | 3 | Near threshold |
+
+**Evidence for g3-cli:**
+- Depends on: g3-core, g3-config, g3-planner, g3-computer-control, g3-providers, g3-ensembles
+- Role: Top-level integration point
+
+**Evidence for g3-core:**
+- Depends on: g3-providers, g3-config, g3-execution, g3-computer-control
+- Role: Central engine with multiple infrastructure dependencies
 
 ## File-Level Hotspots
 
-### By Fan-Out (Files with Most Dependencies)
+### High Fan-Out Files
 
-| File | Fan-Out | Description |
-|------|---------|-------------|
-| ./crates/g3-core/src/lib.rs | 27 | Core library root - declares 22 modules + 5 external imports |
-| ./crates/g3-cli/src/lib.rs | 12 | CLI library root - 5 modules + 7 external imports |
-| ./crates/g3-core/src/tools/mod.rs | 8 | Tools module - declares 8 submodules |
-| ./crates/g3-planner/src/lib.rs | 8 | Planner library root - 7 modules + 1 external import |
-| ./crates/g3-providers/src/lib.rs | 6 | Providers library root - 5 modules + 1 internal |
-| ./crates/g3-computer-control/src/lib.rs | 5 | Computer control root - 5 modules |
-| ./crates/g3-planner/src/llm.rs | 5 | LLM integration - 5 external imports |
+| File | Fan-Out | Threshold | Status |
+|------|---------|-----------|--------|
+| crates/g3-core/src/lib.rs | 29 | 2.6 | **HOTSPOT** (22× avg) |
+| crates/g3-cli/src/lib.rs | 17 | 2.6 | **HOTSPOT** (13× avg) |
+| crates/g3-core/src/tools/mod.rs | 9 | 2.6 | **HOTSPOT** (7× avg) |
+| crates/g3-planner/src/lib.rs | 8 | 2.6 | **HOTSPOT** (6× avg) |
+| crates/g3-providers/src/lib.rs | 6 | 2.6 | **HOTSPOT** (4.6× avg) |
+| crates/g3-computer-control/src/lib.rs | 5 | 2.6 | **HOTSPOT** (3.8× avg) |
+| crates/g3-planner/src/llm.rs | 5 | 2.6 | **HOTSPOT** (3.8× avg) |
 
-### Files with Cross-Crate Imports
+**Note:** High fan-out in `lib.rs` files is expected (module re-exports). The `tools/mod.rs` and `llm.rs` hotspots are more significant as they represent actual coupling.
 
-| File | External Crates Imported |
-|------|-------------------------|
-| ./crates/g3-cli/src/lib.rs | g3-config, g3-core |
-| ./crates/g3-core/src/lib.rs | g3-config, g3-providers |
-| ./crates/g3-core/src/context_window.rs | g3-providers |
-| ./crates/g3-core/src/streaming.rs | g3-providers |
-| ./crates/g3-core/src/tool_definitions.rs | g3-providers |
-| ./crates/g3-core/src/tools/executor.rs | g3-config |
-| ./crates/g3-core/src/tools/research.rs | g3-config |
-| ./crates/g3-core/src/tools/webdriver.rs | g3-computer-control |
-| ./crates/g3-core/src/webdriver_session.rs | g3-computer-control |
-| ./crates/g3-planner/src/llm.rs | g3-config, g3-core, g3-providers |
-| ./crates/g3-planner/src/lib.rs | g3-providers |
-| ./crates/g3-ensembles/src/flock.rs | g3-config |
+### Cross-Crate Import Concentration
 
-## High-Coupling Observations
+| Source File | Cross-Crate Imports |
+|-------------|--------------------|
+| crates/g3-cli/src/lib.rs | 5 (g3-core, g3-config, g3-providers, g3-planner, g3-ensembles) |
+| crates/g3-planner/src/llm.rs | 4 (g3-config, g3-core, g3-providers) |
+| crates/g3-cli/src/autonomous.rs | 2 (g3-core) |
+| crates/g3-cli/src/task_execution.rs | 2 (g3-core) |
 
-### g3-core/src/lib.rs
+## Observations
 
-- Fan-out: 27 (highest in codebase)
-- Declares 22 public modules
-- Imports from: g3-config, g3-providers
-- Central hub for all core functionality
+1. **g3-core/src/lib.rs** has extreme fan-out (29 edges) due to declaring 22+ modules
+2. **g3-config** and **g3-providers** are foundational crates with high fan-in
+3. **g3-cli** is the integration hub, pulling together all subsystems
+4. **tools/mod.rs** aggregates 9 tool modules - natural aggregation point
+5. **g3-planner/src/llm.rs** has notable cross-crate coupling (imports from 3 other crates)
 
-### g3-providers
+## Cross-Group Edges
 
-- Fan-in: 27 (second highest)
-- Imported by 25 files across 3 crates
-- Provides: Message, MessageRole, CompletionRequest, LLMProvider, etc.
-- Core abstraction layer for LLM communication
+Total cross-crate imports: 43
 
-### g3-config
-
-- Fan-in: 16
-- Imported by 12 files across 4 crates
-- Provides: Config struct
-- Shared configuration across all layers
-
-## Representative Evidence
-
-### g3-core imports from g3-providers (18 edges)
-
-```
-./crates/g3-core/src/lib.rs: use g3_providers::{CacheControl, CompletionRequest, Message, MessageRole, ProviderRegistry};
-./crates/g3-core/src/context_window.rs: use g3_providers::{Message, MessageRole, Usage};
-./crates/g3-core/src/streaming.rs: use g3_providers::{CompletionRequest, MessageRole};
-./crates/g3-core/src/tool_definitions.rs: use g3_providers::Tool;
-```
-
-### g3-planner imports from g3-core (5 edges)
-
-```
-./crates/g3-planner/src/llm.rs: use g3_core::project::Project;
-./crates/g3-planner/src/llm.rs: use g3_core::Agent;
-./crates/g3-planner/src/llm.rs: use g3_core::error_handling::{classify_error, ErrorType};
-```
+| From Crate | To Crate | Count |
+|------------|----------|-------|
+| g3-cli | g3-core | 21 |
+| g3-cli | g3-config | 4 |
+| g3-cli | g3-providers | 2 |
+| g3-planner | g3-core | 5 |
+| g3-planner | g3-providers | 4 |
+| g3-planner | g3-config | 2 |
+| g3-core | g3-providers | 8 |
+| g3-core | g3-config | 3 |
+| g3-core | g3-computer-control | 2 |
+| g3-ensembles | g3-core | 1 |
+| g3-ensembles | g3-config | 1 |

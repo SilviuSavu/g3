@@ -1,40 +1,44 @@
-# Strongly Connected Components (Cycles)
+# Strongly Connected Components Analysis
 
-## Summary
+## Method
 
-**No non-trivial strongly connected components detected.**
+Tarjan's algorithm applied to file-level dependency graph.
 
-The dependency graph is acyclic at both the crate level and the file level.
+Edge types considered:
+- `mod_declaration`: Parent module declares child module
+- `cross_crate_import`: File imports from another crate
 
-## Analysis Details
+## Results
 
-- Algorithm: Tarjan's SCC algorithm
-- Scope: All 143 nodes (9 crates + 134 files)
-- Result: 0 cycles with size > 1
+**No non-trivial SCCs detected.**
 
-## Crate-Level Verification
+The file-level dependency graph is acyclic. All `mod` declarations form a strict tree structure within each crate, and cross-crate imports follow the crate dependency DAG.
 
-The crate dependency graph forms a directed acyclic graph (DAG):
+## Crate-Level Cycle Analysis
+
+The crate dependency graph was also analyzed:
 
 ```
-Leaf crates (no dependencies on other g3-* crates):
-  - g3-providers
-  - g3-config
-  - g3-execution
-  - g3-computer-control
-
-Intermediate crates:
-  - g3-core → depends on: g3-providers, g3-config, g3-execution, g3-computer-control
-  - g3-ensembles → depends on: g3-core, g3-config
-  - g3-planner → depends on: g3-providers, g3-core, g3-config
-
-Top-level crates:
-  - g3-cli → depends on: g3-core, g3-config, g3-planner, g3-computer-control, g3-providers, g3-ensembles
-  - g3 (root) → depends on: g3-cli, g3-providers
+g3 → g3-cli → g3-core → g3-providers
+                      → g3-config
+                      → g3-execution
+                      → g3-computer-control
+         → g3-planner → g3-core
+                      → g3-providers
+                      → g3-config
+         → g3-ensembles → g3-core
+                        → g3-config
 ```
+
+**No cycles detected at crate level.**
+
+The workspace forms a directed acyclic graph (DAG) with:
+- Leaf crates: `g3-providers`, `g3-config`, `g3-execution`, `g3-computer-control`, `studio`
+- Mid-tier crates: `g3-core`, `g3-planner`, `g3-ensembles`
+- Top-tier crates: `g3-cli`, `g3`
 
 ## Implications
 
-- No circular dependencies exist between crates
+- No circular dependencies exist
 - Build order is deterministic
-- Crates can be compiled in topological order
+- Crates can be compiled in parallel respecting the DAG
