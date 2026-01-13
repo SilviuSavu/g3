@@ -154,7 +154,6 @@ pub async fn execute_read_file<W: UiWriter>(
 
             let partial_content = &content[start_boundary..end_boundary];
             let line_count = partial_content.lines().count();
-            let total_lines = content.lines().count();
 
             // Format output based on whether truncation occurred
             if was_truncated {
