@@ -21,6 +21,7 @@ pub mod ui_writer;
 pub mod streaming;
 pub mod utils;
 pub mod webdriver_session;
+pub mod stats;
 
 pub use task_result::TaskResult;
 pub use retry::{RetryConfig, RetryResult, execute_with_retry, retry_operation};
@@ -1129,162 +1130,18 @@ impl<W: UiWriter> Agent<W> {
 
     /// Get detailed context statistics
     pub fn get_stats(&self) -> String {
-        let mut stats = String::new();
-        use std::time::Duration;
-
-        stats.push_str("\n📊 Context Window Statistics\n");
-        stats.push_str(&"=".repeat(60));
-        stats.push_str("\n\n");
-
-        // Context window usage
-        stats.push_str("🗂️  Context Window:\n");
-        stats.push_str(&format!(
-            "   • Used Tokens:       {:>10} / {}\n",
-            self.context_window.used_tokens, self.context_window.total_tokens
-        ));
-        stats.push_str(&format!(
-            "   • Usage Percentage:  {:>10.1}%\n",
-            self.context_window.percentage_used()
-        ));
-        stats.push_str(&format!(
-            "   • Remaining Tokens:  {:>10}\n",
-            self.context_window.remaining_tokens()
-        ));
-        stats.push_str(&format!(
-            "   • Cumulative Tokens: {:>10}\n",
-            self.context_window.cumulative_tokens
-        ));
-        stats.push_str(&format!(
-            "   • Last Thinning:     {:>10}%\n",
-            self.context_window.last_thinning_percentage
-        ));
-        stats.push('\n');
-
-        // Context optimization metrics
-        stats.push_str("🗜️  Context Optimization:\n");
-        stats.push_str(&format!(
-            "   • Thinning Events:   {:>10}\n",
-            self.thinning_events.len()
-        ));
-        if !self.thinning_events.is_empty() {
-            let total_thinned: usize = self.thinning_events.iter().sum();
-            let avg_thinned = total_thinned / self.thinning_events.len();
-            stats.push_str(&format!("   • Total Chars Saved: {:>10}\n", total_thinned));
-            stats.push_str(&format!("   • Avg Chars/Event:   {:>10}\n", avg_thinned));
-        }
-
-        stats.push_str(&format!(
-            "   • Compactions:       {:>10}\n",
-            self.compaction_events.len()
-        ));
-        if !self.compaction_events.is_empty() {
-            let total_compacted: usize = self.compaction_events.iter().sum();
-            let avg_compacted = total_compacted / self.compaction_events.len();
-            stats.push_str(&format!(
-                "   • Total Chars Saved: {:>10}\n",
-                total_compacted
-            ));
-            stats.push_str(&format!("   • Avg Chars/Event:   {:>10}\n", avg_compacted));
-        }
-        stats.push('\n');
-
-        // Performance metrics
-        stats.push_str("⚡ Performance:\n");
-        if !self.first_token_times.is_empty() {
-            let avg_ttft = self.first_token_times.iter().sum::<Duration>()
-                / self.first_token_times.len() as u32;
-            let mut sorted_times = self.first_token_times.clone();
-            sorted_times.sort();
-            let median_ttft = sorted_times[sorted_times.len() / 2];
-            stats.push_str(&format!(
-                "   • Avg Time to First Token:    {:>6.3}s\n",
-                avg_ttft.as_secs_f64()
-            ));
-            stats.push_str(&format!(
-                "   • Median Time to First Token: {:>6.3}s\n",
-                median_ttft.as_secs_f64()
-            ));
-        }
-        stats.push('\n');
-
-        // Conversation history
-        stats.push_str("💬 Conversation History:\n");
-        stats.push_str(&format!(
-            "   • Total Messages:    {:>10}\n",
-            self.context_window.conversation_history.len()
-        ));
-
-        // Count messages by role
-        let mut system_count = 0;
-        let mut user_count = 0;
-        let mut assistant_count = 0;
-
-        for msg in &self.context_window.conversation_history {
-            match msg.role {
-                MessageRole::System => system_count += 1,
-                MessageRole::User => user_count += 1,
-                MessageRole::Assistant => assistant_count += 1,
-            }
-        }
-
-        stats.push_str(&format!("   • System Messages:   {:>10}\n", system_count));
-        stats.push_str(&format!("   • User Messages:     {:>10}\n", user_count));
-        stats.push_str(&format!(
-            "   • Assistant Messages:{:>10}\n",
-            assistant_count
-        ));
-        stats.push('\n');
-
-        // Tool call metrics
-        stats.push_str("🔧 Tool Call Metrics:\n");
-        stats.push_str(&format!(
-            "   • Total Tool Calls:  {:>10}\n",
-            self.tool_call_metrics.len()
-        ));
-
-        let successful_calls = self
-            .tool_call_metrics
-            .iter()
-            .filter(|(_, _, success)| *success)
-            .count();
-        let failed_calls = self.tool_call_metrics.len() - successful_calls;
-
-        stats.push_str(&format!(
-            "   • Successful:        {:>10}\n",
-            successful_calls
-        ));
-        stats.push_str(&format!("   • Failed:            {:>10}\n", failed_calls));
-
-        if !self.tool_call_metrics.is_empty() {
-            let total_duration: Duration = self
-                .tool_call_metrics
-                .iter()
-                .map(|(_, duration, _)| *duration)
-                .sum();
-            let avg_duration = total_duration / self.tool_call_metrics.len() as u32;
-
-            stats.push_str(&format!(
-                "   • Total Duration:    {:>10.2}s\n",
-                total_duration.as_secs_f64()
-            ));
-            stats.push_str(&format!(
-                "   • Average Duration:  {:>10.2}s\n",
-                avg_duration.as_secs_f64()
-            ));
-        }
-        stats.push('\n');
-
-        // Provider info
-        stats.push_str("🔌 Provider:\n");
-        if let Ok((provider, model)) = self.get_provider_info() {
-            stats.push_str(&format!("   • Provider:          {}\n", provider));
-            stats.push_str(&format!("   • Model:             {}\n", model));
-        }
-
-        stats.push_str(&"=".repeat(60));
-        stats.push('\n');
-
-        stats
+        use crate::stats::AgentStatsSnapshot;
+        
+        let snapshot = AgentStatsSnapshot {
+            context_window: &self.context_window,
+            thinning_events: &self.thinning_events,
+            compaction_events: &self.compaction_events,
+            first_token_times: &self.first_token_times,
+            tool_call_metrics: &self.tool_call_metrics,
+            provider_info: self.get_provider_info().ok(),
+        };
+        
+        snapshot.format()
     }
 
     pub fn get_tool_call_metrics(&self) -> &Vec<(String, Duration, bool)> {
