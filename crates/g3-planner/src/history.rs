@@ -137,8 +137,9 @@ pub fn write_completed_requirements(
 pub fn write_git_commit(plan_dir: &Path, message: &str) -> Result<()> {
     let timestamp = format_timestamp();
     // Truncate message if too long for a single line
-    let truncated_message = if message.len() > 72 {
-        format!("{}...", &message[..69])
+    let truncated_message = if message.chars().count() > 72 {
+        let chars: String = message.chars().take(69).collect();
+        format!("{}...", chars)
     } else {
         message.to_string()
     };

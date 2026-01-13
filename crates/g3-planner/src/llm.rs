@@ -138,8 +138,9 @@ pub async fn generate_requirements_summary(
         .lines()
         .take(5)
         .map(|line| {
-            if line.len() > 120 {
-                format!("{}...", &line[..117])
+            if line.chars().count() > 120 {
+                let chars: String = line.chars().take(117).collect();
+                format!("{}...", chars)
             } else {
                 line.to_string()
             }

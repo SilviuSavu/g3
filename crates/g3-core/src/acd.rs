@@ -335,12 +335,13 @@ fn extract_topic_from_text(text: &str) -> String {
     let first_line = text.lines().next().unwrap_or("");
     let cleaned = first_line.trim();
 
-    if cleaned.len() <= 50 {
+    if cleaned.chars().count() <= 50 {
         cleaned.to_string()
     } else {
-        // Find a good break point
-        let truncated = &cleaned[..50];
+        // Find a good break point (UTF-8 safe)
+        let truncated: String = cleaned.chars().take(50).collect();
         if let Some(last_space) = truncated.rfind(' ') {
+            // last_space is a byte index into truncated, which is safe since truncated is a new String
             format!("{}...", &truncated[..last_space])
         } else {
             format!("{}...", truncated)

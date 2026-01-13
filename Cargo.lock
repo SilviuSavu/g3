@@ -1362,6 +1362,7 @@ dependencies = [
  "hex",
  "indicatif",
  "once_cell",
+ "rand",
  "ratatui",
  "regex",
  "rustyline",

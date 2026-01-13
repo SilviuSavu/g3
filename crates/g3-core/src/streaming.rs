@@ -200,8 +200,9 @@ pub fn log_stream_error(
         .rev()
         .find(|m| matches!(m.role, MessageRole::User))
     {
-        let truncated = if last_user_msg.content.len() > 500 {
-            format!("{}... (truncated)", &last_user_msg.content[..500])
+        let truncated = if last_user_msg.content.chars().count() > 500 {
+            let chars: String = last_user_msg.content.chars().take(500).collect();
+            format!("{}... (truncated)", chars)
         } else {
             last_user_msg.content.clone()
         };

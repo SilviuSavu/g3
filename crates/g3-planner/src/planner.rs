@@ -519,8 +519,9 @@ pub fn parse_commit_message(response: &str) -> (String, String) {
     }
     
     // Ensure summary is max 72 chars
-    if summary.len() > 72 {
-        summary = format!("{}...", &summary[..69]);
+    if summary.chars().count() > 72 {
+        let chars: String = summary.chars().take(69).collect();
+        summary = format!("{}...", chars);
     }
     
     // Ensure description lines are max 72 chars
@@ -528,8 +529,9 @@ pub fn parse_commit_message(response: &str) -> (String, String) {
         .lines()
         .take(10) // Max 10 lines
         .map(|line| {
-            if line.len() > 72 {
-                format!("{}...", &line[..69])
+            if line.chars().count() > 72 {
+                let chars: String = line.chars().take(69).collect();
+                format!("{}...", chars)
             } else {
                 line.to_string()
             }

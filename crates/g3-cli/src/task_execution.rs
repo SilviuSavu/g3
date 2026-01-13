@@ -8,10 +8,10 @@ use tracing::error;
 
 use crate::simple_output::SimpleOutput;
 
-/// Maximum number of retry attempts for timeout errors
-const MAX_TIMEOUT_RETRIES: u32 = 3;
+/// Maximum number of retry attempts for recoverable errors
+const MAX_RETRIES: u32 = 3;
 
-/// Execute a task with retry logic for timeout errors.
+/// Execute a task with retry logic for recoverable errors.
 pub async fn execute_task_with_retry<W: UiWriter>(
     agent: &mut Agent<W>,
     input: &str,
@@ -61,29 +61,49 @@ pub async fn execute_task_with_retry<W: UiWriter>(
                     return;
                 }
 
-                // Check if this is a timeout error that we should retry
+                // Check if this is a recoverable error that we should retry
                 let error_type = classify_error(&e);
 
-                if matches!(
-                    error_type,
-                    ErrorType::Recoverable(RecoverableError::Timeout)
-                ) && attempt < MAX_TIMEOUT_RETRIES
-                {
-                    // Calculate retry delay with exponential backoff
-                    let delay_ms = 1000 * (2_u64.pow(attempt - 1));
-                    let delay = std::time::Duration::from_millis(delay_ms);
+                if let ErrorType::Recoverable(recoverable_error) = error_type {
+                    if attempt < MAX_RETRIES {
+                        // Calculate retry delay with exponential backoff + jitter
+                        let base_delay_ms = match recoverable_error {
+                            RecoverableError::RateLimit => 5000, // Rate limits need longer waits
+                            RecoverableError::ServerError => 2000,
+                            RecoverableError::NetworkError => 1000,
+                            RecoverableError::Timeout => 1000,
+                            RecoverableError::ModelBusy => 3000,
+                            RecoverableError::TokenLimit => 1000,
+                            RecoverableError::ContextLengthExceeded => 1000,
+                        };
+                        let delay_ms = base_delay_ms * (2_u64.pow(attempt - 1));
+                        // Add jitter (±20%)
+                        let jitter = (delay_ms as f64 * 0.2 * (rand::random::<f64>() - 0.5)) as i64;
+                        let delay_ms = (delay_ms as i64 + jitter).max(100) as u64;
+                        let delay = std::time::Duration::from_millis(delay_ms);
 
-                    output.print(&format!(
-                        "⏱️  Timeout error detected (attempt {}/{}). Retrying in {:?}...",
-                        attempt, MAX_TIMEOUT_RETRIES, delay
-                    ));
+                        let error_name = match recoverable_error {
+                            RecoverableError::RateLimit => "Rate limit",
+                            RecoverableError::ServerError => "Server error",
+                            RecoverableError::NetworkError => "Network error",
+                            RecoverableError::Timeout => "Timeout",
+                            RecoverableError::ModelBusy => "Model busy",
+                            RecoverableError::TokenLimit => "Token limit",
+                            RecoverableError::ContextLengthExceeded => "Context length",
+                        };
 
-                    // Wait before retrying
-                    tokio::time::sleep(delay).await;
-                    continue;
+                        output.print(&format!(
+                            "⚠️  {} detected (attempt {}/{}). Retrying in {:.1}s...",
+                            error_name, attempt, MAX_RETRIES, delay_ms as f64 / 1000.0
+                        ));
+
+                        // Wait before retrying
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
                 }
 
-                // For non-timeout errors or after max retries
+                // For non-recoverable errors or after max retries
                 handle_execution_error(&e, input, output, attempt);
                 return;
             }

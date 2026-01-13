@@ -93,8 +93,9 @@ pub async fn execute_rehydrate<W: UiWriter>(
         };
         
         // Truncate very long messages for readability
-        let content = if msg.content.len() > 2000 {
-            format!("{}... [truncated, {} chars total]", &msg.content[..2000], msg.content.len())
+        let content = if msg.content.chars().count() > 2000 {
+            let chars: String = msg.content.chars().take(2000).collect();
+            format!("{}... [truncated, {} chars total]", chars, msg.content.chars().count())
         } else {
             msg.content.clone()
         };
