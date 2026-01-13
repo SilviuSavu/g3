@@ -68,14 +68,14 @@ pub struct Cli {
     pub quiet: bool,
 
     /// Enable WebDriver browser automation tools
-    #[arg(long)]
+    #[arg(long, default_value_t = true)]
     pub webdriver: bool,
 
     /// Use Chrome in headless mode for WebDriver (instead of Safari)
-    #[arg(long)]
+    #[arg(long, default_value_t = true)]
     pub chrome_headless: bool,
 
-    /// Use Safari for WebDriver (this is the default)
+    /// Use Safari for WebDriver (overrides the default Chrome headless)
     #[arg(long)]
     pub safari: bool,
 
