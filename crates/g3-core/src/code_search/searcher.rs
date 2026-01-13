@@ -121,17 +121,6 @@ impl TreeSitterSearcher {
             languages.insert("cpp".to_string(), language);
         }
 
-        // // Initialize Kotlin - Temporarily disabled due to tree-sitter version incompatibility
-        // {
-        //     let mut parser = Parser::new();
-        //     let language: Language = tree_sitter_kotlin::language();
-        //     parser
-        //         .set_language(&language)
-        //         .map_err(|e| anyhow!("Failed to set Kotlin language: {}", e))?;
-        //     parsers.insert("kotlin".to_string(), parser);
-        //     languages.insert("kotlin".to_string(), language);
-        // }
-
         // Initialize Haskell
         {
             let mut parser = Parser::new();
@@ -152,6 +141,17 @@ impl TreeSitterSearcher {
                 .map_err(|e| anyhow!("Failed to set Scheme language: {}", e))?;
             parsers.insert("scheme".to_string(), parser);
             languages.insert("scheme".to_string(), language);
+        }
+
+        // Initialize Racket
+        {
+            let mut parser = Parser::new();
+            let language: Language = tree_sitter_racket::LANGUAGE.into();
+            parser
+                .set_language(&language)
+                .map_err(|e| anyhow!("Failed to set Racket language: {}", e))?;
+            parsers.insert("racket".to_string(), parser);
+            languages.insert("racket".to_string(), language);
         }
 
         if parsers.is_empty() {
@@ -335,9 +335,10 @@ impl TreeSitterSearcher {
             ("java", Some("java")) => true,
             ("c", Some("c" | "h")) => true,
             ("cpp", Some("cpp" | "cc" | "cxx" | "hpp" | "hxx" | "h")) => true,
-            ("kotlin", Some("kt" | "kts")) => true,
+
             ("haskell", Some("hs" | "lhs")) => true,
             ("scheme", Some("scm" | "ss" | "sld" | "sls")) => true,
+            ("racket", Some("rkt" | "rktl" | "rktd")) => true,
             _ => false,
         }
     }

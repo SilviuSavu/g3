@@ -580,14 +580,21 @@ async fn test_cpp_search() {
 }
 
 #[tokio::test]
-#[ignore]
-async fn test_kotlin_search() {
+async fn test_racket_search() {
+    // Get the workspace root (where Cargo.toml is)
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let workspace_root = std::path::Path::new(&manifest_dir)
+        .parent()
+        .and_then(|p| p.parent())
+        .unwrap();
+    let test_code_path = workspace_root.join("examples/test_code");
+
     let request = CodeSearchRequest {
         searches: vec![SearchSpec {
-            name: "kotlin_classes".to_string(),
-            query: "(class_declaration (type_identifier) @name)".to_string(),
-            language: "kotlin".to_string(),
-            paths: vec!["examples/test_code".to_string()],
+            name: "racket_functions".to_string(),
+            query: r#"(list . (symbol) @kw (#eq? @kw "define") . (list . (symbol) @name))"#.to_string(),
+            language: "racket".to_string(),
+            paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
         }],
         max_concurrency: 4,
@@ -598,11 +605,11 @@ async fn test_kotlin_search() {
     assert_eq!(response.searches.len(), 1);
     assert!(response.searches[0].matches.len() > 0);
 
-    // Should find Person class
+    // Should find greet, add, factorial functions
     let names: Vec<&str> = response.searches[0]
         .matches
         .iter()
         .filter_map(|m| m.captures.get("name").map(|s| s.as_str()))
         .collect();
-    assert!(names.contains(&"Person"));
+    assert!(names.contains(&"greet"));
 }
