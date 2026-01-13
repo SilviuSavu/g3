@@ -166,10 +166,12 @@ fn find_fallback_title(content: &str) -> Option<String> {
 
 /// Truncate a string for display, adding ellipsis if needed.
 fn truncate_for_display(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len - 3])
-    } else {
+    if s.chars().count() <= max_len {
         s.to_string()
+    } else {
+        // Truncate at character boundary, not byte boundary
+        let truncated: String = s.chars().take(max_len.saturating_sub(3)).collect();
+        format!("{}...", truncated)
     }
 }
 
@@ -202,6 +204,15 @@ mod tests {
         let truncated = truncate_for_display(&long, 100);
         assert!(truncated.ends_with("..."));
         assert_eq!(truncated.len(), 100);
+    }
+
+    #[test]
+    fn test_truncate_for_display_utf8() {
+        // Multi-byte characters should not cause panics
+        let emoji_text = "Hello 👋 World 🌍 Test ✨ More text here and more";
+        let truncated = truncate_for_display(emoji_text, 15);
+        assert!(truncated.ends_with("..."));
+        assert!(truncated.chars().count() <= 15);
     }
 
     #[test]

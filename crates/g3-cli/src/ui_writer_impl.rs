@@ -22,6 +22,45 @@ pub struct ConsoleUiWriter {
     last_output_was_tool: std::sync::Mutex<bool>,
 }
 
+/// ANSI color code for duration display based on elapsed time.
+/// Returns empty string for fast operations, yellow/orange/red for slower ones.
+fn duration_color(duration_str: &str) -> &'static str {
+    // Format: "500ms", "1.5s", "2m 30.0s"
+    if duration_str.ends_with("ms") {
+        return ""; // Sub-second: no color
+    }
+
+    if let Some(m_pos) = duration_str.find('m') {
+        // Contains minutes (e.g., "2m 30.0s")
+        if let Ok(minutes) = duration_str[..m_pos].trim().parse::<u32>() {
+            return match minutes {
+                5.. => "\x1b[31m",      // Red: >= 5 minutes
+                1.. => "\x1b[38;5;208m", // Orange: 1-4 minutes
+                _ => "",
+            };
+        }
+    } else if let Some(s_value) = duration_str.strip_suffix('s') {
+        // Seconds only (e.g., "1.5s")
+        if let Ok(seconds) = s_value.trim().parse::<f64>() {
+            if seconds >= 1.0 {
+                return "\x1b[33m"; // Yellow: >= 1 second
+            }
+        }
+    }
+
+    "" // Default: no color
+}
+
+impl ConsoleUiWriter {
+    /// Clear all stored tool state after output is complete.
+    fn clear_tool_state(&self) {
+        *self.current_tool_name.lock().unwrap() = None;
+        self.current_tool_args.lock().unwrap().clear();
+        *self.current_output_line.lock().unwrap() = None;
+        *self.output_line_printed.lock().unwrap() = false;
+    }
+}
+
 impl ConsoleUiWriter {
     pub fn new() -> Self {
         Self {
@@ -375,55 +414,13 @@ impl UiWriter for ConsoleUiWriter {
 
         // Clear the stored tool info
         drop(args); // Release the lock before clearing
-        *self.current_tool_name.lock().unwrap() = None;
-        self.current_tool_args.lock().unwrap().clear();
-        *self.current_output_line.lock().unwrap() = None;
-        *self.output_line_printed.lock().unwrap() = false;
+        self.clear_tool_state();
 
         true
     }
 
     fn print_tool_timing(&self, duration_str: &str, tokens_delta: u32, context_percentage: f32) {
-        // Parse the duration string to determine color
-        // Format is like "1.5s", "500ms", "2m 30.0s"
-        let color_code = if duration_str.ends_with("ms") {
-            // Milliseconds - use default color (< 1s)
-            ""
-        } else if duration_str.contains('m') {
-            // Contains minutes
-            // Extract minutes value
-            if let Some(m_pos) = duration_str.find('m') {
-                if let Ok(minutes) = duration_str[..m_pos].trim().parse::<u32>() {
-                    if minutes >= 5 {
-                        "\x1b[31m" // Red for >= 5 minutes
-                    } else {
-                        "\x1b[38;5;208m" // Orange for >= 1 minute but < 5 minutes
-                    }
-                } else {
-                    "" // Default color if parsing fails
-                }
-            } else {
-                "" // Default color if 'm' not found (shouldn't happen)
-            }
-        } else if duration_str.ends_with('s') {
-            // Seconds only
-            if let Some(s_value) = duration_str.strip_suffix('s') {
-                if let Ok(seconds) = s_value.trim().parse::<f64>() {
-                    if seconds >= 1.0 {
-                        "\x1b[33m" // Yellow for >= 1 second
-                    } else {
-                        "" // Default color for < 1 second
-                    }
-                } else {
-                    "" // Default color if parsing fails
-                }
-            } else {
-                "" // Default color
-            }
-        } else {
-            // Milliseconds or other format - use default color
-            ""
-        };
+        let color_code = duration_color(duration_str);
 
         // Add blank line before footer for research tool (its output is a full report)
         if let Some(tool_name) = self.current_tool_name.lock().unwrap().as_ref() {
@@ -444,10 +441,7 @@ impl UiWriter for ConsoleUiWriter {
         }
         
         // Clear the stored tool info
-        *self.current_tool_name.lock().unwrap() = None;
-        self.current_tool_args.lock().unwrap().clear();
-        *self.current_output_line.lock().unwrap() = None;
-        *self.output_line_printed.lock().unwrap() = false;
+        self.clear_tool_state();
         *self.is_shell_compact.lock().unwrap() = false;
     }
 
