@@ -28,21 +28,12 @@ pub async fn run_interactive<W: UiWriter>(
     // Check for session continuation
     if let Ok(Some(continuation)) = g3_core::load_continuation() {
         output.print("");
-        output.print("🔄 Previous session detected!");
         output.print(&format!(
-            "   Session: {}",
-            &continuation.session_id[..continuation.session_id.len().min(20)]
-        ));
-        output.print(&format!(
-            "   Context: {:.1}% used",
+            " >> session in progress: {} | {:.1}% used",
+            &continuation.session_id[..continuation.session_id.len().min(20)],
             continuation.context_percentage
         ));
-        if let Some(ref summary) = continuation.summary {
-            let preview: String = summary.chars().take(80).collect();
-            output.print(&format!("   Last output: {}...", preview));
-        }
-        output.print("");
-        output.print("Resume this session? [Y/n] ");
+        output.print("    > resume? [Y/n] ");
 
         // Read user input
         let mut input = String::new();
