@@ -322,6 +322,44 @@ G3 automatically saves session logs for each interaction in the `.g3/sessions/` 
 
 The `.g3/` directory is created automatically on first use and is excluded from version control.
 
+## Studio - Multi-Agent Workspace Manager
+
+Studio is a companion tool for managing multiple g3 agent sessions using git worktrees. Each session runs in an isolated worktree with its own branch, allowing multiple agents to work on the same codebase without conflicts.
+
+### Usage
+
+```bash
+# Build studio alongside g3
+cargo build --release
+
+# Run an agent session (creates worktree, runs g3, tails output)
+studio run --agent carmack "fix the memory leak in cache.rs"
+
+# Run a one-shot session without a specific agent
+studio run "add unit tests for the parser module"
+
+# List all sessions
+studio list
+
+# Check session status (shows summary when complete)
+studio status <session-id>
+
+# Accept a session: merge changes to main and cleanup
+studio accept <session-id>
+
+# Discard a session: delete without merging
+studio discard <session-id>
+```
+
+### How It Works
+
+1. **Isolation**: Each session creates a git worktree at `.worktrees/sessions/<agent>/<session-id>/`
+2. **Branching**: Sessions run on branches named `sessions/<agent>/<session-id>`
+3. **Tracking**: Session metadata is stored in `.worktrees/.sessions/`
+4. **Workflow**: Run → Review → Accept (merge) or Discard (delete)
+
+Studio is the recommended way to run multiple agents in parallel on the same codebase, replacing the deprecated flock mode.
+
 ## Documentation Map
 
 Detailed documentation is available in the `docs/` directory:

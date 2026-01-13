@@ -14,6 +14,7 @@
 5. **File paths in tools support tilde expansion** - `~` expands to home directory
 6. **Streaming is preferred** - Non-streaming requests block UI
 7. **Tool results are size-limited** - Large outputs are truncated or thinned automatically
+8. **String slicing must be UTF-8 safe** - Use `chars().take(n)` or `char_indices()`, never byte slicing like `&s[..n]` on user-facing strings
 
 ### MUST NOT Do
 
@@ -21,6 +22,7 @@
 2. **Never store secrets in logs** - API keys are redacted in error logs
 3. **Never modify files outside working directory without explicit permission**
 4. **Never assume tool results fit in context** - Large results are thinned automatically
+5. **Never use byte-index string slicing on text with potential multi-byte characters** - Causes panics on emoji, CJK, box-drawing chars
 
 ## Recommended Entry Points
 
@@ -70,6 +72,13 @@
 - Exponential backoff with jitter
 - Different configs for interactive vs autonomous mode
 - **Risk**: Aggressive retries can hit rate limits harder
+
+### Parser Sanitization (`g3-core/src/streaming_parser.rs`)
+
+- Sanitizes inline tool-call JSON patterns to prevent parser poisoning
+- Replaces `{` with fullwidth `｛` (U+FF5B) when patterns appear inline (not on their own line)
+- Real tool calls from LLMs always appear on their own line
+- **Risk**: Inline JSON examples in prose can trigger false tool call detection without sanitization
 
 ## Do's and Don'ts for Automated Changes
 
