@@ -1,7 +1,8 @@
 //! Streaming completion logic for the Agent.
 //!
-//! This module handles the streaming response from LLM providers,
-//! including tool call detection, execution, and auto-continue logic.
+//! This module provides state management and helper functions for streaming
+//! LLM responses, including tool call detection, deduplication, and
+//! auto-continue decision logic.
 
 use crate::context_window::ContextWindow;
 use crate::streaming_parser::StreamingToolParser;
@@ -385,6 +386,92 @@ pub fn format_rehydrate_summary(result: &str) -> String {
     }
 }
 
+// =============================================================================
+// Tool Call Deduplication
+// =============================================================================
+
+/// Result of deduplicating a batch of tool calls.
+/// Each tool call is paired with an optional duplicate marker.
+pub type DeduplicatedTools = Vec<(ToolCall, Option<String>)>;
+
+/// Deduplicate tool calls, detecting sequential duplicates within a chunk
+/// and duplicates against the previous message.
+///
+/// Returns each tool call paired with `Some("DUP IN CHUNK")` or `Some("DUP IN MSG")`
+/// if it's a duplicate, or `None` if it should be executed.
+pub fn deduplicate_tool_calls<F>(
+    tool_calls: Vec<ToolCall>,
+    check_previous_message: F,
+) -> DeduplicatedTools
+where
+    F: Fn(&ToolCall) -> Option<String>,
+{
+    let mut last_tool_in_chunk: Option<ToolCall> = None;
+    let mut result = Vec::with_capacity(tool_calls.len());
+
+    for tool_call in tool_calls {
+        let duplicate_type = if let Some(ref last) = last_tool_in_chunk {
+            // Check for sequential duplicate within this chunk
+            if are_tool_calls_duplicate(last, &tool_call) {
+                Some("DUP IN CHUNK".to_string())
+            } else {
+                None
+            }
+        } else {
+            // First tool in chunk - check against previous message
+            check_previous_message(&tool_call)
+        };
+
+        last_tool_in_chunk = Some(tool_call.clone());
+        result.push((tool_call, duplicate_type));
+    }
+
+    result
+}
+
+// =============================================================================
+// Auto-Continue Decision Logic
+// =============================================================================
+
+/// Reasons why the streaming loop should auto-continue.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AutoContinueReason {
+    /// Tools were executed and we're in autonomous mode
+    ToolsExecuted,
+    /// LLM emitted an incomplete (truncated) tool call
+    IncompleteToolCall,
+    /// LLM emitted a tool call that wasn't executed
+    UnexecutedToolCall,
+    /// Response was truncated due to max_tokens limit
+    MaxTokensTruncation,
+}
+
+/// Determine if the streaming loop should auto-continue.
+/// Returns `Some(reason)` if it should continue, `None` otherwise.
+pub fn should_auto_continue(
+    is_autonomous: bool,
+    any_tool_executed: bool,
+    has_incomplete_tool_call: bool,
+    has_unexecuted_tool_call: bool,
+    was_truncated: bool,
+) -> Option<AutoContinueReason> {
+    if !is_autonomous {
+        return None;
+    }
+
+    if any_tool_executed {
+        Some(AutoContinueReason::ToolsExecuted)
+    } else if has_incomplete_tool_call {
+        Some(AutoContinueReason::IncompleteToolCall)
+    } else if has_unexecuted_tool_call {
+        Some(AutoContinueReason::UnexecutedToolCall)
+    } else if was_truncated {
+        Some(AutoContinueReason::MaxTokensTruncation)
+    } else {
+        None
+    }
+}
+
 /// Determine if a response is essentially empty (whitespace or timing only)
 pub fn is_empty_response(response: &str) -> bool {
     response.trim().is_empty()
@@ -473,5 +560,73 @@ mod tests {
         let lines = format_tool_output_summary(output, 3, 80, false);
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[0], "line1");
+    }
+
+    #[test]
+    fn test_deduplicate_tool_calls_no_duplicates() {
+        let tools = vec![
+            ToolCall { tool: "shell".to_string(), args: serde_json::json!({"command": "ls"}) },
+            ToolCall { tool: "read_file".to_string(), args: serde_json::json!({"path": "foo.rs"}) },
+        ];
+        
+        let result = deduplicate_tool_calls(tools, |_| None);
+        
+        assert_eq!(result.len(), 2);
+        assert!(result[0].1.is_none());
+        assert!(result[1].1.is_none());
+    }
+
+    #[test]
+    fn test_deduplicate_tool_calls_sequential_duplicate() {
+        let tools = vec![
+            ToolCall { tool: "shell".to_string(), args: serde_json::json!({"command": "ls"}) },
+            ToolCall { tool: "shell".to_string(), args: serde_json::json!({"command": "ls"}) },
+        ];
+        
+        let result = deduplicate_tool_calls(tools, |_| None);
+        
+        assert_eq!(result.len(), 2);
+        assert!(result[0].1.is_none(), "First should not be duplicate");
+        assert_eq!(result[1].1, Some("DUP IN CHUNK".to_string()));
+    }
+
+    #[test]
+    fn test_deduplicate_tool_calls_previous_message_duplicate() {
+        let tools = vec![
+            ToolCall { tool: "shell".to_string(), args: serde_json::json!({"command": "ls"}) },
+        ];
+        
+        // Simulate finding a duplicate in previous message
+        let result = deduplicate_tool_calls(tools, |_| Some("DUP IN MSG".to_string()));
+        
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].1, Some("DUP IN MSG".to_string()));
+    }
+
+    #[test]
+    fn test_should_auto_continue_not_autonomous() {
+        // Never auto-continue in interactive mode
+        assert_eq!(should_auto_continue(false, true, false, false, false), None);
+        assert_eq!(should_auto_continue(false, false, true, false, false), None);
+    }
+
+    #[test]
+    fn test_should_auto_continue_autonomous() {
+        use AutoContinueReason::*;
+        
+        // Tools executed
+        assert_eq!(should_auto_continue(true, true, false, false, false), Some(ToolsExecuted));
+        
+        // Incomplete tool call
+        assert_eq!(should_auto_continue(true, false, true, false, false), Some(IncompleteToolCall));
+        
+        // Unexecuted tool call
+        assert_eq!(should_auto_continue(true, false, false, true, false), Some(UnexecutedToolCall));
+        
+        // Max tokens truncation
+        assert_eq!(should_auto_continue(true, false, false, false, true), Some(MaxTokensTruncation));
+        
+        // Nothing special - no auto-continue
+        assert_eq!(should_auto_continue(true, false, false, false, false), None);
     }
 }
