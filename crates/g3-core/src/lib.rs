@@ -1493,7 +1493,7 @@ impl<W: UiWriter> Agent<W> {
         // Check if remember was already called this turn - no need to remind
         if self.tool_calls_this_turn.iter().any(|t| t == "remember") {
             debug!("Auto-memory: 'remember' was already called this turn, skipping reminder");
-            self.ui_writer.print_context_status("📝 Auto-memory: 'remember' already called, skipping reminder.\n");
+            self.ui_writer.print_context_status("\n📝 Auto-memory: 'remember' already called, skipping reminder.\n");
             self.tool_calls_this_turn.clear();
             return Ok(false);
         }
