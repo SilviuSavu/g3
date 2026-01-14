@@ -197,6 +197,7 @@ async fn run_console_mode(
             cli.show_code,
             combined_content,
             project.workspace(),
+            cli.new_session,
         )
         .await
     }

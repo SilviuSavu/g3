@@ -22,11 +22,13 @@ pub async fn run_interactive<W: UiWriter>(
     show_code: bool,
     combined_content: Option<String>,
     workspace_path: &Path,
+    new_session: bool,
 ) -> Result<()> {
     let output = SimpleOutput::new();
 
-    // Check for session continuation
-    if let Ok(Some(continuation)) = g3_core::load_continuation() {
+    // Check for session continuation (skip if --new-session was passed)
+    if !new_session {
+      if let Ok(Some(continuation)) = g3_core::load_continuation() {
         output.print("");
         output.print(&format!(
             " >> session in progress: {} | {:.1}% used",
@@ -62,6 +64,7 @@ pub async fn run_interactive<W: UiWriter>(
             let _ = g3_core::clear_continuation();
         }
         output.print("");
+      }
     }
 
     output.print("");

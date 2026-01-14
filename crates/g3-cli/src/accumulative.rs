@@ -299,6 +299,7 @@ async fn handle_command(
                 cli.show_code,
                 chat_combined_content,
                 workspace_dir,
+                cli.new_session,
             )
             .await?;
 
