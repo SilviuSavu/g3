@@ -55,7 +55,7 @@ pub struct Cli {
     #[arg(long)]
     pub chat: bool,
 
-    /// Override the configured provider (anthropic, databricks, embedded, openai)
+    /// Override the configured provider (e.g., 'openai' or 'openai.default')
     #[arg(long, value_name = "PROVIDER")]
     pub provider: Option<String>,
 

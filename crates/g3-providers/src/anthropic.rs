@@ -110,9 +110,12 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error};
 
 use crate::{
+    streaming::{
+        decode_utf8_streaming, make_final_chunk, make_final_chunk_with_reason, make_text_chunk,
+        make_tool_chunk,
+    },
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Tool, ToolCall, Usage,
-    streaming::{decode_utf8_streaming, make_final_chunk, make_final_chunk_with_reason, make_text_chunk, make_tool_chunk},
 };
 
 const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -156,7 +159,7 @@ impl AnthropicProvider {
             name: "anthropic".to_string(),
             api_key,
             model,
-            max_tokens: max_tokens.unwrap_or(4096),
+            max_tokens: max_tokens.unwrap_or(32768),
             temperature: temperature.unwrap_or(0.1),
             cache_config,
             enable_1m_context: enable_1m_context.unwrap_or(false),
@@ -182,14 +185,17 @@ impl AnthropicProvider {
 
         let model = model.unwrap_or_else(|| "claude-3-5-sonnet-20241022".to_string());
 
-        debug!("Initialized Anthropic provider '{}' with model: {}", name, model);
+        debug!(
+            "Initialized Anthropic provider '{}' with model: {}",
+            name, model
+        );
 
         Ok(Self {
             client,
             name,
             api_key,
             model,
-            max_tokens: max_tokens.unwrap_or(4096),
+            max_tokens: max_tokens.unwrap_or(32768),
             temperature: temperature.unwrap_or(0.1),
             cache_config,
             enable_1m_context: enable_1m_context.unwrap_or(false),
@@ -277,7 +283,7 @@ impl AnthropicProvider {
                 MessageRole::User => {
                     // Build content blocks - images first, then text
                     let mut content_blocks: Vec<AnthropicContent> = Vec::new();
-                    
+
                     // Add any images attached to this message
                     for image in &message.images {
                         content_blocks.push(AnthropicContent::Image {
@@ -288,13 +294,16 @@ impl AnthropicProvider {
                             },
                         });
                     }
-                    
+
                     // Add text content
                     content_blocks.push(AnthropicContent::Text {
                         text: message.content.clone(),
-                        cache_control: message.cache_control.as_ref().map(Self::convert_cache_control),
+                        cache_control: message
+                            .cache_control
+                            .as_ref()
+                            .map(Self::convert_cache_control),
                     });
-                    
+
                     anthropic_messages.push(AnthropicMessage {
                         role: "user".to_string(),
                         content: content_blocks,
@@ -427,7 +436,10 @@ impl AnthropicProvider {
                         if let Some(data) = line.strip_prefix("data: ") {
                             if data == "[DONE]" {
                                 debug!("Received stream completion marker");
-                                let final_chunk = make_final_chunk(current_tool_calls.clone(), accumulated_usage.clone());
+                                let final_chunk = make_final_chunk(
+                                    current_tool_calls.clone(),
+                                    accumulated_usage.clone(),
+                                );
                                 if tx.send(Ok(final_chunk)).await.is_err() {
                                     debug!("Receiver dropped, stopping stream");
                                 }
@@ -491,7 +503,8 @@ impl AnthropicProvider {
                                                         {
                                                             // We have complete arguments, send the tool call immediately
                                                             debug!("Tool call has complete args, sending immediately: {:?}", tool_call);
-                                                            let chunk = make_tool_chunk(vec![tool_call]);
+                                                            let chunk =
+                                                                make_tool_chunk(vec![tool_call]);
                                                             if tx.send(Ok(chunk)).await.is_err() {
                                                                 debug!("Receiver dropped, stopping stream");
                                                                 return accumulated_usage;
@@ -575,7 +588,8 @@ impl AnthropicProvider {
 
                                             // Send the complete tool call
                                             if !current_tool_calls.is_empty() {
-                                                let chunk = make_tool_chunk(current_tool_calls.clone());
+                                                let chunk =
+                                                    make_tool_chunk(current_tool_calls.clone());
                                                 if tx.send(Ok(chunk)).await.is_err() {
                                                     debug!("Receiver dropped, stopping stream");
                                                     return accumulated_usage;
@@ -597,7 +611,11 @@ impl AnthropicProvider {
                                         "message_stop" => {
                                             debug!("Received message stop event");
                                             message_stopped = true;
-                                            let final_chunk = make_final_chunk_with_reason(current_tool_calls.clone(), accumulated_usage.clone(), stop_reason.clone());
+                                            let final_chunk = make_final_chunk_with_reason(
+                                                current_tool_calls.clone(),
+                                                accumulated_usage.clone(),
+                                                stop_reason.clone(),
+                                            );
                                             if tx.send(Ok(final_chunk)).await.is_err() {
                                                 debug!("Receiver dropped, stopping stream");
                                             }
@@ -826,7 +844,10 @@ struct ThinkingConfig {
 
 impl ThinkingConfig {
     fn enabled(budget_tokens: u32) -> Self {
-        Self { thinking_type: "enabled".to_string(), budget_tokens }
+        Self {
+            thinking_type: "enabled".to_string(),
+            budget_tokens,
+        }
     }
 }
 
@@ -889,9 +910,7 @@ enum AnthropicContent {
         input: serde_json::Value,
     },
     #[serde(rename = "image")]
-    Image {
-        source: AnthropicImageSource,
-    },
+    Image { source: AnthropicImageSource },
 }
 
 /// Image source for Anthropic API
@@ -899,8 +918,8 @@ enum AnthropicContent {
 struct AnthropicImageSource {
     #[serde(rename = "type")]
     source_type: String, // Always "base64"
-    media_type: String,  // e.g., "image/png", "image/jpeg"
-    data: String,        // Base64-encoded image data
+    media_type: String, // e.g., "image/png", "image/jpeg"
+    data: String,       // Base64-encoded image data
 }
 
 #[derive(Debug, Deserialize)]
@@ -962,7 +981,8 @@ mod tests {
     #[test]
     fn test_message_conversion() {
         let provider =
-            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None).unwrap();
+            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None)
+                .unwrap();
 
         let messages = vec![
             Message::new(
@@ -1011,7 +1031,8 @@ mod tests {
     #[test]
     fn test_tool_conversion() {
         let provider =
-            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None).unwrap();
+            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None)
+                .unwrap();
 
         let tools = vec![Tool {
             name: "get_weather".to_string(),
@@ -1044,7 +1065,8 @@ mod tests {
     #[test]
     fn test_cache_control_serialization() {
         let provider =
-            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None).unwrap();
+            AnthropicProvider::new("test-key".to_string(), None, None, None, None, None, None)
+                .unwrap();
 
         // Test message WITHOUT cache_control
         let messages_without = vec![Message::new(MessageRole::User, "Hello".to_string())];
@@ -1106,14 +1128,17 @@ mod tests {
             .create_request_body(&messages, None, false, 1000, 0.5, false)
             .unwrap();
         let json_without = serde_json::to_string(&request_without).unwrap();
-        assert!(!json_without.contains("thinking"), "JSON should not contain 'thinking' field when not configured");
+        assert!(
+            !json_without.contains("thinking"),
+            "JSON should not contain 'thinking' field when not configured"
+        );
 
         // Test WITH thinking parameter - max_tokens must be > budget_tokens + 1024
         // Using budget=10000 requires max_tokens > 11024
         let provider_with = AnthropicProvider::new(
             "test-key".to_string(),
             Some("claude-sonnet-4-5".to_string()),
-            Some(20000),  // Sufficient for thinking budget
+            Some(20000), // Sufficient for thinking budget
             Some(0.5),
             None,
             None,
@@ -1125,16 +1150,28 @@ mod tests {
             .create_request_body(&messages, None, false, 20000, 0.5, false)
             .unwrap();
         let json_with = serde_json::to_string(&request_with).unwrap();
-        assert!(json_with.contains("thinking"), "JSON should contain 'thinking' field when configured");
-        assert!(json_with.contains("\"type\":\"enabled\""), "JSON should contain type: enabled");
-        assert!(json_with.contains("\"budget_tokens\":10000"), "JSON should contain budget_tokens: 10000");
+        assert!(
+            json_with.contains("thinking"),
+            "JSON should contain 'thinking' field when configured"
+        );
+        assert!(
+            json_with.contains("\"type\":\"enabled\""),
+            "JSON should contain type: enabled"
+        );
+        assert!(
+            json_with.contains("\"budget_tokens\":10000"),
+            "JSON should contain budget_tokens: 10000"
+        );
 
         // Test WITH thinking parameter but INSUFFICIENT max_tokens - thinking should be disabled
         let request_insufficient = provider_with
-            .create_request_body(&messages, None, false, 5000, 0.5, false)  // Less than budget + 1024
+            .create_request_body(&messages, None, false, 5000, 0.5, false) // Less than budget + 1024
             .unwrap();
         let json_insufficient = serde_json::to_string(&request_insufficient).unwrap();
-        assert!(!json_insufficient.contains("thinking"), "JSON should NOT contain 'thinking' field when max_tokens is insufficient");
+        assert!(
+            !json_insufficient.contains("thinking"),
+            "JSON should NOT contain 'thinking' field when max_tokens is insufficient"
+        );
     }
 
     #[test]
@@ -1152,20 +1189,26 @@ mod tests {
         .unwrap();
 
         let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
-        
+
         // With disable_thinking=false, thinking should be enabled (max_tokens is sufficient)
         let request_with_thinking = provider
             .create_request_body(&messages, None, false, 20000, 0.5, false)
             .unwrap();
         let json_with = serde_json::to_string(&request_with_thinking).unwrap();
-        assert!(json_with.contains("thinking"), "JSON should contain 'thinking' field when not disabled");
+        assert!(
+            json_with.contains("thinking"),
+            "JSON should contain 'thinking' field when not disabled"
+        );
 
         // With disable_thinking=true, thinking should be disabled even with sufficient max_tokens
         let request_without_thinking = provider
             .create_request_body(&messages, None, false, 20000, 0.5, true)
             .unwrap();
         let json_without = serde_json::to_string(&request_without_thinking).unwrap();
-        assert!(!json_without.contains("thinking"), "JSON should NOT contain 'thinking' field when explicitly disabled");
+        assert!(
+            !json_without.contains("thinking"),
+            "JSON should NOT contain 'thinking' field when explicitly disabled"
+        );
     }
 
     #[test]
@@ -1183,16 +1226,20 @@ mod tests {
 
         let response: AnthropicResponse = serde_json::from_str(json_response)
             .expect("Should be able to deserialize response with thinking block");
-        
+
         assert_eq!(response.content.len(), 2);
         assert_eq!(response.model, "claude-sonnet-4-5");
-        
+
         // Extract only text content (thinking should be filtered out)
-        let text_content: Vec<_> = response.content.iter().filter_map(|c| match c {
-            AnthropicContent::Text { text, .. } => Some(text.as_str()),
-            _ => None,
-        }).collect();
-        
+        let text_content: Vec<_> = response
+            .content
+            .iter()
+            .filter_map(|c| match c {
+                AnthropicContent::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+
         assert_eq!(text_content.len(), 1);
         assert_eq!(text_content[0], "Here is my response.");
     }

@@ -1,32 +1,38 @@
 pub mod acd;
-pub mod context_window;
 pub mod background_process;
-pub mod compaction;
 pub mod code_search;
+pub mod compaction;
+pub mod context_window;
 pub mod error_handling;
 pub mod feedback_extraction;
 pub mod paths;
 pub mod project;
-pub mod provider_registration;
 pub mod provider_config;
+pub mod provider_registration;
 pub mod retry;
 pub mod session;
 pub mod session_continuation;
+pub mod stats;
+pub mod streaming;
 pub mod streaming_parser;
 pub mod task_result;
-pub mod tool_dispatch;
 pub mod tool_definitions;
+pub mod tool_dispatch;
 pub mod tools;
 pub mod ui_writer;
-pub mod streaming;
 pub mod utils;
 pub mod webdriver_session;
-pub mod stats;
 
+pub use feedback_extraction::{
+    extract_coach_feedback, ExtractedFeedback, FeedbackExtractionConfig, FeedbackSource,
+};
+pub use retry::{execute_with_retry, retry_operation, RetryConfig, RetryResult};
+pub use session_continuation::{
+    clear_continuation, find_incomplete_agent_session, format_session_time, get_session_dir,
+    has_valid_continuation, list_sessions_for_directory, load_context_from_session_log,
+    load_continuation, save_continuation, SessionContinuation,
+};
 pub use task_result::TaskResult;
-pub use retry::{RetryConfig, RetryResult, execute_with_retry, retry_operation};
-pub use feedback_extraction::{ExtractedFeedback, FeedbackSource, FeedbackExtractionConfig, extract_coach_feedback};
-pub use session_continuation::{SessionContinuation, load_continuation, save_continuation, clear_continuation, has_valid_continuation, get_session_dir, load_context_from_session_log, find_incomplete_agent_session, list_sessions_for_directory, format_session_time};
 
 // Re-export context window types
 pub use context_window::{ContextWindow, ThinScope};
@@ -55,19 +61,18 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
 // Re-export path utilities
-pub use paths::{
-    G3_WORKSPACE_PATH_ENV, ensure_session_dir, get_context_summary_file, get_g3_dir,
-    get_session_file, get_session_logs_dir, get_session_todo_path, get_thinned_dir,
-    get_errors_dir, get_background_processes_dir, get_discovery_dir,
-};
 use paths::get_todo_path;
+pub use paths::{
+    ensure_session_dir, get_background_processes_dir, get_context_summary_file, get_discovery_dir,
+    get_errors_dir, get_g3_dir, get_session_file, get_session_logs_dir, get_session_todo_path,
+    get_thinned_dir, G3_WORKSPACE_PATH_ENV,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub tool: String,
     pub args: serde_json::Value, // Should be a JSON object with tool-specific arguments
 }
-
 
 // Re-export WebDriverSession from its own module
 pub use webdriver_session::WebDriverSession;
@@ -87,9 +92,8 @@ pub enum StreamState {
     Resuming,
 }
 
-
 // Re-export StreamingToolParser from its own module
-pub use streaming_parser::{StreamingToolParser, sanitize_inline_tool_patterns, LBRACE_HOMOGLYPH};
+pub use streaming_parser::{sanitize_inline_tool_patterns, StreamingToolParser, LBRACE_HOMOGLYPH};
 
 pub struct Agent<W: UiWriter> {
     providers: ProviderRegistry,
@@ -108,9 +112,7 @@ pub struct Agent<W: UiWriter> {
     computer_controller: Option<Box<dyn g3_computer_control::ComputerController>>,
     todo_content: std::sync::Arc<tokio::sync::RwLock<String>>,
     webdriver_session: std::sync::Arc<
-        tokio::sync::RwLock<
-            Option<std::sync::Arc<tokio::sync::Mutex<WebDriverSession>>>,
-        >,
+        tokio::sync::RwLock<Option<std::sync::Arc<tokio::sync::Mutex<WebDriverSession>>>>,
     >,
     webdriver_process: std::sync::Arc<tokio::sync::RwLock<Option<tokio::process::Child>>>,
     tool_call_count: usize,
@@ -167,7 +169,15 @@ impl<W: UiWriter> Agent<W> {
         custom_system_prompt: String,
         readme_content: Option<String>,
     ) -> Result<Self> {
-        Self::new_with_mode_and_readme(config, ui_writer, false, readme_content, false, Some(custom_system_prompt)).await
+        Self::new_with_mode_and_readme(
+            config,
+            ui_writer,
+            false,
+            readme_content,
+            false,
+            Some(custom_system_prompt),
+        )
+        .await
     }
 
     async fn new_with_mode(
@@ -188,8 +198,10 @@ impl<W: UiWriter> Agent<W> {
         custom_system_prompt: Option<String>,
     ) -> Result<Self> {
         // Register providers using the extracted module
-        let providers_to_register = provider_registration::determine_providers_to_register(&config, is_autonomous);
-        let providers = provider_registration::register_providers(&config, &providers_to_register).await?;
+        let providers_to_register =
+            provider_registration::determine_providers_to_register(&config, is_autonomous);
+        let providers =
+            provider_registration::register_providers(&config, &providers_to_register).await?;
 
         // Determine context window size based on active provider
         let mut context_warnings = Vec::new();
@@ -273,8 +285,9 @@ impl<W: UiWriter> Agent<W> {
             working_dir: None,
             background_process_manager: std::sync::Arc::new(
                 background_process::BackgroundProcessManager::new(
-                    paths::get_background_processes_dir()
-                )),
+                    paths::get_background_processes_dir(),
+                ),
+            ),
             pending_images: Vec::new(),
             is_agent_mode: false,
             agent_name: None,
@@ -309,7 +322,9 @@ impl<W: UiWriter> Agent<W> {
 
         // Check for system prompt markers that are present in both standard and agent mode
         // Agent mode replaces the identity line but keeps all other instructions
-        let has_tool_instructions = first_message.content.contains("IMPORTANT: You must call tools to achieve goals");
+        let has_tool_instructions = first_message
+            .content
+            .contains("IMPORTANT: You must call tools to achieve goals");
         if !has_tool_instructions {
             panic!("FATAL: First system message does not contain the system prompt. This likely means the README was added before the system prompt.");
         }
@@ -345,9 +360,12 @@ impl<W: UiWriter> Agent<W> {
         let provider = self.providers.get(None).ok()?;
         let provider_name = provider.name();
         let (provider_type, config_name) = provider_config::parse_provider_ref(provider_name);
-        
+
         match provider_type {
-            "anthropic" => self.config.providers.anthropic
+            "anthropic" => self
+                .config
+                .providers
+                .anthropic
                 .get(config_name)
                 .and_then(|c| c.cache_config.as_ref())
                 .and_then(|config| Self::parse_cache_control(config)),
@@ -362,8 +380,16 @@ impl<W: UiWriter> Agent<W> {
 
     /// Get the thinking budget tokens for Anthropic provider, if configured.
     /// Pre-flight check to validate max_tokens for thinking.budget_tokens constraint.
-    fn preflight_validate_max_tokens(&self, provider_name: &str, proposed_max_tokens: u32) -> (u32, bool) {
-        provider_config::preflight_validate_max_tokens(&self.config, provider_name, proposed_max_tokens)
+    fn preflight_validate_max_tokens(
+        &self,
+        provider_name: &str,
+        proposed_max_tokens: u32,
+    ) -> (u32, bool) {
+        provider_config::preflight_validate_max_tokens(
+            &self.config,
+            provider_name,
+            proposed_max_tokens,
+        )
     }
 
     /// Calculate max_tokens for a summary request.
@@ -377,8 +403,17 @@ impl<W: UiWriter> Agent<W> {
     }
 
     /// Apply the fallback sequence to free up context space for thinking budget.
-    fn apply_max_tokens_fallback_sequence(&mut self, provider_name: &str, initial_max_tokens: u32, hard_coded_minimum: u32) -> u32 {
-        self.apply_fallback_sequence_impl(provider_name, Some(initial_max_tokens), hard_coded_minimum)
+    fn apply_max_tokens_fallback_sequence(
+        &mut self,
+        provider_name: &str,
+        initial_max_tokens: u32,
+        hard_coded_minimum: u32,
+    ) -> u32 {
+        self.apply_fallback_sequence_impl(
+            provider_name,
+            Some(initial_max_tokens),
+            hard_coded_minimum,
+        )
     }
 
     /// Unified implementation of the fallback sequence for freeing context space.
@@ -405,27 +440,33 @@ impl<W: UiWriter> Agent<W> {
         );
 
         // Step 1: Try thinnify (first third of context)
-        self.ui_writer.print_context_status("🥒 Step 1: Trying thinnify...\n");
+        self.ui_writer
+            .print_context_status("🥒 Step 1: Trying thinnify...\n");
         let thin_msg = self.do_thin_context();
         self.ui_writer.print_context_thinning(&thin_msg);
 
         // Recalculate after thinnify
-        let (new_max, still_needs_reduction) = self.recalculate_max_tokens(provider_name, initial_max_tokens.is_some());
+        let (new_max, still_needs_reduction) =
+            self.recalculate_max_tokens(provider_name, initial_max_tokens.is_some());
         max_tokens = new_max;
         if !still_needs_reduction {
-            self.ui_writer.print_context_status("✅ Thinnify resolved capacity issue. Continuing...\n");
+            self.ui_writer
+                .print_context_status("✅ Thinnify resolved capacity issue. Continuing...\n");
             return max_tokens;
         }
 
         // Step 2: Try skinnify (entire context)
-        self.ui_writer.print_context_status("🦴 Step 2: Trying skinnify...\n");
+        self.ui_writer
+            .print_context_status("🦴 Step 2: Trying skinnify...\n");
         let skinny_msg = self.do_thin_context_all();
         self.ui_writer.print_context_thinning(&skinny_msg);
 
         // Recalculate after skinnify
-        let (final_max, final_needs_reduction) = self.recalculate_max_tokens(provider_name, initial_max_tokens.is_some());
+        let (final_max, final_needs_reduction) =
+            self.recalculate_max_tokens(provider_name, initial_max_tokens.is_some());
         if !final_needs_reduction {
-            self.ui_writer.print_context_status("✅ Skinnify resolved capacity issue. Continuing...\n");
+            self.ui_writer
+                .print_context_status("✅ Skinnify resolved capacity issue. Continuing...\n");
             return final_max;
         }
 
@@ -696,7 +737,7 @@ impl<W: UiWriter> Agent<W> {
         let mut user_message = {
             let provider = self.providers.get(None)?;
             let content = format!("Task: {}", description);
-            
+
             // Apply cache control if provider supports it
             if let Some(cache_config) = self.get_provider_cache_control() {
                 Message::with_cache_control_validated(
@@ -709,12 +750,12 @@ impl<W: UiWriter> Agent<W> {
                 Message::new(MessageRole::User, content)
             }
         };
-        
+
         // Attach any pending images to this user message
         if !self.pending_images.is_empty() {
             user_message.images = std::mem::take(&mut self.pending_images);
         }
-        
+
         self.context_window.add_message(user_message);
 
         // Execute fast-discovery tool calls if provided (immediately after user message)
@@ -768,9 +809,9 @@ impl<W: UiWriter> Agent<W> {
         let exclude_research = self.agent_name.as_deref() == Some("scout");
         let tools = if provider.has_native_tool_calling() {
             let mut tool_config = tool_definitions::ToolConfig::new(
-                    self.config.webdriver.enabled,
-                    self.config.computer_control.enabled,
-                );
+                self.config.webdriver.enabled,
+                self.config.computer_control.enabled,
+            );
             if exclude_research {
                 tool_config = tool_config.with_research_excluded();
             }
@@ -934,10 +975,10 @@ impl<W: UiWriter> Agent<W> {
         }
     }
 
-        /// Manually trigger context compaction regardless of context window size
+    /// Manually trigger context compaction regardless of context window size
     /// Returns Ok(true) if compaction was successful, Ok(false) if it failed
     pub async fn force_compact(&mut self) -> Result<bool> {
-        use crate::compaction::{CompactionConfig, perform_compaction};
+        use crate::compaction::{perform_compaction, CompactionConfig};
 
         debug!("Manual compaction triggered");
 
@@ -971,10 +1012,12 @@ impl<W: UiWriter> Agent<W> {
             compaction_config,
             &self.ui_writer,
             &mut self.thinning_events,
-        ).await?;
+        )
+        .await?;
 
         if result.success {
-            self.ui_writer.print_context_status("✅ Context compacted successfully.\n");
+            self.ui_writer
+                .print_context_status("✅ Context compacted successfully.\n");
             self.compaction_events.push(result.chars_saved);
             Ok(true)
         } else {
@@ -984,7 +1027,7 @@ impl<W: UiWriter> Agent<W> {
             Ok(false)
         }
     }
-/// Manually trigger context thinning regardless of thresholds
+    /// Manually trigger context thinning regardless of thresholds
     pub fn force_thin(&mut self) -> String {
         debug!("Manual context thinning triggered");
         self.do_thin_context()
@@ -1006,7 +1049,9 @@ impl<W: UiWriter> Agent<W> {
 
     /// Internal helper: thin all context and track the event
     fn do_thin_context_all(&mut self) -> String {
-        let (message, chars_saved) = self.context_window.thin_context_all(self.session_id.as_deref());
+        let (message, chars_saved) = self
+            .context_window
+            .thin_context_all(self.session_id.as_deref());
         self.thinning_events.push(chars_saved);
         message
     }
@@ -1030,10 +1075,12 @@ impl<W: UiWriter> Agent<W> {
             self.ui_writer.print_context_thinning(&thin_summary);
 
             if !self.context_window.should_compact() {
-                self.ui_writer.print_context_status("✅ Thinning resolved capacity issue. Continuing...\n");
+                self.ui_writer
+                    .print_context_status("✅ Thinning resolved capacity issue. Continuing...\n");
                 return Ok(false);
             }
-            self.ui_writer.print_context_status("⚠️ Thinning insufficient. Proceeding with compaction...\n");
+            self.ui_writer
+                .print_context_status("⚠️ Thinning insufficient. Proceeding with compaction...\n");
         }
 
         // Compaction still needed
@@ -1041,7 +1088,7 @@ impl<W: UiWriter> Agent<W> {
             return Ok(false);
         }
 
-        use crate::compaction::{CompactionConfig, perform_compaction};
+        use crate::compaction::{perform_compaction, CompactionConfig};
 
         self.ui_writer.print_context_status(&format!(
             "\n🗜️ Context window reaching capacity ({}%). Compacting...",
@@ -1049,7 +1096,10 @@ impl<W: UiWriter> Agent<W> {
         ));
 
         let provider_name = self.providers.get(None)?.name().to_string();
-        let latest_user_msg = request.messages.iter().rev()
+        let latest_user_msg = request
+            .messages
+            .iter()
+            .rev()
             .find(|m| matches!(m.role, MessageRole::User))
             .map(|m| m.content.clone());
 
@@ -1065,17 +1115,21 @@ impl<W: UiWriter> Agent<W> {
             compaction_config,
             &self.ui_writer,
             &mut self.thinning_events,
-        ).await?;
+        )
+        .await?;
 
         if result.success {
-            self.ui_writer.print_context_status("✅ Context compacted successfully. Continuing...\n");
+            self.ui_writer
+                .print_context_status("✅ Context compacted successfully. Continuing...\n");
             self.compaction_events.push(result.chars_saved);
             request.messages = self.context_window.conversation_history.clone();
             return Ok(true);
         }
 
         self.ui_writer.print_context_status("⚠️ Unable to compact context. Consider starting a new session if you continue to see errors.\n");
-        Err(anyhow::anyhow!("Context window at capacity and compaction failed. Please start a new session."))
+        Err(anyhow::anyhow!(
+            "Context window at capacity and compaction failed. Please start a new session."
+        ))
     }
 
     /// Check if a tool call is a duplicate of the last tool call in the previous assistant message.
@@ -1090,11 +1144,13 @@ impl<W: UiWriter> Agent<W> {
             let content = &msg.content;
 
             // Look for the last occurrence of a tool call pattern
-            let last_tool_start = content.rfind(r#"{"tool""#)
+            let last_tool_start = content
+                .rfind(r#"{"tool""#)
                 .or_else(|| content.rfind(r#"{ "tool""#))?;
 
             // Find the end of this JSON object
-            let end_offset = StreamingToolParser::find_complete_json_object_end(&content[last_tool_start..])?;
+            let end_offset =
+                StreamingToolParser::find_complete_json_object_end(&content[last_tool_start..])?;
             let end_idx = last_tool_start + end_offset + 1;
             let tool_json = &content[last_tool_start..end_idx];
 
@@ -1178,7 +1234,7 @@ impl<W: UiWriter> Agent<W> {
     /// Get detailed context statistics
     pub fn get_stats(&self) -> String {
         use crate::stats::AgentStatsSnapshot;
-        
+
         let snapshot = AgentStatsSnapshot {
             context_window: &self.context_window,
             thinning_events: &self.thinning_events,
@@ -1187,7 +1243,7 @@ impl<W: UiWriter> Agent<W> {
             tool_call_metrics: &self.tool_call_metrics,
             provider_info: self.get_provider_info().ok(),
         };
-        
+
         snapshot.format()
     }
 
@@ -1207,7 +1263,7 @@ impl<W: UiWriter> Agent<W> {
     /// Save session continuation for potential resumption
     pub fn save_session_continuation(&self, summary: Option<String>) {
         use crate::session_continuation::{save_continuation, SessionContinuation};
-        
+
         let session_id = match &self.session_id {
             Some(id) => id.clone(),
             None => {
@@ -1215,10 +1271,10 @@ impl<W: UiWriter> Agent<W> {
                 return;
             }
         };
-        
+
         // Get the session log path (now in .g3/sessions/<session_id>/session.json)
         let session_log_path = get_session_file(&session_id);
-        
+
         // Get current TODO content - try session-specific path first, then workspace path
         let session_todo_path = crate::paths::get_session_todo_path(&session_id);
         let todo_snapshot = if session_todo_path.exists() {
@@ -1227,21 +1283,24 @@ impl<W: UiWriter> Agent<W> {
             // Fall back to workspace TODO path for backwards compatibility
             std::fs::read_to_string(get_todo_path()).ok()
         };
-        
+
         // Get working directory
         let working_directory = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| ".".to_string());
-        
+
         // Get description from first user message (strip "Task: " prefix if present)
-        let description = self.context_window.conversation_history.iter()
+        let description = self
+            .context_window
+            .conversation_history
+            .iter()
             .find(|m| matches!(m.role, g3_providers::MessageRole::User))
             .map(|m| {
                 let content = m.content.strip_prefix("Task: ").unwrap_or(&m.content);
                 // Truncate to ~60 chars for display, ending at word boundary
                 truncate_to_word_boundary(content, 60)
             });
-        
+
         let continuation = SessionContinuation::new(
             self.is_agent_mode,
             self.agent_name.clone(),
@@ -1253,14 +1312,14 @@ impl<W: UiWriter> Agent<W> {
             todo_snapshot,
             working_directory,
         );
-        
+
         if let Err(e) = save_continuation(&continuation) {
             error!("Failed to save session continuation: {}", e);
         } else {
             debug!("Saved session continuation artifact");
         }
     }
-    
+
     /// Set agent mode information for session tracking
     /// Called when running with --agent flag to enable agent-specific session resume
     pub fn set_agent_mode(&mut self, agent_name: &str) {
@@ -1272,17 +1331,23 @@ impl<W: UiWriter> Agent<W> {
     /// Enable auto-memory reminders after turns with tool calls
     pub fn set_auto_memory(&mut self, enabled: bool) {
         self.auto_memory = enabled;
-        debug!("Auto-memory reminders: {}", if enabled { "enabled" } else { "disabled" });
+        debug!(
+            "Auto-memory reminders: {}",
+            if enabled { "enabled" } else { "disabled" }
+        );
     }
 
     /// Enable or disable aggressive context dehydration (ACD)
     pub fn set_acd_enabled(&mut self, enabled: bool) {
         self.acd_enabled = enabled;
-        debug!("ACD (aggressive context dehydration): {}", if enabled { "enabled" } else { "disabled" });
+        debug!(
+            "ACD (aggressive context dehydration): {}",
+            if enabled { "enabled" } else { "disabled" }
+        );
     }
 
     /// Build the final response and prepare for return.
-    /// 
+    ///
     /// This is the single canonical path for completing a streaming turn:
     /// 1. Finish streaming markdown
     /// 2. Save context window
@@ -1320,7 +1385,7 @@ impl<W: UiWriter> Agent<W> {
 
     /// Perform ACD dehydration - save current conversation state to a fragment.
     /// Called at the end of each turn when ACD is enabled.
-    /// 
+    ///
     /// This saves all non-system messages (except the final assistant response)
     /// to a fragment, then replaces them with a compact stub. The final assistant
     /// response is preserved as the turn summary after the stub.
@@ -1342,7 +1407,8 @@ impl<W: UiWriter> Agent<W> {
 
         // Find the index of the last dehydration stub (marks the end of previously dehydrated content)
         // We only want to dehydrate messages AFTER the last stub+summary pair
-        let last_stub_index = self.context_window
+        let last_stub_index = self
+            .context_window
             .conversation_history
             .iter()
             .rposition(|m| m.is_dehydrated_stub());
@@ -1356,14 +1422,19 @@ impl<W: UiWriter> Agent<W> {
         };
 
         // Get the preceding fragment ID (if any)
-        let preceding_id = crate::acd::get_latest_fragment_id(&session_id).ok().flatten();
+        let preceding_id = crate::acd::get_latest_fragment_id(&session_id)
+            .ok()
+            .flatten();
 
         // Extract only NEW non-system messages to dehydrate (after the last stub+summary)
-        let messages_to_dehydrate: Vec<_> = self.context_window
+        let messages_to_dehydrate: Vec<_> = self
+            .context_window
             .conversation_history
             .iter()
             .enumerate()
-            .filter(|(idx, m)| *idx >= dehydrate_start && !matches!(m.role, g3_providers::MessageRole::System))
+            .filter(|(idx, m)| {
+                *idx >= dehydrate_start && !matches!(m.role, g3_providers::MessageRole::System)
+            })
             .map(|(_, m)| m.clone())
             .collect();
 
@@ -1378,22 +1449,23 @@ impl<W: UiWriter> Agent<W> {
             .rev()
             .find(|m| matches!(m.role, g3_providers::MessageRole::Assistant))
             .map(|m| m.content.clone());
-        
+
         // Use extracted summary, falling back to final_response only if no assistant message found
         let summary_content = turn_summary.unwrap_or_default();
 
         // Create the fragment and generate stub
         let fragment = crate::acd::Fragment::new(messages_to_dehydrate, preceding_id);
         let stub = fragment.generate_stub();
-        
+
         if let Err(e) = fragment.save(&session_id) {
             warn!("Failed to save ACD fragment: {}", e);
             return; // Don't modify context if save failed
         }
-        
+
         // Now replace the context: keep system messages + previous stubs/summaries, add new stub, add new summary
         // Extract messages to keep: system messages + everything up to (but not including) dehydrate_start
-        let messages_to_keep: Vec<_> = self.context_window
+        let messages_to_keep: Vec<_> = self
+            .context_window
             .conversation_history
             .iter()
             .enumerate()
@@ -1406,12 +1478,12 @@ impl<W: UiWriter> Agent<W> {
 
         // Clear and rebuild context
         self.context_window.conversation_history.clear();
-        
+
         // Add back kept messages (system + previous stubs/summaries)
         for msg in messages_to_keep {
             self.context_window.conversation_history.push(msg);
         }
-        
+
         // Add the stub as a user message (so LLM sees it as context)
         let stub_msg = g3_providers::Message::with_kind(
             g3_providers::MessageRole::User,
@@ -1419,7 +1491,7 @@ impl<W: UiWriter> Agent<W> {
             g3_providers::MessageKind::DehydratedStub,
         );
         self.context_window.conversation_history.push(stub_msg);
-        
+
         // Add the final response as assistant message (the summary)
         if !summary_content.trim().is_empty() {
             let summary_msg = g3_providers::Message::with_kind(
@@ -1429,7 +1501,7 @@ impl<W: UiWriter> Agent<W> {
             );
             self.context_window.conversation_history.push(summary_msg);
         }
-        
+
         // Recalculate token usage
         self.context_window.recalculate_tokens();
     }
@@ -1445,24 +1517,32 @@ impl<W: UiWriter> Agent<W> {
         // Check if any tools were called this turn
         if self.tool_calls_this_turn.is_empty() {
             debug!("Auto-memory: No tools called, skipping reminder");
-            self.ui_writer.print_context_status("📝 Auto-memory: No tools called this turn, skipping reminder.\n");
+            self.ui_writer.print_context_status(
+                "📝 Auto-memory: No tools called this turn, skipping reminder.\n",
+            );
             return Ok(false);
         }
 
         // Check if remember was already called this turn - no need to remind
         if self.tool_calls_this_turn.iter().any(|t| t == "remember") {
             debug!("Auto-memory: 'remember' was already called this turn, skipping reminder");
-            self.ui_writer.print_context_status("\n📝 Auto-memory: 'remember' already called, skipping reminder.\n");
+            self.ui_writer.print_context_status(
+                "\n📝 Auto-memory: 'remember' already called, skipping reminder.\n",
+            );
             self.tool_calls_this_turn.clear();
             return Ok(false);
         }
 
         // Take the tools list and reset for next turn
         let tools_called = std::mem::take(&mut self.tool_calls_this_turn);
-        
-        debug!("Auto-memory: Sending reminder to LLM ({} tools called this turn: {:?})", tools_called.len(), tools_called);
+
+        debug!(
+            "Auto-memory: Sending reminder to LLM ({} tools called this turn: {:?})",
+            tools_called.len(),
+            tools_called
+        );
         self.ui_writer.print_context_status("\nMemory checkpoint: ");
-        
+
         let reminder = r#"MEMORY CHECKPOINT: If you discovered code locations worth remembering, call `remember` now.
 
 Use this rich format:
@@ -1496,14 +1576,12 @@ Save/restore session state across g3 invocations using symlink-based approach.
 Skip if nothing new. Be brief."#;
 
         // Add the reminder as a user message and get a response
-        self.context_window.add_message(Message::new(
-            MessageRole::User,
-            reminder.to_string(),
-        ));
+        self.context_window
+            .add_message(Message::new(MessageRole::User, reminder.to_string()));
 
         // Build the completion request
         let messages = self.context_window.conversation_history.clone();
-        
+
         // Get provider and tools
         let provider = self.providers.get(None)?;
         let provider_name = provider.name().to_string();
@@ -1547,15 +1625,15 @@ Skip if nothing new. Be brief."#;
     /// Clear session state and continuation artifacts (for /clear command)
     pub fn clear_session(&mut self) {
         use crate::session_continuation::clear_continuation;
-        
+
         // Clear the context window (keep system prompt)
         self.context_window.clear_conversation();
-        
+
         // Clear continuation artifacts
         if let Err(e) = clear_continuation() {
             error!("Failed to clear continuation artifacts: {}", e);
         }
-        
+
         debug!("Session cleared");
     }
 
@@ -1566,33 +1644,34 @@ Skip if nothing new. Be brief."#;
         continuation: &crate::session_continuation::SessionContinuation,
     ) -> Result<bool> {
         use std::path::PathBuf;
-        
+
         let session_log_path = PathBuf::from(&continuation.session_log_path);
-        
+
         // If context < 80%, try to restore full context
         if continuation.can_restore_full_context() && session_log_path.exists() {
             // Load the session log
             let json = std::fs::read_to_string(&session_log_path)?;
             let session_data: serde_json::Value = serde_json::from_str(&json)?;
-            
+
             // Extract conversation history
             if let Some(context_window) = session_data.get("context_window") {
                 if let Some(history) = context_window.get("conversation_history") {
                     if let Some(messages) = history.as_array() {
                         // Clear current conversation (keep system messages)
                         self.context_window.clear_conversation();
-                        
+
                         // Restore messages from session log (skip system messages as they're preserved)
                         for msg in messages {
-                            let role_str = msg.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+                            let role_str =
+                                msg.get("role").and_then(|r| r.as_str()).unwrap_or("user");
                             let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                            
+
                             let role = match role_str {
                                 "system" => continue, // Skip system messages, already preserved
                                 "assistant" => MessageRole::Assistant,
                                 _ => MessageRole::User,
                             };
-                            
+
                             self.context_window.add_message(Message {
                                 role,
                                 id: String::new(),
@@ -1602,14 +1681,14 @@ Skip if nothing new. Be brief."#;
                                 cache_control: None,
                             });
                         }
-                        
+
                         debug!("Restored full context from session log");
                         return Ok(true);
                     }
                 }
             }
         }
-        
+
         // Fall back to using session summary + TODO
         let mut context_msg = String::new();
         if let Some(ref summary) = continuation.summary {
@@ -1618,7 +1697,7 @@ Skip if nothing new. Be brief."#;
         if let Some(ref todo) = continuation.todo_snapshot {
             context_msg.push_str(&format!("Current TODO state:\n{}\n", todo));
         }
-        
+
         if !context_msg.is_empty() {
             self.context_window.add_message(Message {
                 role: MessageRole::User,
@@ -1629,7 +1708,7 @@ Skip if nothing new. Be brief."#;
                 cache_control: None,
             });
         }
-        
+
         debug!("Restored session from summary");
         Ok(false)
     }
@@ -1642,7 +1721,7 @@ Skip if nothing new. Be brief."#;
     ) -> Result<bool> {
         // Save current session first (so it can be resumed later)
         self.save_session_continuation(None);
-        
+
         // Reset session-specific metrics
         self.thinning_events.clear();
         self.compaction_events.clear();
@@ -1650,14 +1729,14 @@ Skip if nothing new. Be brief."#;
         self.tool_call_metrics.clear();
         self.tool_call_count = 0;
         self.pending_90_compaction = false;
-        
+
         // Update session ID to the new session
         self.session_id = Some(continuation.session_id.clone());
-        
+
         // Update agent mode info from continuation
         self.is_agent_mode = continuation.is_agent_mode;
         self.agent_name = continuation.agent_name.clone();
-        
+
         // Load TODO content from the new session if available
         if let Some(ref todo) = continuation.todo_snapshot {
             // Use blocking write since we're in a sync context
@@ -1665,7 +1744,7 @@ Skip if nothing new. Be brief."#;
                 *guard = todo.clone();
             }
         }
-        
+
         // Restore context from the continuation
         self.restore_from_continuation(continuation)
     }
@@ -1765,8 +1844,8 @@ Skip if nothing new. Be brief."#;
         let mut any_tool_executed = false; // Track if ANY tool was executed across all iterations
         let mut auto_summary_attempts = 0; // Track auto-summary prompt attempts
         const MAX_AUTO_SUMMARY_ATTEMPTS: usize = 5; // Limit auto-summary retries (increased from 2 for better recovery)
-        // 
-        // Note: Session-level duplicate tracking was removed - we only prevent sequential duplicates (DUP IN CHUNK, DUP IN MSG)
+                                                    //
+                                                    // Note: Session-level duplicate tracking was removed - we only prevent sequential duplicates (DUP IN CHUNK, DUP IN MSG)
         let mut turn_accumulated_usage: Option<g3_providers::Usage> = None; // Track token usage for timing footer
 
         // --- Phase 1: Pre-loop Context Capacity Check ---
@@ -1916,24 +1995,25 @@ Skip if nothing new. Be brief."#;
 
                         // Handle completed tool calls - process all if multiple calls enabled
                         // Always process all tool calls - they will be executed after stream ends
-                        
+
                         // De-duplicate tool calls (sequential duplicates in chunk + duplicates from previous message)
-                        let deduplicated_tools = streaming::deduplicate_tool_calls(
-                            completed_tools,
-                            |tc| self.check_duplicate_in_previous_message(tc),
-                        );
+                        let deduplicated_tools =
+                            streaming::deduplicate_tool_calls(completed_tools, |tc| {
+                                self.check_duplicate_in_previous_message(tc)
+                            });
 
                         // Process each tool call
                         for (tool_call, duplicate_type) in deduplicated_tools {
                             debug!("Processing completed tool call: {:?}", tool_call);
-                            
+
                             // Skip duplicates (don't set tool_executed - would trigger spurious auto-continue)
                             if let Some(dup_type) = &duplicate_type {
                                 debug!(
                                     "Skipping duplicate tool call ({}): {} with args {}",
                                     dup_type,
                                     tool_call.tool,
-                                    serde_json::to_string(&tool_call.args).unwrap_or_else(|_| "<unserializable>".to_string())
+                                    serde_json::to_string(&tool_call.args)
+                                        .unwrap_or_else(|_| "<unserializable>".to_string())
                                 );
                                 continue;
                             }
@@ -1954,18 +2034,20 @@ Skip if nothing new. Be brief."#;
                             let text_content = parser.get_text_content();
                             let clean_content = streaming::clean_llm_tokens(&text_content);
                             let raw_content_for_log = clean_content.clone();
-                            let filtered_content = self.ui_writer.filter_json_tool_calls(&clean_content);
+                            let filtered_content =
+                                self.ui_writer.filter_json_tool_calls(&clean_content);
                             let final_display_content = filtered_content.trim();
 
                             // Extract only the new (undisplayed) portion
-                            let new_content = if current_response.len() <= final_display_content.len() {
-                                final_display_content
-                                    .chars()
-                                    .skip(already_displayed_chars)
-                                    .collect::<String>()
-                            } else {
-                                String::new()
-                            };
+                            let new_content =
+                                if current_response.len() <= final_display_content.len() {
+                                    final_display_content
+                                        .chars()
+                                        .skip(already_displayed_chars)
+                                        .collect::<String>()
+                                } else {
+                                    String::new()
+                                };
 
                             // Display new text before tool execution
                             if !new_content.trim().is_empty() {
@@ -1981,26 +2063,38 @@ Skip if nothing new. Be brief."#;
 
                             self.ui_writer.finish_streaming_markdown();
 
-                            let is_todo_tool = tool_call.tool == "todo_read" || tool_call.tool == "todo_write";
+                            let is_todo_tool =
+                                tool_call.tool == "todo_read" || tool_call.tool == "todo_write";
 
                             // Tool call header (TODO tools print their own)
                             if !is_todo_tool {
-                            self.ui_writer.print_tool_header(&tool_call.tool, Some(&tool_call.args));
-                            if let Some(args_obj) = tool_call.args.as_object() {
-                                for (key, value) in args_obj {
-                                    let value_str = streaming::format_tool_arg_value(
-                                        &tool_call.tool,
-                                        key,
-                                        value,
-                                    );
-                                    self.ui_writer.print_tool_arg(key, &value_str);
+                                self.ui_writer
+                                    .print_tool_header(&tool_call.tool, Some(&tool_call.args));
+                                if let Some(args_obj) = tool_call.args.as_object() {
+                                    for (key, value) in args_obj {
+                                        let value_str = streaming::format_tool_arg_value(
+                                            &tool_call.tool,
+                                            key,
+                                            value,
+                                        );
+                                        self.ui_writer.print_tool_arg(key, &value_str);
+                                    }
                                 }
-                            }
                             }
 
                             // Check if this is a compact tool (file operations)
-                            let is_compact_tool = matches!(tool_call.tool.as_str(), "read_file" | "write_file" | "str_replace" | "remember" | "screenshot" | "coverage" | "rehydrate" | "code_search");
-                            
+                            let is_compact_tool = matches!(
+                                tool_call.tool.as_str(),
+                                "read_file"
+                                    | "write_file"
+                                    | "str_replace"
+                                    | "remember"
+                                    | "screenshot"
+                                    | "coverage"
+                                    | "rehydrate"
+                                    | "code_search"
+                            );
+
                             // Only print output header for non-compact tools
                             if !is_compact_tool && !is_todo_tool {
                                 self.ui_writer.print_tool_output_header();
@@ -2050,30 +2144,54 @@ Skip if nothing new. Be brief."#;
                                     if !tool_success {
                                         Some(streaming::truncate_for_display(&tool_result, 60))
                                     } else {
-                                    match tool_call.tool.as_str() {
-                                        "read_file" => Some(streaming::format_read_file_summary(output_len, tool_result.len())),
-                                        "write_file" => Some(streaming::format_write_file_result(&tool_result)),
-                                        "str_replace" => {
-                                            let (ins, del) = parse_diff_stats(&tool_result);
-                                            Some(streaming::format_str_replace_summary(ins, del))
+                                        match tool_call.tool.as_str() {
+                                            "read_file" => {
+                                                Some(streaming::format_read_file_summary(
+                                                    output_len,
+                                                    tool_result.len(),
+                                                ))
+                                            }
+                                            "write_file" => Some(
+                                                streaming::format_write_file_result(&tool_result),
+                                            ),
+                                            "str_replace" => {
+                                                let (ins, del) = parse_diff_stats(&tool_result);
+                                                Some(streaming::format_str_replace_summary(
+                                                    ins, del,
+                                                ))
+                                            }
+                                            "remember" => Some(streaming::format_remember_summary(
+                                                &tool_result,
+                                            )),
+                                            "screenshot" => Some(
+                                                streaming::format_screenshot_summary(&tool_result),
+                                            ),
+                                            "coverage" => Some(streaming::format_coverage_summary(
+                                                &tool_result,
+                                            )),
+                                            "rehydrate" => Some(
+                                                streaming::format_rehydrate_summary(&tool_result),
+                                            ),
+                                            "code_search" => Some(
+                                                streaming::format_code_search_summary(&tool_result),
+                                            ),
+                                            _ => Some("✅ completed".to_string()),
                                         }
-                                        "remember" => Some(streaming::format_remember_summary(&tool_result)),
-                                        "screenshot" => Some(streaming::format_screenshot_summary(&tool_result)),
-                                        "coverage" => Some(streaming::format_coverage_summary(&tool_result)),
-                                        "rehydrate" => Some(streaming::format_rehydrate_summary(&tool_result)),
-                                        "code_search" => Some(streaming::format_code_search_summary(&tool_result)),
-                                        _ => Some("✅ completed".to_string()),
-                                    }
                                     }
                                 } else {
                                     // Regular tools: show truncated output lines
-                                    let max_lines_to_show = if wants_full { output_len } else { MAX_LINES };
+                                    let max_lines_to_show =
+                                        if wants_full { output_len } else { MAX_LINES };
                                     for (idx, line) in output_lines.iter().enumerate() {
                                         if !wants_full && idx >= max_lines_to_show {
                                             break;
                                         }
                                         self.ui_writer.update_tool_output_line(
-                                            &streaming::truncate_line(line, MAX_LINE_WIDTH, !wants_full)
+                                            &streaming::truncate_line(
+                                                line,
+                                                MAX_LINE_WIDTH,
+                                                !wants_full,
+                                            ),
                                         );
                                     }
                                     if !wants_full && output_len > MAX_LINES {
@@ -2107,12 +2225,12 @@ Skip if nothing new. Be brief."#;
                             };
                             let mut result_message = {
                                 let content = format!("Tool result: {}", tool_result);
-                                
+
                                 // Apply cache control every 10 tool calls (max 4 annotations)
                                 let should_cache = self.tool_call_count > 0
                                     && self.tool_call_count % 10 == 0
                                     && self.count_cache_controls_in_history() < 4;
-                                
+
                                 if should_cache {
                                     let provider = self.providers.get(None)?;
                                     if let Some(cache_config) = self.get_provider_cache_control() {
@@ -2143,8 +2261,11 @@ Skip if nothing new. Be brief."#;
                             self.context_window.add_message(result_message);
 
                             // Closure marker with timing
-                            let tokens_delta = self.context_window.used_tokens.saturating_sub(tokens_before);
-                            
+                            let tokens_delta = self
+                                .context_window
+                                .used_tokens
+                                .saturating_sub(tokens_before);
+
                             // TODO tools handle their own output via print_todo_compact, skip timing
                             if !is_todo_tool {
                                 // Use compact format for file operations, normal format for others
@@ -2157,10 +2278,11 @@ Skip if nothing new. Be brief."#;
                                         self.context_window.percentage_used(),
                                     );
                                 } else {
-                                    self.ui_writer
-                                        .print_tool_timing(&streaming::format_duration(exec_duration),
-                                            tokens_delta,
-                                            self.context_window.percentage_used());
+                                    self.ui_writer.print_tool_timing(
+                                        &streaming::format_duration(exec_duration),
+                                        tokens_delta,
+                                        self.context_window.percentage_used(),
+                                    );
                                 }
                             }
                             self.ui_writer.print_agent_prompt();
@@ -2172,14 +2294,15 @@ Skip if nothing new. Be brief."#;
                             let provider_for_tools = self.providers.get(None)?;
                             if provider_for_tools.has_native_tool_calling() {
                                 let mut tool_config = tool_definitions::ToolConfig::new(
-                                        self.config.webdriver.enabled,
-                                        self.config.computer_control.enabled,
-                                    );
+                                    self.config.webdriver.enabled,
+                                    self.config.computer_control.enabled,
+                                );
                                 // Exclude research tool for scout agent to prevent recursion
                                 if self.agent_name.as_deref() == Some("scout") {
                                     tool_config = tool_config.with_research_excluded();
                                 }
-                                request.tools = Some(tool_definitions::create_tool_definitions(tool_config));
+                                request.tools =
+                                    Some(tool_definitions::create_tool_definitions(tool_config));
                             }
 
                             // DO NOT add final_display_content to full_response here!
@@ -2196,7 +2319,6 @@ Skip if nothing new. Be brief."#;
                             // This gives the LLM fresh attempts since it's making progress
                             auto_summary_attempts = 0;
 
-
                             // Reset the JSON tool call filter state after each tool execution
                             // This ensures the filter doesn't stay in suppression mode for subsequent streaming content
                             self.ui_writer.reset_json_filter();
@@ -2204,7 +2326,9 @@ Skip if nothing new. Be brief."#;
                             // Only reset parser if there are no more unexecuted tool calls in the buffer
                             // This handles the case where the LLM emits multiple tool calls in one response
                             if parser.has_unexecuted_tool_call() {
-                                debug!("Parser still has unexecuted tool calls, not resetting buffer");
+                                debug!(
+                                    "Parser still has unexecuted tool calls, not resetting buffer"
+                                );
                                 // Mark current tool as consumed so we don't re-detect it
                                 parser.mark_tool_calls_consumed();
                             } else {
@@ -2253,7 +2377,7 @@ Skip if nothing new. Be brief."#;
                         if chunk.finished {
                             debug!("Stream finished: tool_executed={}, current_response_len={}, full_response_len={}, chunks_received={}",
                                 tool_executed, current_response.len(), full_response.len(), chunks_received);
-                            
+
                             // Capture the stop reason from the final chunk
                             if let Some(ref reason) = chunk.stop_reason {
                                 debug!("Stream stop_reason: {}", reason);
@@ -2319,7 +2443,7 @@ Skip if nothing new. Be brief."#;
 
                                 // If tools were executed in previous iterations,
                                 // break to let the outer loop's auto-continue logic handle it
-                                if any_tool_executed  {
+                                if any_tool_executed {
                                     debug!("Tools were executed, continuing - breaking to auto-continue");
                                     // IMPORTANT: Save any text response to context window before breaking
                                     // This ensures text displayed after tool execution is not lost
@@ -2331,7 +2455,7 @@ Skip if nothing new. Be brief."#;
                                         );
                                         self.context_window.add_message(assistant_msg);
                                     }
-                                    
+
                                     // NOTE: We intentionally do NOT set full_response here.
                                     // The content was already displayed during streaming.
                                     // Setting full_response would cause duplication when the
@@ -2365,7 +2489,6 @@ Skip if nothing new. Be brief."#;
                         error!("Error type: {}", std::any::type_name_of_val(&e));
                         error!("Parser state at error: text_buffer_len={}, has_incomplete={}, message_stopped={}",
                             parser.text_buffer_len(), parser.has_incomplete_tool_call(), parser.is_message_stopped());
-
 
                         // Check if this is a recoverable connection error
                         let is_connection_error = streaming::is_connection_error(&error_msg);
@@ -2450,9 +2573,10 @@ Skip if nothing new. Be brief."#;
                     debug!("Detected unexecuted tool call in buffer - this may indicate a parsing issue");
                     warn!("Unexecuted tool call detected in buffer after stream ended");
                 }
-                
+
                 // Check if the response was truncated due to max_tokens
-                let was_truncated_by_max_tokens = stream_stop_reason.as_deref() == Some("max_tokens");
+                let was_truncated_by_max_tokens =
+                    stream_stop_reason.as_deref() == Some("max_tokens");
                 if was_truncated_by_max_tokens {
                     debug!("Response was truncated due to max_tokens limit");
                     warn!("LLM response was cut off due to max_tokens limit - will auto-continue");
@@ -2470,7 +2594,7 @@ Skip if nothing new. Be brief."#;
                 if let Some(reason) = auto_continue_reason {
                     if auto_summary_attempts < MAX_AUTO_SUMMARY_ATTEMPTS {
                         auto_summary_attempts += 1;
-                        
+
                         // Log and display appropriate message based on reason
                         use streaming::AutoContinueReason::*;
                         let (log_msg, ui_msg) = match reason {
@@ -2491,10 +2615,15 @@ Skip if nothing new. Be brief."#;
                                 "\n🔄 Model stopped without providing summary. Auto-continuing...\n",
                             ),
                         };
-                        warn!("{} ({} iterations, auto-continue attempt {}/{})",
-                            log_msg, iteration_count, auto_summary_attempts, MAX_AUTO_SUMMARY_ATTEMPTS);
+                        warn!(
+                            "{} ({} iterations, auto-continue attempt {}/{})",
+                            log_msg,
+                            iteration_count,
+                            auto_summary_attempts,
+                            MAX_AUTO_SUMMARY_ATTEMPTS
+                        );
                         self.ui_writer.print_context_status(ui_msg);
-                        
+
                         // Add any text response to context before prompting for continuation
                         if has_response {
                             let response_text = if !current_response.is_empty() {
@@ -2510,7 +2639,7 @@ Skip if nothing new. Be brief."#;
                                 self.context_window.add_message(assistant_msg);
                             }
                         }
-                        
+
                         // Add a follow-up message asking for continuation
                         let continue_prompt = match reason {
                             IncompleteToolCall => Message::new(
@@ -2524,7 +2653,7 @@ Skip if nothing new. Be brief."#;
                         };
                         self.context_window.add_message(continue_prompt);
                         request.messages = self.context_window.conversation_history.clone();
-                        
+
                         // Continue the loop
                         continue;
                     } else {
@@ -2534,7 +2663,7 @@ Skip if nothing new. Be brief."#;
                             MAX_AUTO_SUMMARY_ATTEMPTS,
                             iteration_count,
                             any_tool_executed,
-                            
+
                             has_incomplete_tool_call,
                             has_unexecuted_tool_call,
                             is_empty_response
@@ -2613,10 +2742,13 @@ Skip if nothing new. Be brief."#;
             Ok(s) => s.clone(),
             Err(e) => format!("ERROR: {}", e),
         };
-        debug!("Tool {} completed: {}", tool_call.tool, &log_str.chars().take(100).collect::<String>());
+        debug!(
+            "Tool {} completed: {}",
+            tool_call.tool,
+            &log_str.chars().take(100).collect::<String>()
+        );
         result
     }
-
 
     async fn execute_tool_inner_in_dir(
         &mut self,
@@ -2660,10 +2792,7 @@ Skip if nothing new. Be brief."#;
 
         Ok(result)
     }
-
-
 }
-
 
 // Re-export utility functions
 pub use utils::apply_unified_diff_to_string;
@@ -2674,16 +2803,24 @@ use utils::truncate_to_word_boundary;
 fn parse_diff_stats(result: &str) -> (i32, i32) {
     let mut insertions = 0i32;
     let mut deletions = 0i32;
-    
+
     // Look for "+N insertions" pattern
     if let Some(pos) = result.find("+") {
         let after_plus = &result[pos + 1..];
-        insertions = after_plus.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        insertions = after_plus
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
     }
-    // Look for "-M deletions" pattern  
+    // Look for "-M deletions" pattern
     if let Some(pos) = result.find("-") {
         let after_minus = &result[pos + 1..];
-        deletions = after_minus.split_whitespace().next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        deletions = after_minus
+            .split_whitespace()
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
     }
     (insertions, deletions)
 }
