@@ -386,6 +386,25 @@ pub fn format_rehydrate_summary(result: &str) -> String {
     }
 }
 
+/// Format a code_search result summary.
+pub fn format_code_search_summary(result: &str) -> String {
+    // Result format: "✅ Code search completed\n{json}"
+    // JSON contains: {"searches": [...], "total_matches": N, "total_files_searched": M}
+    if result.contains("❌") {
+        "❌ failed".to_string()
+    } else if let Some(json_start) = result.find('{') {
+        // Try to parse the JSON to extract summary stats
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&result[json_start..]) {
+            let matches = parsed.get("total_matches").and_then(|v| v.as_u64()).unwrap_or(0);
+            let files = parsed.get("total_files_searched").and_then(|v| v.as_u64()).unwrap_or(0);
+            return format!("🔍 {} matches in {} files", matches, files);
+        }
+        "🔍 search complete".to_string()
+    } else {
+        "🔍 search complete".to_string()
+    }
+}
+
 // =============================================================================
 // Tool Call Deduplication
 // =============================================================================

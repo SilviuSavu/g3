@@ -237,9 +237,10 @@ impl UiWriter for ConsoleUiWriter {
                 // Check if this is a shell command - use compact format
                 if tool_name == "shell" {
                     *self.is_shell_compact.lock().unwrap() = true;
-                    // Print compact shell header: "● shell | command"
+                    // Print compact shell header: "● shell      | command"
+                    // Pad to align with longest compact tool (str_replace = 11 chars)
                     println!(
-                        " \x1b[2m●\x1b[0m {}{} \x1b[2m|\x1b[0m \x1b[35m{}\x1b[0m",
+                        " \x1b[2m●\x1b[0m {}{:<11}\x1b[0m \x1b[2m|\x1b[0m \x1b[35m{}\x1b[0m",
                         tool_color, tool_name, display_value
                     );
                     return;
@@ -323,7 +324,7 @@ impl UiWriter for ConsoleUiWriter {
 
     fn print_tool_compact(&self, tool_name: &str, summary: &str, duration_str: &str, tokens_delta: u32, _context_percentage: f32) -> bool {
         // Handle file operation tools and other compact tools
-        let is_compact_tool = matches!(tool_name, "read_file" | "write_file" | "str_replace" | "remember" | "take_screenshot" | "code_coverage" | "rehydrate");
+        let is_compact_tool = matches!(tool_name, "read_file" | "write_file" | "str_replace" | "remember" | "screenshot" | "coverage" | "rehydrate" | "code_search");
         if !is_compact_tool {
             // Reset continuation tracking for non-compact tools
             *self.last_read_file_path.lock().unwrap() = None;
@@ -354,8 +355,35 @@ impl UiWriter for ConsoleUiWriter {
 
         // For tools without file_path, get other relevant args
         let display_arg = if file_path.is_empty() {
-            // For remember, take_screenshot, etc. - no path to show
-            String::new()
+            // For code_search, extract language and name from searches
+            if tool_name == "code_search" {
+                // searches arg is JSON array, try to extract first search's language and name
+                if let Some((_, searches_json)) = args.iter().find(|(k, _)| k == "searches") {
+                    if let Ok(searches) = serde_json::from_str::<serde_json::Value>(searches_json) {
+                        if let Some(first_search) = searches.as_array().and_then(|arr| arr.first()) {
+                            let lang = first_search.get("language").and_then(|v| v.as_str()).unwrap_or("?");
+                            let name = first_search.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                            // Truncate name if too long
+                            let display_name = if name.len() > 30 {
+                                let truncate_at = name.char_indices().nth(27).map(|(i, _)| i).unwrap_or(name.len());
+                                format!("{}...", &name[..truncate_at])
+                            } else {
+                                name.to_string()
+                            };
+                            format!("{}:\"{}\"", lang, display_name)
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    }
+                } else {
+                    String::new()
+                }
+            } else {
+                // For remember, screenshot, etc. - no path to show
+                String::new()
+            }
         } else {
             // Truncate long paths
             if file_path.len() > 60 {
@@ -409,14 +437,16 @@ impl UiWriter for ConsoleUiWriter {
             );
         } else if display_arg.is_empty() {
             // Tools without file path: " ● tool_name | summary | tokens ◉ time"
+            // Pad to align with longest compact tool (str_replace = 11 chars)
             println!(
-                " \x1b[2m●\x1b[0m {}{} \x1b[2m| {}\x1b[0m \x1b[2m| {} ◉ {}\x1b[0m",
+                " \x1b[2m●\x1b[0m {}{:<11}\x1b[0m \x1b[2m| {}\x1b[0m \x1b[2m| {} ◉ {}\x1b[0m",
                 tool_color, tool_name, summary, tokens_delta, duration_str
             );
         } else {
             // Tools with file path: " ● tool_name | path [range] | summary | tokens ◉ time"
+            // Pad to align with longest compact tool (str_replace = 11 chars)
             println!(
-                " \x1b[2m●\x1b[0m {}{} \x1b[2m|\x1b[0m \x1b[35m{}{}\x1b[0m \x1b[2m| {}\x1b[0m \x1b[2m| {} ◉ {}\x1b[0m",
+                " \x1b[2m●\x1b[0m {}{:<11}\x1b[0m \x1b[2m|\x1b[0m \x1b[35m{}{}\x1b[0m \x1b[2m| {}\x1b[0m \x1b[2m| {} ◉ {}\x1b[0m",
                 tool_color, tool_name, display_arg, range_suffix, summary, tokens_delta, duration_str
             );
         }
@@ -455,11 +485,13 @@ impl UiWriter for ConsoleUiWriter {
         match content {
             None => {
                 // Empty TODO
-                println!(" \x1b[2m●\x1b[0m {}{}\x1b[0m \x1b[2m|\x1b[0m \x1b[35mempty\x1b[0m", tool_color, tool_name);
+                // Pad to align with longest compact tool (str_replace = 11 chars)
+                println!(" \x1b[2m●\x1b[0m {}{:<11}\x1b[0m \x1b[2m|\x1b[0m \x1b[35mempty\x1b[0m", tool_color, tool_name);
             }
             Some(text) => {
                 // Header
-                println!(" \x1b[2m●\x1b[0m {}{}\x1b[0m", tool_color, tool_name);
+                // Pad to align with longest compact tool (str_replace = 11 chars)
+                println!(" \x1b[2m●\x1b[0m {}{:<11}\x1b[0m", tool_color, tool_name);
                 
                 let lines: Vec<&str> = text.lines().collect();
                 let last_idx = lines.len().saturating_sub(1);

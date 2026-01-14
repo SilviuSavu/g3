@@ -393,14 +393,14 @@ mod screenshot_tests {
     #[test]
     fn test_screenshot_tool_call_structure() {
         let tool_call = make_tool_call(
-            "take_screenshot",
+            "screenshot",
             json!({
                 "path": "screenshot.png",
                 "window_id": "Safari"
             }),
         );
 
-        assert_eq!(tool_call.tool, "take_screenshot");
+        assert_eq!(tool_call.tool, "screenshot");
         assert_eq!(tool_call.args.get("path").unwrap().as_str(), Some("screenshot.png"));
         assert_eq!(tool_call.args.get("window_id").unwrap().as_str(), Some("Safari"));
     }

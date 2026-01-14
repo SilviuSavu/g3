@@ -2047,7 +2047,7 @@ Skip if nothing new. Be brief."#;
                             }
 
                             // Check if this is a compact tool (file operations)
-                            let is_compact_tool = matches!(tool_call.tool.as_str(), "read_file" | "write_file" | "str_replace" | "remember" | "take_screenshot" | "code_coverage" | "rehydrate");
+                            let is_compact_tool = matches!(tool_call.tool.as_str(), "read_file" | "write_file" | "str_replace" | "remember" | "screenshot" | "coverage" | "rehydrate" | "code_search");
                             
                             // Only print output header for non-compact tools
                             if !is_compact_tool && !is_todo_tool {
@@ -2120,17 +2120,21 @@ Skip if nothing new. Be brief."#;
                                             // Extract size from result like "Memory updated. Size: 1.2k"
                                             Some(streaming::format_remember_summary(&tool_result))
                                         }
-                                        "take_screenshot" => {
+                                        "screenshot" => {
                                             // Extract path from result
                                             Some(streaming::format_screenshot_summary(&tool_result))
                                         }
-                                        "code_coverage" => {
+                                        "coverage" => {
                                             // Show coverage summary
                                             Some(streaming::format_coverage_summary(&tool_result))
                                         }
                                         "rehydrate" => {
                                             // Show fragment info
                                             Some(streaming::format_rehydrate_summary(&tool_result))
+                                        }
+                                        "code_search" => {
+                                            // Show search summary (matches and files)
+                                            Some(streaming::format_code_search_summary(&tool_result))
                                         }
                                         _ => Some(format!("✅ completed"))
                                     }

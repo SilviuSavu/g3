@@ -37,8 +37,8 @@ pub async fn dispatch_tool<W: UiWriter>(
         "todo_write" => todo::execute_todo_write(tool_call, ctx).await,
 
         // Miscellaneous tools
-        "take_screenshot" => misc::execute_take_screenshot(tool_call, ctx).await,
-        "code_coverage" => misc::execute_code_coverage(tool_call, ctx).await,
+        "screenshot" => misc::execute_take_screenshot(tool_call, ctx).await,
+        "coverage" => misc::execute_code_coverage(tool_call, ctx).await,
         "code_search" => misc::execute_code_search(tool_call, ctx).await,
 
         // Research tool

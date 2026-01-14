@@ -9,7 +9,7 @@ mod take_screenshot_tests {
     fn test_take_screenshot_requires_window_id() {
         // Create a tool call without window_id
         let tool_call = ToolCall {
-            tool: "take_screenshot".to_string(),
+            tool: "screenshot".to_string(),
             args: json!({
                 "path": "test.png"
             }),
@@ -23,7 +23,7 @@ mod take_screenshot_tests {
     fn test_take_screenshot_with_window_id() {
         // Create a tool call with window_id
         let tool_call = ToolCall {
-            tool: "take_screenshot".to_string(),
+            tool: "screenshot".to_string(),
             args: json!({
                 "path": "test.png",
                 "window_id": "Safari"

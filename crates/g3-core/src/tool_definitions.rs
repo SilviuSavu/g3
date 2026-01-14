@@ -167,7 +167,7 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
             }),
         },
         Tool {
-            name: "take_screenshot".to_string(),
+            name: "screenshot".to_string(),
             description: "Capture a screenshot of a specific application window. You MUST specify the window_id parameter with the application name (e.g., 'Safari', 'Terminal', 'Google Chrome'). The tool will automatically use the native screencapture command with the application's window ID for a clean capture. Use list_windows first to identify available windows.".to_string(),
             input_schema: json!({
                 "type": "object",
@@ -217,7 +217,7 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
             }),
         },
         Tool {
-            name: "code_coverage".to_string(),
+            name: "coverage".to_string(),
             description: "Generate a code coverage report for the entire workspace using cargo llvm-cov. This runs all tests with coverage instrumentation and returns a summary of coverage statistics. Requires llvm-tools-preview and cargo-llvm-cov to be installed (they will be auto-installed if missing).".to_string(),
             input_schema: json!({
                 "type": "object",
@@ -508,8 +508,8 @@ mod tests {
     fn test_core_tools_count() {
         let tools = create_core_tools(false);
         // Should have the core tools: shell, background_process, read_file, read_image,
-        // write_file, str_replace, take_screenshot,
-        // todo_read, todo_write, code_coverage, code_search, research, remember
+        // write_file, str_replace, screenshot,
+        // todo_read, todo_write, coverage, code_search, research, remember
         // (13 total - memory is auto-loaded, only remember tool needed)
         assert_eq!(tools.len(), 14);
     }
