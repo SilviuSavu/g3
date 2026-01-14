@@ -26,7 +26,7 @@ pub async fn run_agent_mode(
     use g3_core::find_incomplete_agent_session;
     use g3_core::get_agent_system_prompt;
 
-    // Initialize logging (use try_init to avoid panic if subscriber already set by a dependency)
+    // Initialize logging
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
     let filter = EnvFilter::from_default_env()
         .add_directive("g3_core=info".parse().unwrap())
