@@ -1,5 +1,5 @@
 # Project Memory
-> Updated: 2026-01-13T16:15:37Z | Size: 11.8k chars
+> Updated: 2026-01-14T15:11:36Z | Size: 12.0k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -193,3 +193,22 @@ Rich few-shot prompting for higher quality memory entries with per-symbol char r
   - `send_auto_memory_reminder()` [47800..48800] - MEMORY CHECKPOINT prompt with few-shot examples
 - `crates/g3-core/src/prompts.rs`
   - Memory Format section [3800..4500] - system prompt template and examples
+
+### Language-Specific Prompt Injection
+Auto-detects programming languages in workspace and injects toolchain guidance.
+
+- `crates/g3-cli/src/language_prompts.rs`
+  - `LANGUAGE_PROMPTS` [12..19] - static array of (lang_name, extensions, prompt_content)
+  - `detect_languages()` [22..32] - scans workspace for language files
+  - `get_language_prompts_for_workspace()` [88..108] - returns formatted prompt for detected languages
+  - `scan_directory_for_extensions()` [42..77] - recursive scan with depth limit (2), skips hidden/vendor dirs
+
+- `prompts/langs/` - directory for language prompt markdown files
+  - `racket.md` - Racket/raco toolchain guidance (compilation, testing, analysis, profiling)
+
+- `crates/g3-cli/src/project_files.rs`
+  - `combine_project_content()` [89..106] - now accepts `language_content` parameter
+
+To add a new language:
+1. Create `prompts/langs/<lang>.md` with toolchain guidance
+2. Add entry to `LANGUAGE_PROMPTS` in `language_prompts.rs` with extensions

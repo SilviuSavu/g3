@@ -90,12 +90,13 @@ pub fn combine_project_content(
     agents_content: Option<String>,
     readme_content: Option<String>,
     memory_content: Option<String>,
+    language_content: Option<String>,
     workspace_dir: &Path,
 ) -> Option<String> {
     // Always include working directory to prevent LLM from hallucinating paths
     let cwd_info = format!("📂 Working Directory: {}", workspace_dir.display());
     
-    let parts: Vec<String> = [Some(cwd_info), agents_content, readme_content, memory_content]
+    let parts: Vec<String> = [Some(cwd_info), agents_content, readme_content, memory_content, language_content]
         .into_iter()
         .flatten()
         .collect();
@@ -222,6 +223,7 @@ mod tests {
             Some("agents".to_string()),
             Some("readme".to_string()),
             Some("memory".to_string()),
+            Some("language".to_string()),
             &workspace,
         );
         assert!(result.is_some());
@@ -230,12 +232,13 @@ mod tests {
         assert!(content.contains("agents"));
         assert!(content.contains("readme"));
         assert!(content.contains("memory"));
+        assert!(content.contains("language"));
     }
 
     #[test]
     fn test_combine_project_content_partial() {
         let workspace = std::path::PathBuf::from("/test/workspace");
-        let result = combine_project_content(None, Some("readme".to_string()), None, &workspace);
+        let result = combine_project_content(None, Some("readme".to_string()), None, None, &workspace);
         assert!(result.is_some());
         let content = result.unwrap();
         assert!(content.contains("📂 Working Directory: /test/workspace"));
@@ -245,7 +248,7 @@ mod tests {
     #[test]
     fn test_combine_project_content_all_none() {
         let workspace = std::path::PathBuf::from("/test/workspace");
-        let result = combine_project_content(None, None, None, &workspace);
+        let result = combine_project_content(None, None, None, None, &workspace);
         // Now always returns Some because we always include the working directory
         assert!(result.is_some());
         assert!(result.unwrap().contains("📂 Working Directory: /test/workspace"));

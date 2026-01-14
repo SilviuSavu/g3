@@ -146,6 +146,7 @@ pub async fn run_agent_mode(
         agents_content_opt,
         readme_content_opt,
         memory_content_opt,
+        crate::language_prompts::get_language_prompts_for_workspace(&workspace_dir),
         &workspace_dir,
     );
 

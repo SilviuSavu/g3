@@ -5,6 +5,7 @@ pub mod metrics;
 pub mod project_files;
 pub mod streaming_markdown;
 pub mod embedded_agents;
+pub mod language_prompts;
 
 mod accumulative;
 mod agent_mode;
@@ -98,6 +99,7 @@ pub async fn run() -> Result<()> {
     let agents_content = read_agents_config(&workspace_dir);
     let readme_content = read_project_readme(&workspace_dir);
     let memory_content = read_project_memory(&workspace_dir);
+    let language_content = language_prompts::get_language_prompts_for_workspace(&workspace_dir);
 
     // Create project model
     let project = create_project(&cli, &workspace_dir)?;
@@ -110,7 +112,7 @@ pub async fn run() -> Result<()> {
     let config = load_config_with_cli_overrides(&cli)?;
 
     // Combine AGENTS.md, README, and memory content
-    let combined_content = combine_project_content(agents_content, readme_content, memory_content, &workspace_dir);
+    let combined_content = combine_project_content(agents_content, readme_content, memory_content, language_content, &workspace_dir);
 
     run_console_mode(cli, config, project, combined_content, workspace_dir).await
 }
