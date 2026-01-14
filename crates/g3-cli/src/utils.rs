@@ -169,8 +169,8 @@ pub fn initialize_logging(verbose: bool) {
             .add_directive("llama=off".parse().unwrap())
     };
 
-    tracing_subscriber::registry()
+    let _ = tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
         .with(filter)
-        .init();
+        .try_init();
 }
