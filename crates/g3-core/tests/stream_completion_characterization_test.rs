@@ -668,46 +668,46 @@ mod streaming_utilities_characterization {
 }
 
 // =============================================================================
-// Characterization Tests: Parser Sanitization
+// Characterization Tests: Parser Line-Boundary Detection
 // =============================================================================
 
-mod parser_sanitization_characterization {
-    use g3_core::{sanitize_inline_tool_patterns, LBRACE_HOMOGLYPH};
+mod parser_line_boundary_characterization {
+    use g3_core::StreamingToolParser;
 
-    /// CHARACTERIZATION: Standalone tool calls are not sanitized
+    /// CHARACTERIZATION: Standalone tool calls at start of text are detected
     #[test]
-    fn standalone_tool_calls_preserved() {
+    fn standalone_tool_calls_detected() {
         let input = r#"{"tool": "shell", "args": {}}"#;
-        let output = sanitize_inline_tool_patterns(input);
-        assert_eq!(output, input, "Standalone tool call should be preserved");
+        let pos = StreamingToolParser::find_first_tool_call_start(input);
+        assert!(pos.is_some(), "Standalone tool call should be detected");
+        assert_eq!(pos.unwrap(), 0, "Should be at position 0");
     }
 
-    /// CHARACTERIZATION: Inline tool patterns are sanitized
+    /// CHARACTERIZATION: Inline tool patterns are ignored (not detected)
     #[test]
-    fn inline_patterns_sanitized() {
+    fn inline_patterns_ignored() {
         let input = r#"Example: {"tool": "shell"} in text"#;
-        let output = sanitize_inline_tool_patterns(input);
+        let pos = StreamingToolParser::find_first_tool_call_start(input);
         assert!(
-            output.contains(LBRACE_HOMOGLYPH),
-            "Inline pattern should be sanitized: {}",
-            output
-        );
-        assert!(
-            !output.starts_with('{'),
-            "Should not start with regular brace"
+            pos.is_none(),
+            "Inline pattern should be ignored, but found at {:?}",
+            pos
         );
     }
 
-    /// CHARACTERIZATION: Tool call on its own line is preserved
+    /// CHARACTERIZATION: Tool call on its own line (after newline) is detected
     #[test]
-    fn tool_call_on_own_line_preserved() {
+    fn tool_call_on_own_line_detected() {
         let input = "Some text\n{\"tool\": \"shell\"}\nMore text";
-        let output = sanitize_inline_tool_patterns(input);
-        // The tool call line should be preserved
+        let pos = StreamingToolParser::find_first_tool_call_start(input);
         assert!(
-            output.contains("{\"tool\""),
-            "Tool call on own line should be preserved: {}",
-            output
+            pos.is_some(),
+            "Tool call on own line should be detected"
+        );
+        // Should find it after the newline (position 10 = len("Some text\n"))
+        assert_eq!(
+            pos.unwrap(), 10,
+            "Should find tool call at position after newline"
         );
     }
 }

@@ -93,7 +93,7 @@ pub enum StreamState {
 }
 
 // Re-export StreamingToolParser from its own module
-pub use streaming_parser::{sanitize_inline_tool_patterns, StreamingToolParser, LBRACE_HOMOGLYPH};
+pub use streaming_parser::StreamingToolParser;
 
 pub struct Agent<W: UiWriter> {
     providers: ProviderRegistry,
