@@ -205,6 +205,8 @@ pub struct CompletionChunk {
     pub usage: Option<Usage>, // Add usage tracking for streaming
     /// Stop reason from the API (e.g., "end_turn", "max_tokens", "stop_sequence")
     pub stop_reason: Option<String>,
+    /// Tool call currently being streamed (name only, for UI hint)
+    pub tool_call_streaming: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -62,6 +62,7 @@ pub fn make_final_chunk(tool_calls: Vec<ToolCall>, usage: Option<Usage>) -> Comp
             Some(tool_calls)
         },
         stop_reason: None,
+        tool_call_streaming: None,
     }
 }
 
@@ -77,6 +78,7 @@ pub fn make_final_chunk_with_reason(tool_calls: Vec<ToolCall>, usage: Option<Usa
             Some(tool_calls)
         },
         stop_reason,
+        tool_call_streaming: None,
     }
 }
 
@@ -88,6 +90,7 @@ pub fn make_text_chunk(content: String) -> CompletionChunk {
         usage: None,
         tool_calls: None,
         stop_reason: None,
+        tool_call_streaming: None,
     }
 }
 
@@ -99,5 +102,31 @@ pub fn make_tool_chunk(tool_calls: Vec<ToolCall>) -> CompletionChunk {
         usage: None,
         tool_calls: Some(tool_calls),
         stop_reason: None,
+        tool_call_streaming: None,
+    }
+}
+
+/// Create a hint chunk indicating a tool call is being streamed.
+pub fn make_tool_streaming_hint(tool_name: String) -> CompletionChunk {
+    CompletionChunk {
+        content: String::new(),
+        finished: false,
+        usage: None,
+        tool_calls: None,
+        stop_reason: None,
+        tool_call_streaming: Some(tool_name),
+    }
+}
+
+/// Create a hint chunk indicating a tool call is still actively streaming.
+/// This is used to trigger UI updates (like blinking indicators) during long tool calls.
+pub fn make_tool_streaming_active() -> CompletionChunk {
+    CompletionChunk {
+        content: String::new(),
+        finished: false,
+        usage: None,
+        tool_calls: None,
+        stop_reason: None,
+        tool_call_streaming: Some(String::new()), // Empty string signals "active" vs "detected"
     }
 }

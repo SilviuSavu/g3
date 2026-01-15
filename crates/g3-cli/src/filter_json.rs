@@ -21,6 +21,17 @@ use tracing::debug;
 /// Realistically: `{"tool":"` = 9 chars, with whitespace maybe 15 max
 const MAX_BUFFER_FOR_DETECTION: usize = 20;
 
+/// Hints emitted during tool call parsing for UI feedback.
+#[derive(Debug, Clone)]
+pub enum ToolParsingHint {
+    /// Tool call detected, name is known. UI should show " ● tool_name |"
+    Detected(String),
+    /// More characters being parsed. UI should blink the indicator.
+    Active,
+    /// Tool call JSON fully parsed. UI should clear the parsing indicator.
+    Complete,
+}
+
 // Thread-local state for tracking JSON tool call suppression
 thread_local! {
     static JSON_TOOL_STATE: RefCell<FilterState> = RefCell::new(FilterState::new());

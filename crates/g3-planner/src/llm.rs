@@ -292,6 +292,14 @@ impl g3_core::ui_writer::UiWriter for PlannerUiWriter {
         // The "Thinking..." status was causing overwrites
     }
     
+    fn print_tool_streaming_hint(&self, _tool_name: &str) {
+        // No-op for planner - we don't show streaming hints
+    }
+
+    fn print_tool_streaming_active(&self) {
+        // No-op for planner - we don't show streaming hints
+    }
+
     fn flush(&self) {
         use std::io::Write;
         std::io::stdout().flush().ok();

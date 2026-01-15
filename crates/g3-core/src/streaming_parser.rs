@@ -587,7 +587,8 @@ Some text after"#;
             finished: true,
             tool_calls: None,
             usage: None,
-        stop_reason: None,
+            stop_reason: None,
+            tool_call_streaming: None,
         };
         
         let tools = parser.process_chunk(&chunk);

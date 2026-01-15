@@ -1959,6 +1959,17 @@ Skip if nothing new. Be brief."#;
                             );
                         }
 
+                        // Handle tool call streaming hint (show UI indicator immediately)
+                        if let Some(ref tool_name) = chunk.tool_call_streaming {
+                            if tool_name.is_empty() {
+                                // Empty string = "active" hint for blinking
+                                self.ui_writer.print_tool_streaming_active();
+                            } else {
+                                // Non-empty = "detected" hint with tool name
+                                self.ui_writer.print_tool_streaming_hint(tool_name);
+                            }
+                        }
+
                         // Store raw chunk for debugging (limit to first 20 and last 5)
                         if chunks_received < 20 || chunk.finished {
                             raw_chunks.push(format!(

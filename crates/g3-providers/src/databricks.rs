@@ -494,6 +494,7 @@ impl DatabricksProvider {
                                 usage: None,
                                 tool_calls: None,
                                 stop_reason: None,
+                                tool_call_streaming: None,
                             };
                             if tx.send(Ok(text_chunk)).await.is_err() {
                                 debug!("Receiver dropped");

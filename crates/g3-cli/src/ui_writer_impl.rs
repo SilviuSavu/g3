@@ -1,9 +1,114 @@
-use crate::filter_json::{filter_json_tool_calls, reset_json_tool_state};
+use crate::filter_json::{filter_json_tool_calls, reset_json_tool_state, ToolParsingHint};
 use crate::streaming_markdown::StreamingMarkdownFormatter;
 use g3_core::ui_writer::UiWriter;
 use std::io::{self, Write};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, atomic::{AtomicBool, AtomicU8, Ordering}};
 use termimad::MadSkin;
+
+/// Padding width for tool names in compact display (longest tool: "str_replace" = 11 chars)
+const TOOL_NAME_PADDING: usize = 11;
+
+/// ANSI color codes for tool names
+const TOOL_COLOR_NORMAL: &str = "\x1b[32m";
+const TOOL_COLOR_NORMAL_BOLD: &str = "\x1b[1;32m";
+const TOOL_COLOR_AGENT: &str = "\x1b[38;5;250m";
+const TOOL_COLOR_AGENT_BOLD: &str = "\x1b[1;38;5;250m";
+
+/// Blink state values for the streaming indicator
+const BLINK_INACTIVE: u8 = 0;
+const BLINK_SHOW_PIPE: u8 = 1;
+const BLINK_SHOW_SPACE: u8 = 2;
+
+/// Shared state for tool parsing hints that can be used in callbacks.
+/// This is separate from ConsoleUiWriter so it can be captured by Arc in closures.
+#[derive(Clone)]
+struct ParsingHintState {
+    parsing_indicator_printed: Arc<AtomicBool>,
+    last_output_was_text: Arc<AtomicBool>,
+    last_output_was_tool: Arc<AtomicBool>,
+    is_agent_mode: Arc<AtomicBool>,
+    /// Blink state: 0 = inactive, 1 = show pipe, 2 = show space
+    blink_state: Arc<AtomicU8>,
+}
+
+impl ParsingHintState {
+    fn new() -> Self {
+        Self {
+            parsing_indicator_printed: Arc::new(AtomicBool::new(false)),
+            last_output_was_text: Arc::new(AtomicBool::new(false)),
+            last_output_was_tool: Arc::new(AtomicBool::new(false)),
+            is_agent_mode: Arc::new(AtomicBool::new(false)),
+            blink_state: Arc::new(AtomicU8::new(BLINK_INACTIVE)),
+        }
+    }
+
+    fn clear(&self) {
+        self.parsing_indicator_printed.store(false, Ordering::Relaxed);
+        self.blink_state.store(BLINK_INACTIVE, Ordering::Relaxed);
+    }
+
+    /// Handle a tool parsing hint - this is the core logic extracted for use in callbacks
+    fn handle_hint(&self, hint: ToolParsingHint) {
+        match hint {
+            ToolParsingHint::Detected(tool_name) => {
+                // Stop any previous blinking
+                self.blink_state.store(BLINK_INACTIVE, Ordering::Relaxed);
+                
+                // Check if we've already printed an indicator (this is an update)
+                let already_printed = self.parsing_indicator_printed.load(Ordering::Relaxed);
+                
+                if already_printed {
+                    // Update in place: clear line and reprint with new name
+                    print!("\r\x1b[2K");
+                } else {
+                    // First time: add blank line if last output was text
+                    if self.last_output_was_text.load(Ordering::Relaxed) {
+                        println!();
+                    }
+                    self.last_output_was_text.store(false, Ordering::Relaxed);
+                    self.last_output_was_tool.store(true, Ordering::Relaxed);
+                }
+
+                // Get color based on agent mode
+                let tool_color = if self.is_agent_mode.load(Ordering::Relaxed) {
+                    TOOL_COLOR_AGENT
+                } else {
+                    TOOL_COLOR_NORMAL
+                };
+                
+                // Print the indicator: " ● tool_name |"
+                print!(" \x1b[2m●\x1b[0m {}{:<width$}\x1b[0m \x1b[2m|\x1b[0m", tool_color, tool_name, width = TOOL_NAME_PADDING);
+                let _ = io::stdout().flush();
+                
+                self.parsing_indicator_printed.store(true, Ordering::Relaxed);
+                self.blink_state.store(BLINK_SHOW_PIPE, Ordering::Relaxed);
+            }
+            ToolParsingHint::Active => {
+                // Toggle blink state for visual feedback
+                let current = self.blink_state.load(Ordering::Relaxed);
+                if current != BLINK_INACTIVE {
+                    let new_state = if current == BLINK_SHOW_PIPE { BLINK_SHOW_SPACE } else { BLINK_SHOW_PIPE };
+                    self.blink_state.store(new_state, Ordering::Relaxed);
+                    let indicator = if new_state == BLINK_SHOW_PIPE { "|" } else { " " };
+                    // Move back one char and reprint
+                    print!("\x1b[1D\x1b[2m{}\x1b[0m", indicator);
+                    let _ = io::stdout().flush();
+                }
+            }
+            ToolParsingHint::Complete => {
+                // Stop blinking
+                self.blink_state.store(BLINK_INACTIVE, Ordering::Relaxed);
+                // Clear the parsing indicator line - the actual tool output will follow
+                if self.parsing_indicator_printed.load(Ordering::Relaxed) {
+                    // Clear the current line and move to start
+                    print!("\r\x1b[2K");
+                    let _ = io::stdout().flush();
+                }
+                self.clear();
+            }
+        }
+    }
+}
 
 /// Console implementation of UiWriter that prints to stdout
 pub struct ConsoleUiWriter {
@@ -11,17 +116,14 @@ pub struct ConsoleUiWriter {
     current_tool_args: std::sync::Mutex<Vec<(String, String)>>,
     current_output_line: std::sync::Mutex<Option<String>>,
     output_line_printed: std::sync::Mutex<bool>,
-    is_agent_mode: std::sync::Mutex<bool>,
     /// Track if we're in shell compact mode (for appending timing to output line)
     is_shell_compact: std::sync::Mutex<bool>,
     /// Streaming markdown formatter for agent responses
     markdown_formatter: Mutex<Option<StreamingMarkdownFormatter>>,
-    /// Track if the last output was text (for spacing between text and tool calls)
-    last_output_was_text: std::sync::Mutex<bool>,
-    /// Track if the last output was a tool call (for spacing between tool calls and text)
-    last_output_was_tool: std::sync::Mutex<bool>,
     /// Track the last read_file path for continuation display
     last_read_file_path: std::sync::Mutex<Option<String>>,
+    /// Shared state for tool parsing hints (used by real-time callback)
+    hint_state: ParsingHintState,
 }
 
 /// ANSI color code for duration display based on elapsed time.
@@ -61,6 +163,7 @@ impl ConsoleUiWriter {
         *self.current_output_line.lock().unwrap() = None;
         *self.output_line_printed.lock().unwrap() = false;
     }
+
 }
 
 impl ConsoleUiWriter {
@@ -70,12 +173,10 @@ impl ConsoleUiWriter {
             current_tool_args: std::sync::Mutex::new(Vec::new()),
             current_output_line: std::sync::Mutex::new(None),
             output_line_printed: std::sync::Mutex::new(false),
-            is_agent_mode: std::sync::Mutex::new(false),
             is_shell_compact: std::sync::Mutex::new(false),
             markdown_formatter: Mutex::new(None),
-            last_output_was_text: std::sync::Mutex::new(false),
-            last_output_was_tool: std::sync::Mutex::new(false),
             last_read_file_path: std::sync::Mutex::new(None),
+            hint_state: ParsingHintState::new(),
         }
     }
 }
@@ -163,14 +264,17 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn print_tool_output_header(&self) {
+        // Clear any streaming hint that might be showing
+        // This ensures we don't duplicate the tool name on the line
+        self.hint_state.handle_hint(ToolParsingHint::Complete);
+
         // Add blank line if last output was text (for visual separation)
-        let mut last_was_text = self.last_output_was_text.lock().unwrap();
-        if *last_was_text {
+        let last_was_text = self.hint_state.last_output_was_text.load(Ordering::Relaxed);
+        if last_was_text {
             println!();
         }
-        *last_was_text = false; // We're now outputting a tool call
-        *self.last_output_was_tool.lock().unwrap() = true;
-        drop(last_was_text); // Release lock early
+        self.hint_state.last_output_was_text.store(false, Ordering::Relaxed);
+        self.hint_state.last_output_was_tool.store(true, Ordering::Relaxed);
 
         // Reset output_line_printed at the start of a new tool output
         // This ensures the header isn't cleared by update_tool_output_line
@@ -179,9 +283,13 @@ impl UiWriter for ConsoleUiWriter {
         *self.is_shell_compact.lock().unwrap() = false;
         // Now print the tool header with the most important arg
         // Use light gray/silver in agent mode, bold green otherwise
-        let is_agent_mode = *self.is_agent_mode.lock().unwrap();
+        let is_agent_mode = self.hint_state.is_agent_mode.load(Ordering::Relaxed);
         // Light gray/silver: \x1b[38;5;250m, Bold green: \x1b[1;32m
-        let tool_color = if is_agent_mode { "\x1b[1;38;5;250m" } else { "\x1b[1;32m" };
+        let tool_color = if is_agent_mode {
+            TOOL_COLOR_AGENT_BOLD
+        } else {
+            TOOL_COLOR_NORMAL_BOLD
+        };
         if let Some(tool_name) = self.current_tool_name.lock().unwrap().as_ref() {
             let args = self.current_tool_args.lock().unwrap();
 
@@ -323,6 +431,10 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn print_tool_compact(&self, tool_name: &str, summary: &str, duration_str: &str, tokens_delta: u32, _context_percentage: f32) -> bool {
+        // Clear any streaming hint that might be showing
+        // This ensures we don't duplicate the tool name on the line
+        self.hint_state.handle_hint(ToolParsingHint::Complete);
+
         // Handle file operation tools and other compact tools
         let is_compact_tool = matches!(tool_name, "read_file" | "write_file" | "str_replace" | "remember" | "screenshot" | "coverage" | "rehydrate" | "code_search");
         if !is_compact_tool {
@@ -332,15 +444,14 @@ impl UiWriter for ConsoleUiWriter {
         }
 
         // Add blank line if last output was text (for visual separation)
-        let mut last_was_text = self.last_output_was_text.lock().unwrap();
-        if *last_was_text {
+        if self.hint_state.last_output_was_text.load(Ordering::Relaxed) {
             println!();
         }
-        *last_was_text = false; // We're now outputting a tool call
-        *self.last_output_was_tool.lock().unwrap() = true;
+        self.hint_state.last_output_was_text.store(false, Ordering::Relaxed);
+        self.hint_state.last_output_was_tool.store(true, Ordering::Relaxed);
 
         let args = self.current_tool_args.lock().unwrap();
-        let is_agent_mode = *self.is_agent_mode.lock().unwrap();
+        let is_agent_mode = self.hint_state.is_agent_mode.load(Ordering::Relaxed);
 
         // Get file path (for file operation tools)
         let file_path = args
@@ -422,7 +533,7 @@ impl UiWriter for ConsoleUiWriter {
         };
 
         // Color for tool name
-        let tool_color = if is_agent_mode { "\x1b[38;5;250m" } else { "\x1b[32m" };
+        let tool_color = if is_agent_mode { TOOL_COLOR_AGENT } else { TOOL_COLOR_NORMAL };
 
         // Print compact single line
         if is_continuation {
@@ -469,29 +580,26 @@ impl UiWriter for ConsoleUiWriter {
 
     fn print_todo_compact(&self, content: Option<&str>, is_write: bool) -> bool {
         let tool_name = if is_write { "todo_write" } else { "todo_read" };
-        let is_agent_mode = *self.is_agent_mode.lock().unwrap();
-        let tool_color = if is_agent_mode { "\x1b[38;5;250m" } else { "\x1b[32m" };
+        let is_agent_mode = self.hint_state.is_agent_mode.load(Ordering::Relaxed);
+        let tool_color = if is_agent_mode { TOOL_COLOR_AGENT } else { TOOL_COLOR_NORMAL };
 
         // Add blank line if last output was text (for visual separation)
-        let mut last_was_text = self.last_output_was_text.lock().unwrap();
-        if *last_was_text {
+        if self.hint_state.last_output_was_text.load(Ordering::Relaxed) {
             println!();
         }
-        *last_was_text = false;
-        *self.last_output_was_tool.lock().unwrap() = true;
+        self.hint_state.last_output_was_text.store(false, Ordering::Relaxed);
+        self.hint_state.last_output_was_tool.store(true, Ordering::Relaxed);
         // Reset read_file continuation tracking
         *self.last_read_file_path.lock().unwrap() = None;
 
         match content {
             None => {
                 // Empty TODO
-                // Pad to align with longest compact tool (str_replace = 11 chars)
-                println!(" \x1b[2m●\x1b[0m {}{:<11}\x1b[0m \x1b[2m|\x1b[0m \x1b[35mempty\x1b[0m", tool_color, tool_name);
+                println!(" \x1b[2m●\x1b[0m {}{:<width$}\x1b[0m \x1b[2m|\x1b[0m \x1b[35mempty\x1b[0m", tool_color, tool_name, width = TOOL_NAME_PADDING);
             }
             Some(text) => {
                 // Header
-                // Pad to align with longest compact tool (str_replace = 11 chars)
-                println!(" \x1b[2m●\x1b[0m {}{:<11}\x1b[0m", tool_color, tool_name);
+                println!(" \x1b[2m●\x1b[0m {}{:<width$}\x1b[0m", tool_color, tool_name, width = TOOL_NAME_PADDING);
                 
                 let lines: Vec<&str> = text.lines().collect();
                 let last_idx = lines.len().saturating_sub(1);
@@ -574,18 +682,17 @@ impl UiWriter for ConsoleUiWriter {
         if let Some(ref mut formatter) = *formatter_guard {
             // Add blank line if last output was a tool call (for visual separation)
             // Only do this once at the start of new text content
-            let mut last_was_tool = self.last_output_was_tool.lock().unwrap();
-            if *last_was_tool && !content.trim().is_empty() {
+            let last_was_tool = self.hint_state.last_output_was_tool.load(Ordering::Relaxed);
+            if last_was_tool && !content.trim().is_empty() {
                 println!();
-                *last_was_tool = false;
+                self.hint_state.last_output_was_tool.store(false, Ordering::Relaxed);
             }
-            drop(last_was_tool);
 
             let formatted = formatter.process(content);
             print!("{}", formatted);
             // Track that we just output text (only if non-empty)
             if !content.trim().is_empty() {
-                *self.last_output_was_text.lock().unwrap() = true;
+                self.hint_state.last_output_was_text.store(true, Ordering::Relaxed);
                 // Reset read_file continuation tracking when text is output between tool calls
                 *self.last_read_file_path.lock().unwrap() = None;
             }
@@ -609,6 +716,16 @@ impl UiWriter for ConsoleUiWriter {
 
     fn notify_sse_received(&self) {
         // No-op for console - we don't track SSEs in console mode
+    }
+
+    fn print_tool_streaming_hint(&self, tool_name: &str) {
+        // Use the hint state to show the streaming indicator
+        self.hint_state.handle_hint(ToolParsingHint::Detected(tool_name.to_string()));
+    }
+
+    fn print_tool_streaming_active(&self) {
+        // Trigger the blink animation
+        self.hint_state.handle_hint(ToolParsingHint::Active);
     }
 
     fn flush(&self) {
@@ -652,7 +769,9 @@ impl UiWriter for ConsoleUiWriter {
 
 
     fn filter_json_tool_calls(&self, content: &str) -> String {
-        // Apply JSON tool call filtering for display
+        // Filter the content to remove JSON tool calls from display.
+        // Tool streaming hints are now handled via the provider's tool_call_streaming
+        // field in CompletionChunk, not via callbacks during JSON filtering.
         filter_json_tool_calls(content)
     }
 
@@ -662,6 +781,6 @@ impl UiWriter for ConsoleUiWriter {
     }
 
     fn set_agent_mode(&self, is_agent_mode: bool) {
-        *self.is_agent_mode.lock().unwrap() = is_agent_mode;
+        self.hint_state.is_agent_mode.store(is_agent_mode, Ordering::Relaxed);
     }
 }

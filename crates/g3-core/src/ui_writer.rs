@@ -67,6 +67,14 @@ pub trait UiWriter: Send + Sync {
     /// Notify that an SSE event was received (including pings)
     fn notify_sse_received(&self);
 
+    /// Print a hint that a tool call is being streamed (show indicator immediately)
+    /// This is called when the provider starts receiving a tool call but args are still streaming
+    fn print_tool_streaming_hint(&self, tool_name: &str);
+
+    /// Signal that a tool call is still actively streaming (for blinking indicator)
+    /// This is called periodically while tool args are being received
+    fn print_tool_streaming_active(&self);
+
     /// Flush any buffered output
     fn flush(&self);
 
@@ -127,6 +135,8 @@ impl UiWriter for NullUiWriter {
     fn print_agent_prompt(&self) {}
     fn print_agent_response(&self, _content: &str) {}
     fn notify_sse_received(&self) {}
+    fn print_tool_streaming_hint(&self, _tool_name: &str) {}
+    fn print_tool_streaming_active(&self) {}
     fn flush(&self) {}
     fn finish_streaming_markdown(&self) {}
     fn wants_full_output(&self) -> bool {

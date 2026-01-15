@@ -81,6 +81,8 @@ impl UiWriter for MockUiWriter {
             .push(format!("CHOICE: {} Options: {:?}", message, options));
         self.choice_responses.lock().unwrap().pop().unwrap_or(0)
     }
+    fn print_tool_streaming_hint(&self, _tool_name: &str) {}
+    fn print_tool_streaming_active(&self) {}
 }
 
 #[tokio::test]

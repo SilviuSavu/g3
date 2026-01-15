@@ -354,6 +354,7 @@ mod streaming_repro {
             tool_calls: None,
             usage: None,
             stop_reason: None,
+            tool_call_streaming: None,
         }
     }
 

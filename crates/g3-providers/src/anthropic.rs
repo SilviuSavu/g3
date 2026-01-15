@@ -112,7 +112,7 @@ use tracing::{debug, error};
 use crate::{
     streaming::{
         decode_utf8_streaming, make_final_chunk, make_final_chunk_with_reason, make_text_chunk,
-        make_tool_chunk,
+        make_tool_chunk, make_tool_streaming_active, make_tool_streaming_hint,
     },
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Tool, ToolCall, Usage,
@@ -512,6 +512,12 @@ impl AnthropicProvider {
                                                         } else {
                                                             // Arguments are empty, we'll accumulate them from partial_json
                                                             debug!("Tool call has empty args, will accumulate from partial_json");
+                                                            // Send a streaming hint so the UI can show the tool name immediately
+                                                            let hint_chunk = make_tool_streaming_hint(name.clone());
+                                                            if tx.send(Ok(hint_chunk)).await.is_err() {
+                                                                debug!("Receiver dropped, stopping stream");
+                                                                return accumulated_usage;
+                                                            }
                                                             current_tool_calls.push(tool_call);
                                                             partial_tool_json.clear();
                                                         }
@@ -550,6 +556,12 @@ impl AnthropicProvider {
                                                         "Accumulated tool JSON: {}",
                                                         partial_tool_json
                                                     );
+                                                    // Send an active hint to trigger UI blink
+                                                    let active_chunk = make_tool_streaming_active();
+                                                    if tx.send(Ok(active_chunk)).await.is_err() {
+                                                        debug!("Receiver dropped, stopping stream");
+                                                        return accumulated_usage;
+                                                    }
                                                 }
                                             }
                                         }
