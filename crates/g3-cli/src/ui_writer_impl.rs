@@ -8,6 +8,13 @@ use termimad::MadSkin;
 /// Padding width for tool names in compact display (longest tool: "str_replace" = 11 chars)
 const TOOL_NAME_PADDING: usize = 11;
 
+/// ANSI escape codes
+mod ansi {
+    pub const YELLOW: &str = "\x1b[33m";
+    pub const ORANGE: &str = "\x1b[38;5;208m";
+    pub const RED: &str = "\x1b[31m";
+}
+
 /// ANSI color codes for tool names
 const TOOL_COLOR_NORMAL: &str = "\x1b[32m";
 const TOOL_COLOR_NORMAL_BOLD: &str = "\x1b[1;32m";
@@ -129,30 +136,27 @@ pub struct ConsoleUiWriter {
 /// ANSI color code for duration display based on elapsed time.
 /// Returns empty string for fast operations, yellow/orange/red for slower ones.
 fn duration_color(duration_str: &str) -> &'static str {
-    // Format: "500ms", "1.5s", "2m 30.0s"
     if duration_str.ends_with("ms") {
-        return ""; // Sub-second: no color
+        return "";
     }
 
     if let Some(m_pos) = duration_str.find('m') {
-        // Contains minutes (e.g., "2m 30.0s")
         if let Ok(minutes) = duration_str[..m_pos].trim().parse::<u32>() {
             return match minutes {
-                5.. => "\x1b[31m",      // Red: >= 5 minutes
-                1.. => "\x1b[38;5;208m", // Orange: 1-4 minutes
+                5.. => ansi::RED,
+                1.. => ansi::ORANGE,
                 _ => "",
             };
         }
     } else if let Some(s_value) = duration_str.strip_suffix('s') {
-        // Seconds only (e.g., "1.5s")
         if let Ok(seconds) = s_value.trim().parse::<f64>() {
             if seconds >= 1.0 {
-                return "\x1b[33m"; // Yellow: >= 1 second
+                return ansi::YELLOW;
             }
         }
     }
 
-    "" // Default: no color
+    ""
 }
 
 impl ConsoleUiWriter {

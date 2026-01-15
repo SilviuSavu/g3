@@ -106,64 +106,44 @@ fn check_tool_pattern(buffer: &str) -> Option<bool> {
     if !buffer.starts_with('{') {
         return Some(false);
     }
-    
-    let after_brace = &buffer[1..];
-    
-    // Skip leading whitespace after {
-    let trimmed = after_brace.trim_start();
-    
+
+    let trimmed = buffer[1..].trim_start();
+
     // Need at least `"tool":"` = 8 chars after whitespace
     if trimmed.len() < 8 {
-        // Not enough data yet - but check for early rejection
-        if trimmed.starts_with('"') {
-            let after_quote = &trimmed[1..];
-            // If we have chars after the quote, check if it starts with 't'
-            if !after_quote.is_empty() && !after_quote.starts_with('t') {
-                return Some(false); // Definitely not "tool
-            }
-            if after_quote.len() >= 2 && !after_quote.starts_with("to") {
-                return Some(false);
-            }
-            if after_quote.len() >= 3 && !after_quote.starts_with("too") {
-                return Some(false);
-            }
-            if after_quote.len() >= 4 && !after_quote.starts_with("tool") {
-                return Some(false);
+        // Early rejection: check progressive prefix of "tool
+        if let Some(after_quote) = trimmed.strip_prefix('"') {
+            // Check each prefix of "tool" we have so far
+            for (i, expected) in ["t", "to", "too", "tool"].iter().enumerate() {
+                if after_quote.len() > i && !after_quote.starts_with(expected) {
+                    return Some(false);
+                }
             }
         } else if !trimmed.is_empty() && !trimmed.starts_with('"') {
-            // First non-whitespace char after { is not " - not a tool call
             return Some(false);
         }
-        return None; // Need more data
+        return None;
     }
-    
-    // We have enough data - check the full pattern
-    // Must be: "tool" followed by optional whitespace, :, optional whitespace, "
+
+    // Full pattern check: "tool" : "
     if !trimmed.starts_with("\"tool\"") {
         return Some(false);
     }
-    
-    let after_tool = trimmed[6..].trim_start(); // 6 = len of "tool"
-    
+
+    let after_tool = trimmed[6..].trim_start();
     if after_tool.is_empty() {
-        return None; // Need more data
+        return None;
     }
-    
     if !after_tool.starts_with(':') {
         return Some(false);
     }
-    
+
     let after_colon = after_tool[1..].trim_start();
-    
     if after_colon.is_empty() {
-        return None; // Need more data
+        return None;
     }
-    
-    if after_colon.starts_with('"') {
-        return Some(true); // Confirmed tool call!
-    }
-    
-    Some(false) // Has : but not followed by "
+
+    Some(after_colon.starts_with('"'))
 }
 
 /// Filters JSON tool calls from streaming LLM content.

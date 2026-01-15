@@ -20,6 +20,13 @@ const TOOL_CALL_PATTERNS: [&str; 4] = [
     r#"{ "tool" :"#,
 ];
 
+/// Search direction for tool call pattern matching.
+#[derive(Clone, Copy, PartialEq)]
+enum SearchDirection {
+    Forward,
+    Backward,
+}
+
 /// Modern streaming tool parser that properly handles native tool calls and SSE chunks.
 #[derive(Debug)]
 pub struct StreamingToolParser {
@@ -53,59 +60,60 @@ impl StreamingToolParser {
         }
     }
 
-    /// Find the starting position of the last tool call pattern in the given text,
-    /// but ONLY if it appears on its own line (preceded by newline or at start of text,
-    /// with only whitespace before the pattern on that line).
-    /// Returns None if no valid tool call pattern is found.
-    pub fn find_last_tool_call_start(text: &str) -> Option<usize> {
+    /// Find a tool call pattern in text, searching in the specified direction.
+    /// Only matches patterns on their own line (at start or after newline + whitespace).
+    fn find_tool_call_start(text: &str, direction: SearchDirection) -> Option<usize> {
         let mut best_start: Option<usize> = None;
+
         for pattern in &TOOL_CALL_PATTERNS {
-            let mut search_end = text.len();
-            while search_end > 0 {
-                if let Some(pos) = text[..search_end].rfind(pattern) {
-                    // Check if this pattern is on its own line
-                    if Self::is_on_own_line(text, pos) {
-                        if best_start.map_or(true, |best| pos > best) {
-                            best_start = Some(pos);
+            match direction {
+                SearchDirection::Forward => {
+                    let mut search_start = 0;
+                    while search_start < text.len() {
+                        if let Some(rel) = text[search_start..].find(pattern) {
+                            let pos = search_start + rel;
+                            if Self::is_on_own_line(text, pos) {
+                                if best_start.map_or(true, |best| pos < best) {
+                                    best_start = Some(pos);
+                                }
+                                break;
+                            }
+                            search_start = pos + 1;
+                        } else {
+                            break;
                         }
-                        break; // Found a valid one for this pattern
                     }
-                    // Not on its own line, keep searching backwards
-                    search_end = pos;
-                } else {
-                    break;
+                }
+                SearchDirection::Backward => {
+                    let mut search_end = text.len();
+                    while search_end > 0 {
+                        if let Some(pos) = text[..search_end].rfind(pattern) {
+                            if Self::is_on_own_line(text, pos) {
+                                if best_start.map_or(true, |best| pos > best) {
+                                    best_start = Some(pos);
+                                }
+                                break;
+                            }
+                            search_end = pos;
+                        } else {
+                            break;
+                        }
+                    }
                 }
             }
         }
+
         best_start
     }
 
-    /// Find the starting position of the FIRST tool call pattern in the given text,
-    /// but ONLY if it appears on its own line (preceded by newline or at start of text,
-    /// with only whitespace before the pattern on that line).
-    /// Returns None if no valid tool call pattern is found.
+    /// Find the starting position of the FIRST tool call pattern on its own line.
     pub fn find_first_tool_call_start(text: &str) -> Option<usize> {
-        let mut best_start: Option<usize> = None;
-        for pattern in &TOOL_CALL_PATTERNS {
-            let mut search_start = 0;
-            while search_start < text.len() {
-                if let Some(relative_pos) = text[search_start..].find(pattern) {
-                    let pos = search_start + relative_pos;
-                    // Check if this pattern is on its own line
-                    if Self::is_on_own_line(text, pos) {
-                        if best_start.map_or(true, |best| pos < best) {
-                            best_start = Some(pos);
-                        }
-                        break; // Found a valid one for this pattern
-                    }
-                    // Not on its own line, keep searching forward
-                    search_start = pos + 1;
-                } else {
-                    break;
-                }
-            }
-        }
-        best_start
+        Self::find_tool_call_start(text, SearchDirection::Forward)
+    }
+
+    /// Find the starting position of the LAST tool call pattern on its own line.
+    pub fn find_last_tool_call_start(text: &str) -> Option<usize> {
+        Self::find_tool_call_start(text, SearchDirection::Backward)
     }
 
     /// Check if a position in text is "on its own line" - meaning it's either
@@ -384,18 +392,10 @@ impl StreamingToolParser {
     }
 
     /// Check if a partial JSON tool call has been invalidated by subsequent content.
-    /// 
-    /// This detects cases where we started parsing what looked like a tool call
-    /// (e.g., `{"tool": "read_file`) but subsequent content makes it clear this
-    /// isn't valid JSON (e.g., a newline followed by regular prose).
-    /// 
-    /// The key insight: in valid JSON, after an open quote for a string value,
-    /// we must see the string content and closing quote before any unescaped newline.
-    /// If we see a newline followed by text that looks like prose (starts with a letter),
-    /// this can't be a valid JSON tool call.
-    /// 
-    /// Additionally, an unescaped newline INSIDE a string is invalid JSON. So if we're
-    /// in a string and see a newline (not escaped), the JSON is invalid.
+    ///
+    /// Detects two invalidation cases:
+    /// 1. Unescaped newline inside a JSON string (invalid JSON)
+    /// 2. Newline followed by non-JSON prose (e.g., regular text, not `"`, `{`, `}`, etc.)
     fn is_json_invalidated(json_text: &str) -> bool {
         let mut in_string = false;
         let mut escape_next = false;
@@ -410,51 +410,34 @@ impl StreamingToolParser {
             match ch {
                 '\\' => escape_next = true,
                 '"' => in_string = !in_string,
-                '\n' if in_string => {
-                    // Unescaped newline inside a string is invalid JSON!
-                    // Valid JSON strings cannot contain literal newlines (must be \n).
-                    return true;
-                }
+                // Unescaped newline inside a string is invalid JSON
+                '\n' if in_string => return true,
                 '\n' if !in_string => {
-                    // We hit a newline outside of a string.
-                    // Check what comes after - if it's regular prose, this isn't valid JSON.
-                    
-                    // Skip any whitespace after the newline
+                    // Skip whitespace after newline
                     while let Some(&(_, next_ch)) = chars.peek() {
-                        if next_ch == ' ' || next_ch == '\t' {
-                            chars.next();
-                        } else {
-                            break;
+                        if next_ch != ' ' && next_ch != '\t' {
+                            break
                         }
+                        chars.next();
                     }
-                    
-                    // Check the first non-whitespace character after the newline
+
+                    // Check if next char is valid JSON continuation
                     if let Some(&(_, next_ch)) = chars.peek() {
-                        // Valid JSON continuation characters after newline:
-                        // - '"' (string)
-                        // - '{' or '}' (object)
-                        // - '[' or ']' (array)  
-                        // - digits (number)
-                        // - 't', 'f', 'n' could be true/false/null but also prose
-                        // - ':' or ',' (separators)
-                        // 
-                        // If we see a letter that's clearly prose (not t/f/n at start of token),
-                        // or other non-JSON characters, this is invalidated.
-                        let is_valid_json_continuation = matches!(next_ch, 
-                            '"' | '{' | '}' | '[' | ']' | ':' | ',' | '-' | 
-                            '0'..='9' | 't' | 'f' | 'n' | '\n'
+                        // Valid: ", {, }, [, ], :, ,, -, digits, t/f/n (true/false/null), newline
+                        let valid_json_char = matches!(
+                            next_ch,
+                            '"' | '{' | '}' | '[' | ']' | ':' | ',' | '-' | '0'..='9' | 't' | 'f' | 'n' | '\n'
                         );
-                        
-                        if !is_valid_json_continuation {
-                            return true; // Invalidated!
+                        if !valid_json_char {
+                            return true;
                         }
                     }
                 }
                 _ => {}
             }
         }
-        
-        false // Not invalidated (yet)
+
+        false
     }
 
     /// Find the end position (byte index) of a complete JSON object in the text.
@@ -473,7 +456,7 @@ impl StreamingToolParser {
 
             match ch {
                 '\\' => escape_next = true,
-                '"' if !escape_next => in_string = !in_string,
+                '"' => in_string = !in_string,
                 '{' if !in_string => {
                     brace_count += 1;
                     found_start = true;

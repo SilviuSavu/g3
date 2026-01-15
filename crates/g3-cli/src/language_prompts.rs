@@ -224,7 +224,7 @@ mod tests {
     fn test_carmack_racket_prompt_embedded() {
         let prompt = get_agent_language_prompt("carmack", "racket");
         assert!(prompt.is_some());
-        assert!(prompt.unwrap().contains("RACKET-SPECIFIC GUIDANCE"));
+        assert!(prompt.unwrap().contains("obvious, readable Racket"));
     }
 
     #[test]
@@ -242,6 +242,6 @@ mod tests {
         let prompts = get_agent_language_prompts_for_workspace(temp_dir.path(), "carmack");
         assert!(prompts.is_some());
         let content = prompts.unwrap();
-        assert!(content.contains("RACKET-SPECIFIC GUIDANCE"));
+        assert!(content.contains("obvious, readable Racket"));
     }
 }
