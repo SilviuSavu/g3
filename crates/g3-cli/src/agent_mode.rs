@@ -34,10 +34,10 @@ pub async fn run_agent_mode(
         .add_directive("g3_cli=info".parse().unwrap())
         .add_directive("llama_cpp=off".parse().unwrap())
         .add_directive("llama=off".parse().unwrap());
-    tracing_subscriber::registry()
+    let _ = tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
         .with(filter)
-        .init();
+        .try_init();
 
     let output = SimpleOutput::new();
 
