@@ -1,5 +1,5 @@
 # Project Memory
-> Updated: 2026-01-14T15:11:36Z | Size: 12.0k chars
+> Updated: 2026-01-15T00:50:41Z | Size: 12.9k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -212,3 +212,21 @@ Auto-detects programming languages in workspace and injects toolchain guidance.
 To add a new language:
 1. Create `prompts/langs/<lang>.md` with toolchain guidance
 2. Add entry to `LANGUAGE_PROMPTS` in `language_prompts.rs` with extensions
+
+### Agent-Specific Language Prompts
+Injects agent+language-specific guidance when running in agent mode in a workspace with detected languages.
+
+- `crates/g3-cli/src/language_prompts.rs`
+  - `AGENT_LANGUAGE_PROMPTS` [21..26] - static array of (agent_name, lang_name, prompt_content) tuples
+  - `get_agent_language_prompt()` [115..121] - looks up prompt for specific agent+lang combo
+  - `get_agent_language_prompts_for_workspace()` [124..137] - uses `detect_languages()` then looks up agent-specific prompts
+
+- `crates/g3-cli/src/agent_mode.rs`
+  - Lines 149-159 - calls `get_agent_language_prompts_for_workspace()` and appends to system prompt
+
+- `prompts/langs/<agent>.<lang>.md` - file naming pattern for agent+lang prompts
+  - `prompts/langs/carmack.racket.md` - Racket-specific guidance for carmack agent
+
+To add a new agent+lang prompt:
+1. Create `prompts/langs/<agent>.<lang>.md`
+2. Add entry to `AGENT_LANGUAGE_PROMPTS` in `language_prompts.rs` with `include_str!`
