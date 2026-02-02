@@ -19,8 +19,16 @@ static CAPS_RE: Lazy<Regex> = Lazy::new(|| {
     // ALL CAPS words: 2+ uppercase letters, may include numbers, word boundaries
     Regex::new(r"\b([A-Z][A-Z0-9]{1,}[A-Z0-9]*)\b").unwrap()
 });
-static DOUBLE_QUOTE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#""([^"]+)""#).unwrap());
-static SINGLE_QUOTE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"'([^']+)'").unwrap());
+static DOUBLE_QUOTE_RE: Lazy<Regex> = Lazy::new(|| {
+    // Double-quoted text: quote must be preceded by whitespace/punctuation or start of string,
+    // and followed by whitespace/punctuation or end of string
+    Regex::new(r#"(?:^|[\s(\[{])"([^"]+)"(?:$|[\s.,;:!?)\]}])"#).unwrap()
+});
+static SINGLE_QUOTE_RE: Lazy<Regex> = Lazy::new(|| {
+    // Single-quoted text: quote must be preceded by whitespace/punctuation or start of string,
+    // and followed by whitespace/punctuation or end of string (avoids contractions like "it's")
+    Regex::new(r#"(?:^|[\s(\[{])'([^']+)'(?:$|[\s.,;:!?)\]}])"#).unwrap()
+});
 
 /// Pre-process input to add markdown markers before formatting.
 /// ALL CAPS → **bold**, quoted text → special markers for cyan.
@@ -77,6 +85,21 @@ pub fn format_input(input: &str) -> String {
     apply_quote_highlighting(&formatted)
 }
 
+/// Calculate the number of visual lines that text occupies in a terminal.
+/// Accounts for line wrapping and the cursor position after typing.
+pub fn calculate_visual_lines(text_len: usize, term_width: usize) -> usize {
+    if term_width == 0 {
+        return 1;
+    }
+    let mut visual_lines = text_len.div_ceil(term_width).max(1);
+    // When text exactly fills the terminal width (or a multiple), the cursor
+    // wraps to the next line, so we need to clear one additional line
+    if text_len > 0 && text_len % term_width == 0 {
+        visual_lines += 1;
+    }
+    visual_lines
+}
+
 /// Reprint user input in place with formatting (TTY only).
 /// Moves cursor up to overwrite original input, then prints formatted version.
 pub fn reprint_formatted_input(input: &str, prompt: &str) {
@@ -88,7 +111,7 @@ pub fn reprint_formatted_input(input: &str, prompt: &str) {
 
     // Calculate visual lines (prompt + input may wrap across terminal rows)
     let term_width = terminal::size().map(|(w, _)| w as usize).unwrap_or(80);
-    let visual_lines = (prompt.len() + input.len()).div_ceil(term_width).max(1);
+    let visual_lines = calculate_visual_lines(prompt.len() + input.len(), term_width);
 
     // Move up and clear each line
     for _ in 0..visual_lines {
@@ -186,5 +209,81 @@ mod tests {
         let result = preprocess_input(input);
         assert!(result.contains("**IO**"));
         assert!(result.contains("**DB**"));
+    }
+    
+    // Tests for apostrophe/contraction handling (I1 bug fix)
+    
+    #[test]
+    fn test_contraction_not_highlighted() {
+        // Contractions should NOT be treated as quoted text
+        let input = "it's fine";
+        let result = preprocess_input(input);
+        // Should not contain quote markers
+        assert!(!result.contains("\x00qsgl\x00"));
+        assert!(!result.contains("\x00qend\x00"));
+        assert_eq!(result, "it's fine");
+    }
+    
+    #[test]
+    fn test_multiple_contractions_not_highlighted() {
+        let input = "don't won't can't shouldn't";
+        let result = preprocess_input(input);
+        assert!(!result.contains("\x00qsgl\x00"));
+        assert_eq!(result, input);
+    }
+    
+    #[test]
+    fn test_contraction_with_quoted_text() {
+        // Mixed: contraction + actual quoted text
+        // Only 'test' should be highlighted, not the apostrophe in "it's"
+        let input = "it's a 'test' case";
+        let result = preprocess_input(input);
+        assert!(result.contains("\x00qsgl\x00test\x00qend\x00"));
+        // The "it's" should remain unchanged
+        assert!(result.contains("it's"));
+    }
+    
+    #[test]
+    fn test_quoted_at_start_of_string() {
+        let input = "'hello' world";
+        let result = preprocess_input(input);
+        assert!(result.contains("\x00qsgl\x00hello\x00qend\x00"));
+    }
+    
+    #[test]
+    fn test_quoted_at_end_of_string() {
+        let input = "say 'goodbye'";
+        let result = preprocess_input(input);
+        assert!(result.contains("\x00qsgl\x00goodbye\x00qend\x00"));
+    }
+    
+    // Tests for visual line calculation (I2 bug fix)
+    
+    #[test]
+    fn test_visual_lines_shorter_than_width() {
+        // 50 chars on 80-char terminal = 1 line
+        assert_eq!(calculate_visual_lines(50, 80), 1);
+    }
+    
+    #[test]
+    fn test_visual_lines_longer_than_width() {
+        // 100 chars on 80-char terminal = 2 lines (wraps once)
+        assert_eq!(calculate_visual_lines(100, 80), 2);
+        // 170 chars on 80-char terminal = 3 lines
+        assert_eq!(calculate_visual_lines(170, 80), 3);
+    }
+    
+    #[test]
+    fn test_visual_lines_exactly_equals_width() {
+        // 80 chars on 80-char terminal = 2 lines (cursor wraps to next line)
+        assert_eq!(calculate_visual_lines(80, 80), 2);
+        // 160 chars on 80-char terminal = 3 lines (fills 2 lines exactly, cursor on 3rd)
+        assert_eq!(calculate_visual_lines(160, 80), 3);
+    }
+    
+    #[test]
+    fn test_visual_lines_empty_input() {
+        // Empty input should still be 1 line (the prompt line)
+        assert_eq!(calculate_visual_lines(0, 80), 1);
     }
 }
