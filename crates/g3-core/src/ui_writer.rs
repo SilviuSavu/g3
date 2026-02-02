@@ -68,6 +68,16 @@ pub trait UiWriter: Send + Sync {
         false
     }
 
+    /// Print a compact Plan tool output with styled content
+    /// Format: " ● plan_read" or " ● plan_write" header, then styled plan items
+    /// plan_yaml: None for no plan, Some(yaml) for plan content
+    /// plan_file_path: Path to the plan file for user reference
+    /// is_write: true for plan_write, false for plan_read
+    /// Returns true if handled, false to fall back to normal format
+    fn print_plan_compact(&self, _plan_yaml: Option<&str>, _plan_file_path: Option<&str>, _is_write: bool) -> bool {
+        false
+    }
+
     /// Print tool execution timing
     fn print_tool_timing(&self, duration_str: &str, tokens_delta: u32, context_percentage: f32);
 

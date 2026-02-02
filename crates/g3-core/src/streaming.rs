@@ -101,11 +101,15 @@ pub fn is_compact_tool(tool_name: &str) -> bool {
             | "coverage"
             | "rehydrate"
             | "code_search"
+            | "plan_approve"
     )
 }
 
 pub fn is_self_handled_tool(tool_name: &str) -> bool {
-    tool_name == "todo_read" || tool_name == "todo_write"
+    matches!(tool_name, 
+        "todo_read" | "todo_write" | 
+        "plan_read" | "plan_write"
+    )
 }
 
 /// Format a compact summary for a successful compact tool
@@ -125,6 +129,7 @@ fn format_compact_tool_summary(tool_name: &str, tool_result: &str) -> String {
         "coverage" => format_coverage_summary(tool_result),
         "rehydrate" => format_rehydrate_summary(tool_result),
         "code_search" => format_code_search_summary(tool_result),
+        "plan_approve" => format_plan_approve_summary(tool_result),
         _ => "✅ completed".to_string(),
     }
 }
@@ -509,6 +514,25 @@ pub fn format_code_search_summary(result: &str) -> String {
         "🔍 search complete".to_string()
     } else {
         "🔍 search complete".to_string()
+    }
+}
+
+/// Format a plan_approve result summary.
+pub fn format_plan_approve_summary(result: &str) -> String {
+    // Result formats:
+    // "✅ Plan approved at revision N. You may now begin implementation."
+    // "ℹ️ Plan already approved at revision N. Current revision: M"
+    // "❌ No plan exists to approve..."
+    if result.contains("❌") {
+        "❌ failed".to_string()
+    } else if result.contains("already approved") {
+        "ℹ️ already approved".to_string()
+    } else if let Some(pos) = result.find("revision ") {
+        let after = &result[pos + 9..];
+        let rev: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+        format!("✅ approved rev {}", rev)
+    } else {
+        "✅ approved".to_string()
     }
 }
 

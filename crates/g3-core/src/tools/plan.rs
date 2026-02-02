@@ -758,16 +758,23 @@ pub async fn execute_plan_read<W: UiWriter>(
         None => return Ok("❌ No active session - plans are session-scoped.".to_string()),
     };
 
+    let plan_path = get_plan_path(session_id);
+    let plan_path_str = plan_path.to_string_lossy().to_string();
+
     match read_plan(session_id)? {
         Some(plan) => {
             let yaml = serde_yaml::to_string(&plan)?;
+            ctx.ui_writer.print_plan_compact(Some(&yaml), Some(&plan_path_str), false);
             Ok(format!(
                 "📋 {}\n\n```yaml\n{}```",
                 plan.status_summary(),
                 yaml
             ))
         }
-        None => Ok("📋 No plan exists for this session. Use plan_write to create one.".to_string()),
+        None => {
+            ctx.ui_writer.print_plan_compact(None, None, false);
+            Ok("📋 No plan exists for this session. Use plan_write to create one.".to_string())
+        }
     }
 }
 
@@ -825,6 +832,12 @@ pub async fn execute_plan_write<W: UiWriter>(
     if let Err(e) = write_plan(session_id, &plan) {
         return Ok(format!("❌ Failed to write plan: {}", e));
     }
+
+    // Display the plan in compact format
+    let plan_path = get_plan_path(session_id);
+    let plan_path_str = plan_path.to_string_lossy().to_string();
+    let yaml = serde_yaml::to_string(&plan)?;
+    ctx.ui_writer.print_plan_compact(Some(&yaml), Some(&plan_path_str), true);
 
     // Check if plan is now complete and trigger verification
     if plan.is_complete() && plan.is_approved() {

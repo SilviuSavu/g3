@@ -689,6 +689,122 @@ impl UiWriter for ConsoleUiWriter {
         true
     }
 
+    fn print_plan_compact(&self, plan_yaml: Option<&str>, plan_file_path: Option<&str>, is_write: bool) -> bool {
+        let tool_name = if is_write { "plan_write" } else { "plan_read" };
+        // Clear any streaming hint that might be showing
+        self.hint_state.handle_hint(ToolParsingHint::Complete);
+
+        let is_agent_mode = self.hint_state.is_agent_mode.load(Ordering::Relaxed);
+        let tool_color = if is_agent_mode { TOOL_COLOR_AGENT } else { TOOL_COLOR_NORMAL };
+
+        // Add blank line if last output was text (for visual separation)
+        if self.hint_state.last_output_was_text.load(Ordering::Relaxed) {
+            println!();
+        }
+        self.hint_state.last_output_was_text.store(false, Ordering::Relaxed);
+        self.hint_state.last_output_was_tool.store(true, Ordering::Relaxed);
+        // Reset read_file continuation tracking
+        *self.last_read_file_path.lock().unwrap() = None;
+
+        match plan_yaml {
+            None => {
+                // No plan exists
+                println!(" \x1b[2m●\x1b[0m {}{:<width$}\x1b[0m \x1b[2m|\x1b[0m \x1b[35mempty\x1b[0m", tool_color, tool_name, width = TOOL_NAME_PADDING);
+            }
+            Some(yaml) => {
+                // Parse the YAML to extract plan details
+                #[derive(serde::Deserialize)]
+                struct PlanCompact {
+                    plan_id: String,
+                    revision: u32,
+                    approved_revision: Option<u32>,
+                    items: Vec<PlanItemCompact>,
+                }
+                #[derive(serde::Deserialize)]
+                struct PlanItemCompact {
+                    id: String,
+                    description: String,
+                    state: String,
+                    touches: Vec<String>,
+                    checks: ChecksCompact,
+                }
+                #[derive(serde::Deserialize)]
+                struct ChecksCompact {
+                    happy: CheckCompact,
+                    negative: CheckCompact,
+                    boundary: CheckCompact,
+                }
+                #[derive(serde::Deserialize)]
+                struct CheckCompact {
+                    desc: String,
+                    #[allow(dead_code)]
+                    target: String,
+                }
+
+                if let Ok(plan) = serde_yaml::from_str::<PlanCompact>(yaml) {
+                    // Header with plan info
+                    let approved_str = if let Some(rev) = plan.approved_revision {
+                        format!(" \x1b[32m✓ approved@{}\x1b[0m", rev)
+                    } else {
+                        " \x1b[33m⚠ NOT APPROVED\x1b[0m".to_string()
+                    };
+                    println!(" \x1b[2m●\x1b[0m {}{:<width$}\x1b[0m \x1b[2m|\x1b[0m \x1b[36m{}\x1b[0m rev {}{}",
+                        tool_color, tool_name, plan.plan_id, plan.revision, approved_str, width = TOOL_NAME_PADDING);
+
+                    let items_len = plan.items.len();
+                    for (i, item) in plan.items.iter().enumerate() {
+                        let is_last_item = i == items_len - 1;
+                        let item_prefix = if is_last_item { "└" } else { "├" };
+                        let child_prefix = if is_last_item { " " } else { "│" };
+
+                        // State indicator: □ = todo, ◐ = doing, ■ = done, ⊘ = blocked
+                        let (state_icon, state_color) = match item.state.as_str() {
+                            "todo" => ("□", "\x1b[0m"),      // default
+                            "doing" => ("◐", "\x1b[33m"),   // yellow
+                            "done" => ("■", "\x1b[32m"),    // green
+                            "blocked" => ("⊘", "\x1b[31m"), // red
+                            _ => ("?", "\x1b[0m"),
+                        };
+
+                        // Item line: state icon, ID, description
+                        let desc_style = if item.state == "done" { "\x1b[9m" } else { "" }; // strikethrough if done
+                        println!("   \x1b[2m{}\x1b[0m {}{} \x1b[1m{}\x1b[0m {}{}\x1b[0m",
+                            item_prefix, state_color, state_icon, item.id, desc_style, item.description);
+
+                        // Touches (dimmed)
+                        let touches_str = item.touches.join(", ");
+                        println!("   \x1b[2m{}     → {}\x1b[0m", child_prefix, touches_str);
+
+                        // Checks (dimmed, compact)
+                        println!("   \x1b[2m{}     ✓ happy: {}\x1b[0m", child_prefix, item.checks.happy.desc);
+                        println!("   \x1b[2m{}     ✗ negative: {}\x1b[0m", child_prefix, item.checks.negative.desc);
+                        println!("   \x1b[2m{}     ◇ boundary: {}\x1b[0m", child_prefix, item.checks.boundary.desc);
+                    }
+
+                    // File path link at the end
+                    if let Some(path) = plan_file_path {
+                        println!("   \x1b[2m     📄 {}\x1b[0m", path);
+                    }
+
+                    // Add blank line after content for readability
+                    println!();
+                } else {
+                    // Failed to parse - fall back to simple display
+                    println!(" \x1b[2m●\x1b[0m {}{:<width$}\x1b[0m", tool_color, tool_name, width = TOOL_NAME_PADDING);
+                    for line in yaml.lines().take(20) {
+                        println!("   \x1b[2m│  {}\x1b[0m", line);
+                    }
+                    println!();
+                }
+            }
+        }
+
+        // Clear tool state
+        self.clear_tool_state();
+
+        true
+    }
+
     fn print_tool_timing(&self, duration_str: &str, tokens_delta: u32, context_percentage: f32) {
         let color_code = duration_color(duration_str);
 
