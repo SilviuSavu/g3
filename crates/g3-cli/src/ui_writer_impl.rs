@@ -473,7 +473,7 @@ impl UiWriter for ConsoleUiWriter {
         self.hint_state.handle_hint(ToolParsingHint::Complete);
 
         // Handle file operation tools and other compact tools
-        let is_compact_tool = matches!(tool_name, "read_file" | "write_file" | "str_replace" | "remember" | "screenshot" | "coverage" | "rehydrate" | "code_search");
+        let is_compact_tool = matches!(tool_name, "read_file" | "write_file" | "str_replace" | "remember" | "screenshot" | "coverage" | "rehydrate" | "code_search" | "plan_approve");
         if !is_compact_tool {
             // Reset continuation tracking for non-compact tools
             *self.last_read_file_path.lock().unwrap() = None;
@@ -754,8 +754,11 @@ impl UiWriter for ConsoleUiWriter {
                     let items_len = plan.items.len();
                     for (i, item) in plan.items.iter().enumerate() {
                         let is_last_item = i == items_len - 1;
-                        let item_prefix = if is_last_item { "└" } else { "├" };
-                        let child_prefix = if is_last_item { " " } else { "│" };
+                        // All items use ├, sub-lines use │
+                        // Only the very last sub-line (boundary of last item) uses └
+                        let item_prefix = "├";
+                        let child_prefix = "│";
+                        let last_child_prefix = if is_last_item { "└" } else { "│" };
 
                         // State indicator: □ = todo, ◐ = doing, ■ = done, ⊘ = blocked
                         let (state_icon, state_color) = match item.state.as_str() {
@@ -773,17 +776,18 @@ impl UiWriter for ConsoleUiWriter {
 
                         // Touches (dimmed)
                         let touches_str = item.touches.join(", ");
-                        println!("   \x1b[2m{}     → {}\x1b[0m", child_prefix, touches_str);
+                        println!("   \x1b[2m{}    → {}\x1b[0m", child_prefix, touches_str);
 
                         // Checks (dimmed, compact)
-                        println!("   \x1b[2m{}     ✓ happy: {}\x1b[0m", child_prefix, item.checks.happy.desc);
-                        println!("   \x1b[2m{}     ✗ negative: {}\x1b[0m", child_prefix, item.checks.negative.desc);
-                        println!("   \x1b[2m{}     ◇ boundary: {}\x1b[0m", child_prefix, item.checks.boundary.desc);
+                        println!("   \x1b[2m{}    ✓ happy: {}\x1b[0m", child_prefix, item.checks.happy.desc);
+                        println!("   \x1b[2m{}    ✗ negative: {}\x1b[0m", child_prefix, item.checks.negative.desc);
+                        println!("   \x1b[2m{}    ◇ boundary: {}\x1b[0m", last_child_prefix, item.checks.boundary.desc);
                     }
 
                     // File path link at the end
                     if let Some(path) = plan_file_path {
-                        println!("   \x1b[2m     📄 {}\x1b[0m", path);
+                        println!();  // Blank line gap
+                        println!(" \x1b[2m-> {}\x1b[0m", path);
                     }
 
                     // Add blank line after content for readability
