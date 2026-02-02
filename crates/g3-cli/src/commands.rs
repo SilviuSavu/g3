@@ -74,6 +74,7 @@ pub async fn handle_command<W: UiWriter>(
             output.print("  /readme    - Reload README.md and AGENTS.md from disk");
             output.print("  /stats     - Show detailed context and performance statistics");
             output.print("  /run <file> - Read file and execute as prompt");
+            output.print("  /feature <description> - Start Plan Mode for a new feature");
             output.print("  /help      - Show this help message");
             output.print("  exit/quit  - Exit the interactive session");
             output.print("");
@@ -449,6 +450,35 @@ pub async fn handle_command<W: UiWriter>(
                         output.print(&format!("❌ {}", e));
                     }
                 }
+            }
+            Ok(true)
+        }
+        cmd if cmd.starts_with("/feature") => {
+            let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
+            if parts.len() < 2 || parts[1].trim().is_empty() {
+                output.print("Usage: /feature <description>");
+                output.print("Starts Plan Mode for a new feature. The agent will:");
+                output.print("  1. Research and draft a Plan with checks (happy/negative/boundary)");
+                output.print("  2. Ask clarifying questions if needed");
+                output.print("  3. Request approval before coding");
+                output.print("");
+                output.print("Example: /feature Add CSV import for comic book metadata");
+            } else {
+                let feature_description = parts[1].trim();
+                
+                // Construct the feature prompt that instructs the agent to use Plan Mode
+                let prompt = format!(
+                    "I want to implement a new feature: {}\n\n\
+                    Please use Plan Mode to help me implement this:\n\
+                    1. First, research the codebase to understand where this feature should live\n\
+                    2. Draft a Plan using `plan_write` with items that have all three checks (happy, negative, boundary)\n\
+                    3. Ask me any clarifying questions if needed\n\
+                    4. Then ask me to approve the plan before you start coding\n\n\
+                    Do NOT start coding until I approve the plan.",
+                    feature_description
+                );
+                
+                execute_task_with_retry(agent, &prompt, show_prompt, show_code, output).await;
             }
             Ok(true)
         }

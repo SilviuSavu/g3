@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, file_ops, memory, misc, research, shell, todo, webdriver};
+use crate::tools::{acd, file_ops, memory, misc, plan, research, shell, webdriver};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -32,9 +32,10 @@ pub async fn dispatch_tool<W: UiWriter>(
         "write_file" => file_ops::execute_write_file(tool_call, ctx).await,
         "str_replace" => file_ops::execute_str_replace(tool_call, ctx).await,
 
-        // TODO management
-        "todo_read" => todo::execute_todo_read(tool_call, ctx).await,
-        "todo_write" => todo::execute_todo_write(tool_call, ctx).await,
+        // Plan Mode
+        "plan_read" => plan::execute_plan_read(tool_call, ctx).await,
+        "plan_write" => plan::execute_plan_write(tool_call, ctx).await,
+        "plan_approve" => plan::execute_plan_approve(tool_call, ctx).await,
 
         // Miscellaneous tools
         "screenshot" => misc::execute_take_screenshot(tool_call, ctx).await,

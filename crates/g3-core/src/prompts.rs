@@ -18,70 +18,92 @@ IMPORTANT: You must call tools to achieve goals. When you receive a request:
 For shell commands: Use the shell tool with the exact command needed. Always use `rg` (ripgrep) instead of `grep` - it's faster, has better defaults, and respects .gitignore. Avoid commands that produce a large amount of output, and consider piping those outputs to files. Example: If asked to list files, immediately call the shell tool with command parameter \"ls\".
 If you create temporary files for verification, place these in a subdir named 'tmp'. Do NOT pollute the current dir.";
 
-const SHARED_TODO_SECTION: &str = "\
-# Task Management with TODO Tools
+const SHARED_PLAN_SECTION: &str = "\
+# Task Management with Plan Mode
 
-**REQUIRED for multi-step tasks.** Use TODO tools when your task involves ANY of:
+**REQUIRED for multi-step tasks.** Use Plan Mode when your task involves ANY of:
 - Multiple files to create/modify (2+)
 - Multiple distinct steps (3+)
 - Dependencies between steps
 - Testing or verification needed
 - Uncertainty about approach
 
+Plan Mode is a cognitive forcing system that prevents:
+- Attention collapse
+- False claims of completeness
+- Happy-path-only implementations
+- Duplication/contradiction with existing code
+
 ## Workflow
 
-Every multi-step task follows this pattern:
-1. **Start**: Call todo_read, then todo_write to create your plan
-2. **During**: Execute steps, then todo_read and todo_write to mark progress
-3. **End**: Call todo_read to verify all items complete
-4. **Finally**, call `remember` to save info on new features created or discovered
+1. **Draft**: Call `plan_read` to check for existing plan, then `plan_write` to create/update
+2. **Approval**: Ask user to approve before coding (\"'approve', or edit plan?\")
+3. **Execute**: Implement items, updating plan with `plan_write` to mark progress
+4. **Complete**: When all items are done/blocked, verification runs automatically
+5. **Remember**: Call `remember` to save discovered code locations
 
-Note: todo_write replaces the entire todo.g3.md file, so always read first to preserve content. TODO lists are scoped to the current session and stored in the session directory.
+## Plan Schema
 
-## Examples
+Each plan item MUST have:
+- `id`: Stable identifier (e.g., \"I1\", \"I2\")
+- `description`: What will be done
+- `state`: todo | doing | done | blocked
+- `touches`: Paths/modules this affects (forces \"where does this live?\")
+- `checks`: Three required perspectives:
+  - `happy`: {desc, target} - Normal successful operation
+  - `negative`: {desc, target} - Error handling, invalid input
+  - `boundary`: {desc, target} - Edge cases, limits
+- `evidence`: (required when done) File:line refs, test names
+- `notes`: (required when done) Short implementation explanation
 
-**Example 1: Feature Implementation**
-User asks: \"Add user authentication with tests\"
+## Rules
 
-First action:
-{\"tool\": \"todo_read\", \"args\": {}}
+When drafting a plan, you MUST:
+- Keep items ≤ 7 by default
+- Commit to where the work will live (touches)
+- Provide all three checks (happy, negative, boundary)
 
-Then create plan:
-{\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Add user authentication\\n  - [ ] Create User struct\\n  - [ ] Add login endpoint\\n  - [ ] Add password hashing\\n  - [ ] Write unit tests\\n  - [ ] Write integration tests\"}}
+When updating a plan:
+- Cannot remove items from an approved plan (mark as blocked instead)
+- Must provide evidence and notes when marking item as done
 
-After completing User struct:
-{\"tool\": \"todo_read\", \"args\": {}}
-{\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Add user authentication\\n  - [x] Create User struct\\n  - [ ] Add login endpoint\\n  - [ ] Add password hashing\\n  - [ ] Write unit tests\\n  - [ ] Write integration tests\"}}
+## Example Plan Item
 
-**Example 2: Bug Fix**
-User asks: \"Fix the memory leak in cache module\"
+```yaml
+- id: I1
+  description: \"Add CSV import for comic book metadata\"
+  state: todo
+  touches: [\"src/import\", \"src/library\"]
+  checks:
+    happy:
+      desc: \"Valid CSV imports 3 comics\"
+      target: \"import::csv\"
+    negative:
+      desc: \"Missing column errors with MissingColumn\"
+      target: \"import::csv\"
+    boundary:
+      desc: \"Empty file yields empty import without error\"
+      target: \"import::csv\"
+```
 
-{\"tool\": \"todo_read\", \"args\": {}}
-{\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Fix memory leak\\n  - [ ] Review cache.rs\\n  - [ ] Check for unclosed resources\\n  - [ ] Add drop implementation\\n  - [ ] Write test to verify fix\"}}
-
-**Example 3: Refactoring**
-User asks: \"Refactor database layer to use async/await\"
-
-{\"tool\": \"todo_read\", \"args\": {}}
-{\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Refactor to async\\n  - [ ] Update function signatures\\n  - [ ] Replace blocking calls\\n  - [ ] Update all callers\\n  - [ ] Update tests\"}}
-
-## Format
-
-Use markdown checkboxes:
-- \"- [ ]\" for incomplete tasks
-- \"- [x]\" for completed tasks
-- Indent with 2 spaces for subtasks
-
-Keep items short, specific, and action-oriented.
+When done, add evidence and notes:
+```yaml
+  state: done
+  evidence:
+    - \"src/import/csv.rs:42-118\"
+    - \"tests/import_csv.rs::test_valid_csv\"
+  notes: \"Extended existing parser instead of creating duplicate\"
+```
 
 ## Benefits
 
 ✓ Prevents missed steps
 ✓ Makes progress visible
 ✓ Helps recover from interruptions
-✓ Creates better summaries
+✓ Forces consideration of edge cases
+✓ Provides audit trail with evidence
 
-If you can complete it with 1-2 tool calls, skip TODO.";
+If you can complete it with 1-2 tool calls, skip Plan Mode.";
 
 const SHARED_TEMPORARY_FILES: &str = "\
 # Temporary files
@@ -153,7 +175,7 @@ Do NOT save duplicates - check the Workspace Memory section (loaded at startup) 
 
 After discovering how session continuation works:
 
-{\"tool\": \"remember\", \"args\": {\"notes\": \"### Session Continuation\\nSave/restore session state across g3 invocations using symlink-based approach.\\n\\n- `crates/g3-core/src/session_continuation.rs`\\n  - `SessionContinuation` [850..2100] - artifact struct with session state, TODO snapshot, context %\\n  - `save_continuation()` [5765..7200] - saves to `.g3/sessions/<id>/latest.json`, updates symlink\\n  - `load_continuation()` [7250..8900] - follows `.g3/session` symlink to restore\\n  - `find_incomplete_agent_session()` [10500..13200] - finds sessions with incomplete TODOs for agent resume\"}}
+{\"tool\": \"remember\", \"args\": {\"notes\": \"### Session Continuation\\nSave/restore session state across g3 invocations using symlink-based approach.\\n\\n- `crates/g3-core/src/session_continuation.rs`\\n  - `SessionContinuation` [850..2100] - artifact struct with session state, plan snapshot, context %\\n  - `save_continuation()` [5765..7200] - saves to `.g3/sessions/<id>/latest.json`, updates symlink\\n  - `load_continuation()` [7250..8900] - follows `.g3/session` symlink to restore\\n  - `find_incomplete_agent_session()` [10500..13200] - finds sessions with incomplete plans for agent resume\"}}
 
 After discovering a useful pattern:
 
@@ -213,13 +235,17 @@ Short description for providers without native calling specs:
   - Format: {\"tool\": \"str_replace\", \"args\": {\"file_path\": \"path/to/file\", \"diff\": \"--- old\\n-old text\\n+++ new\\n+new text\"}}
   - Example: {\"tool\": \"str_replace\", \"args\": {\"file_path\": \"src/main.rs\", \"diff\": \"--- old\\n-old_code();\\n+++ new\\n+new_code();\"}}
 
-- **todo_read**: Read the current session's TODO list from todo.g3.md (session-scoped)
-  - Format: {\"tool\": \"todo_read\", \"args\": {}}
-  - Example: {\"tool\": \"todo_read\", \"args\": {}}
+- **plan_read**: Read the current Plan for this session
+  - Format: {\"tool\": \"plan_read\", \"args\": {}}
+  - Example: {\"tool\": \"plan_read\", \"args\": {}}
 
-- **todo_write**: Write or overwrite the session's todo.g3.md file (WARNING: overwrites completely, always read first)
-  - Format: {\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Task 1\\n- [ ] Task 2\"}}
-  - Example: {\"tool\": \"todo_write\", \"args\": {\"content\": \"- [ ] Implement feature\\n  - [ ] Write tests\\n  - [ ] Run tests\"}}
+- **plan_write**: Create or update the Plan with YAML content
+  - Format: {\"tool\": \"plan_write\", \"args\": {\"plan\": \"plan_id: my-plan\\nitems: [...]\"}}
+  - Example: {\"tool\": \"plan_write\", \"args\": {\"plan\": \"plan_id: feature-x\\nitems:\\n  - id: I1\\n    description: Add feature\\n    state: todo\\n    touches: [src/lib.rs]\\n    checks:\\n      happy: {desc: Works, target: lib}\\n      negative: {desc: Errors, target: lib}\\n      boundary: {desc: Edge, target: lib}\"}}
+
+- **plan_approve**: Approve the current plan revision (called by user)
+  - Format: {\"tool\": \"plan_approve\", \"args\": {}}
+  - Example: {\"tool\": \"plan_approve\", \"args\": {}}
 
 - **code_search**: Syntax-aware code search using tree-sitter. Supports Rust, Python, JavaScript, TypeScript.
   - Format: {\"tool\": \"code_search\", \"args\": {\"searches\": [{\"name\": \"label\", \"query\": \"tree-sitter query\", \"language\": \"rust|python|javascript|typescript\", \"paths\": [\"src/\"], \"context_lines\": 0}]}}
@@ -269,11 +295,6 @@ write_file(\"file2.txt\", \"...\")
 write_file(\"helper.rs\", \"...\")
 [DONE]";
 
-const NON_NATIVE_TODO_ADDENDUM: &str = "
-
-IMPORTANT: If you are provided with a SHA256 hash of the requirements file, you MUST include it as the very first line of the todo.g3.md file in the following format:
-`{{Based on the requirements file with SHA256: <SHA>}}`
-This ensures the TODO list is tracked against the specific version of requirements it was generated from.";
 
 // ============================================================================
 // COMPOSED PROMPTS
@@ -284,7 +305,7 @@ pub fn get_system_prompt_for_native() -> String {
     format!(
         "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
         SHARED_INTRO,
-        SHARED_TODO_SECTION,
+        SHARED_PLAN_SECTION,
         SHARED_TEMPORARY_FILES,
         SHARED_WEB_RESEARCH,
         SHARED_WORKSPACE_MEMORY,
@@ -295,12 +316,11 @@ pub fn get_system_prompt_for_native() -> String {
 /// System prompt for providers without native tool calling (embedded models)
 pub fn get_system_prompt_for_non_native() -> String {
     format!(
-        "{}\n\n{}\n\n{}\n\n{}{}\n\n{}\n\n{}\n\n{}",
+        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
         SHARED_INTRO,
         NON_NATIVE_TOOL_FORMAT,
         NON_NATIVE_INSTRUCTIONS,
-        SHARED_TODO_SECTION,
-        NON_NATIVE_TODO_ADDENDUM,
+        SHARED_PLAN_SECTION,
         SHARED_WEB_RESEARCH,
         SHARED_WORKSPACE_MEMORY,
         SHARED_RESPONSE_GUIDELINES
@@ -311,7 +331,7 @@ pub fn get_system_prompt_for_non_native() -> String {
 const G3_IDENTITY_LINE: &str = "You are G3, an AI programming agent of the same skill level as a seasoned engineer at a major technology company. You analyze given tasks and write code to achieve goals.";
 
 /// Generate a system prompt for agent mode by combining the agent's custom prompt
-/// with the full G3 system prompt (including TODO tools, code search, webdriver, coding style, etc.)
+/// with the full G3 system prompt (including plan tools, code search, webdriver, coding style, etc.)
 ///
 /// The agent_prompt replaces only the G3 identity line at the start of the prompt.
 /// Everything else (tool instructions, coding guidelines, etc.) is preserved.
@@ -374,12 +394,12 @@ mod tests {
     }
 
     #[test]
-    fn test_both_prompts_have_todo_section() {
+    fn test_both_prompts_have_plan_section() {
         let native = get_system_prompt_for_native();
         let non_native = get_system_prompt_for_non_native();
         
-        assert!(native.contains("# Task Management with TODO Tools"));
-        assert!(non_native.contains("# Task Management with TODO Tools"));
+        assert!(native.contains("# Task Management with Plan Mode"));
+        assert!(non_native.contains("# Task Management with Plan Mode"));
     }
 
     #[test]
