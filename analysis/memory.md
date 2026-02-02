@@ -261,7 +261,7 @@ Structured task planning with cognitive forcing - requires happy/negative/bounda
 
 - `crates/g3-core/src/tool_definitions.rs` [263..330] - plan.read, plan.write, plan.approve definitions
 - `crates/g3-core/src/tool_dispatch.rs` [36..38] - dispatch cases for plan tools
-- `crates/g3-cli/src/commands.rs` [460..490] - `/feature` command starts Plan Mode
+- `crates/g3-cli/src/commands.rs` [460..490] - `/plan` command starts Plan Mode
 - `crates/g3-core/src/prompts.rs` [21..130] - SHARED_PLAN_SECTION replaces TODO section
 
 **Plan Schema (YAML)**:
@@ -282,7 +282,7 @@ items:
     notes: Implementation explanation   # required when done
 ```
 
-**Workflow**: `/feature <desc>` → agent drafts plan → user approves → agent implements → plan_verify() called when complete
+**Workflow**: `/plan <desc>` → agent drafts plan → user approves → agent implements → plan_verify() called when complete
 
 ### Plan Mode Tool Names (IMPORTANT)
 Tool names must use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0-9_-]{1,128}$`).

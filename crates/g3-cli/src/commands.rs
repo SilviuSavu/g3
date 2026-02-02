@@ -74,7 +74,7 @@ pub async fn handle_command<W: UiWriter>(
             output.print("  /readme    - Reload README.md and AGENTS.md from disk");
             output.print("  /stats     - Show detailed context and performance statistics");
             output.print("  /run <file> - Read file and execute as prompt");
-            output.print("  /feature <description> - Start Plan Mode for a new feature");
+            output.print("  /plan <description> - Start Plan Mode for a new feature");
             output.print("  /help      - Show this help message");
             output.print("  exit/quit  - Exit the interactive session");
             output.print("");
@@ -453,16 +453,16 @@ pub async fn handle_command<W: UiWriter>(
             }
             Ok(true)
         }
-        cmd if cmd.starts_with("/feature") => {
+        cmd if cmd.starts_with("/plan") => {
             let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
             if parts.len() < 2 || parts[1].trim().is_empty() {
-                output.print("Usage: /feature <description>");
+                output.print("Usage: /plan <description>");
                 output.print("Starts Plan Mode for a new feature. The agent will:");
                 output.print("  1. Research and draft a Plan with checks (happy/negative/boundary)");
                 output.print("  2. Ask clarifying questions if needed");
                 output.print("  3. Request approval before coding");
                 output.print("");
-                output.print("Example: /feature Add CSV import for comic book metadata");
+                output.print("Example: /plan Add CSV import for comic book metadata");
             } else {
                 let feature_description = parts[1].trim();
                 
