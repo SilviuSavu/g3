@@ -74,6 +74,7 @@ pub fn format_tool_result_summary(
             | "coverage"
             | "rehydrate"
             | "code_search"
+            | "plan_approve"
     );
 
     if is_todo_tool {
