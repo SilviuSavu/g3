@@ -37,7 +37,7 @@ Plan Mode is a cognitive forcing system that prevents:
 ## Workflow
 
 1. **Draft**: Call `plan_read` to check for existing plan, then `plan_write` to create/update
-2. **Approval**: Ask user to approve before coding (\"'approve', or edit plan?\")
+2. **Approval**: Ask user to approve before coding (\"'approve', or edit plan?\"). In non-interactive mode (autonomous/one-shot), plans auto-approve on write.
 3. **Execute**: Implement items, updating plan with `plan_write` to mark progress
 4. **Complete**: When all items are done/blocked, verification runs automatically
 5. **Remember**: Call `remember` to save discovered code locations
