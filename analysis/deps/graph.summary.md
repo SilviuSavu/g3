@@ -1,86 +1,105 @@
 # Dependency Graph Summary
 
-## Overview
+**Generated**: 2025-02-02  
+**Extraction Method**: Static import parsing via ripgrep  
+**Workspace**: g3
 
-| Metric | Value |
+## Metrics
+
+| Metric | Count |
 |--------|-------|
-| Total nodes | 108 |
-| Total edges | 186 |
-| Crate nodes | 9 |
-| File nodes | 99 |
-| Crate-level edges | 14 |
-| File-level edges | 172 |
+| Total Nodes | 127 |
+| Crate Nodes | 9 |
+| File Nodes | 118 |
+| Total Edges | 156 |
+| Crate-level Edges | 14 |
+| File-level Edges | 142 |
 
-## Crate Structure
+## Crate Dependency Structure
 
-| Crate | Path | Direct Dependencies |
-|-------|------|---------------------|
-| g3 | `.` | g3-cli, g3-providers |
-| g3-cli | `crates/g3-cli` | g3-core, g3-config, g3-planner, g3-computer-control, g3-providers |
-| g3-core | `crates/g3-core` | g3-providers, g3-config, g3-execution, g3-computer-control |
-| g3-providers | `crates/g3-providers` | (none) |
-| g3-config | `crates/g3-config` | (none) |
-| g3-execution | `crates/g3-execution` | (none) |
-| g3-planner | `crates/g3-planner` | g3-providers, g3-core, g3-config |
-| g3-computer-control | `crates/g3-computer-control` | (none) |
-| studio | `crates/studio` | (none) |
+```
+g3 (root binary)
+├── g3-cli
+│   ├── g3-core
+│   ├── g3-config
+│   ├── g3-planner
+│   ├── g3-computer-control
+│   └── g3-providers
+├── g3-providers
+
+g3-core
+├── g3-providers
+├── g3-config
+├── g3-execution
+└── g3-computer-control
+
+g3-planner
+├── g3-providers
+├── g3-core
+└── g3-config
+
+studio (standalone binary)
+└── (no internal g3 dependencies)
+
+g3-config (leaf - no internal deps)
+g3-execution (leaf - no internal deps)
+g3-computer-control (leaf - no internal deps)
+g3-providers (leaf - no internal deps)
+```
 
 ## Entrypoints
 
-| Type | Location | Evidence |
-|------|----------|----------|
-| Binary | `crates/g3-cli/src/lib.rs` | `run()` function, CLI dispatch |
-| Binary | `crates/studio/src/main.rs` | `main()` function |
-| Library | `crates/g3-core/src/lib.rs` | `Agent` struct, core API |
+| Entrypoint | Path | Type |
+|------------|------|------|
+| g3 | `src/main.rs` | Binary |
+| studio | `crates/studio/src/main.rs` | Binary |
+| g3-cli | `crates/g3-cli/src/lib.rs` | Library |
 
 ## Top Fan-In Nodes (Most Depended Upon)
 
-| Node | Fan-In | Type |
-|------|--------|------|
-| crate:g3-core | 35 | crate |
-| crate:g3-providers | 19 | crate |
-| file:crates/g3-core/src/ui_writer.rs | 15 | file |
-| crate:g3-config | 13 | crate |
-| file:crates/g3-cli/src/g3_status.rs | 10 | file |
-| file:crates/g3-cli/src/simple_output.rs | 8 | file |
-| file:crates/g3-core/src/context_window.rs | 6 | file |
-| file:crates/g3-cli/src/template.rs | 6 | file |
-| file:crates/g3-core/src/paths.rs | 5 | file |
-| crate:g3-computer-control | 4 | crate |
+| Node | Fan-In | Description |
+|------|--------|-------------|
+| `g3-core/src/lib.rs` | 18 | Core Agent, ToolCall types |
+| `g3-core/src/ui_writer.rs` | 14 | UiWriter trait |
+| `g3-cli/src/simple_output.rs` | 9 | SimpleOutput helper |
+| `g3-cli/src/template.rs` | 6 | Template processing |
+| `g3-core/src/paths.rs` | 6 | Path utilities |
+| `g3-core/src/context_window.rs` | 5 | Context window management |
+| `g3-cli/src/g3_status.rs` | 5 | Status formatting |
+| `crate:g3-providers` | 5 | Provider abstractions |
+| `crate:g3-config` | 5 | Configuration |
+| `crate:g3-core` | 5 | Core engine |
 
 ## Top Fan-Out Nodes (Most Dependencies)
 
-| Node | Fan-Out | Type |
-|------|---------|------|
-| file:crates/g3-cli/src/agent_mode.rs | 13 | file |
-| file:crates/g3-core/src/lib.rs | 13 | file |
-| file:crates/g3-cli/src/commands.rs | 12 | file |
-| file:crates/g3-cli/src/interactive.rs | 12 | file |
-| file:crates/g3-cli/src/accumulative.rs | 11 | file |
-| file:crates/g3-planner/src/planner.rs | 8 | file |
-| file:crates/g3-cli/src/autonomous.rs | 8 | file |
-| file:crates/g3-core/src/tools/acd.rs | 7 | file |
-| file:crates/g3-planner/src/llm.rs | 6 | file |
-| file:crates/g3-cli/src/utils.rs | 5 | file |
+| Node | Fan-Out | Description |
+|------|---------|-------------|
+| `g3-cli/src/interactive.rs` | 11 | Interactive REPL |
+| `g3-cli/src/agent_mode.rs` | 11 | Agent mode runner |
+| `g3-cli/src/accumulative.rs` | 8 | Accumulative mode |
+| `g3-cli/src/commands.rs` | 7 | CLI commands |
+| `g3-core/src/tools/executor.rs` | 7 | Tool execution context |
+| `g3-cli/src/autonomous.rs` | 5 | Autonomous mode |
+| `g3-core/src/compaction.rs` | 4 | Context compaction |
+| `g3-core/src/tool_dispatch.rs` | 4 | Tool routing |
 
-## File Counts by Crate
+## Crate File Counts
 
-| Crate | Source Files |
-|-------|-------------|
-| g3-cli | 23 |
-| g3-core | 42 |
-| g3-providers | 9 |
-| g3-config | 2 |
-| g3-execution | 1 |
-| g3-planner | 8 |
-| g3-computer-control | 11 |
-| studio | 3 |
+| Crate | Source Files | Test Files |
+|-------|--------------|------------|
+| g3-cli | 21 | 5 |
+| g3-core | 32 | 33 |
+| g3-providers | 12 | 4 |
+| g3-planner | 7 | 4 |
+| g3-computer-control | 12 | 1 |
+| g3-config | 2 | 0 |
+| g3-execution | 1 | 0 |
+| studio | 3 | 0 |
 
 ## Extraction Limitations
 
-1. **Static analysis only**: Dynamic dispatch and trait objects not traced
-2. **Use statement parsing**: Only `use g3_*` and `use crate::` patterns captured
-3. **Conditional compilation**: `#[cfg(...)]` blocks not evaluated
-4. **Re-exports**: `pub use` chains not fully resolved
-5. **Test files excluded**: Files in `/tests/` directories not included
-6. **Examples excluded**: Files in `/examples/` directories not included
+1. **Dynamic imports not captured**: Any runtime module loading is not reflected
+2. **Macro-generated imports**: Imports generated by macros may be missed
+3. **Conditional compilation**: `#[cfg(...)]` gated imports are included regardless of target
+4. **Re-exports**: Transitive re-exports through `pub use` are not fully traced
+5. **Test files excluded from graph**: Test files (`tests/`) are not included in file nodes

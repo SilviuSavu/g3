@@ -451,8 +451,9 @@ items:
         let read_call = make_tool_call("plan_read", serde_json::json!({}));
         let result = agent.execute_tool(&read_call).await.unwrap();
         
-        assert!(result.contains("No plan") || result.to_lowercase().contains("no plan"),
-            "Should indicate empty: {}", result);
+        // Empty string is returned when no plan exists (UI already shows "empty")
+        assert!(result.is_empty() || result.contains("No plan"),
+            "Should be empty or indicate no plan: {}", result);
     }
 
     /// Test Plan approval
