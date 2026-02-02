@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-01-30T01:10:54Z | Size: 13.2k chars
+> Updated: 2026-02-02T03:16:47Z | Size: 15.3k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -241,3 +241,52 @@ Research tool is asynchronous - spawns scout agent in background, returns immedi
 3. On completion, `PendingResearchManager.complete()` stores result
 4. At next iteration start or user prompt, `inject_completed_research()` adds to context
 5. Agent can check status with `research_status` tool or user with `/research` command
+
+### Plan Mode (replaces TODO system)
+Structured task planning with cognitive forcing - requires happy/negative/boundary checks.
+
+- `crates/g3-core/src/tools/plan.rs`
+  - `Plan` [200..240] - plan_id, revision, approved_revision, items[]
+  - `PlanItem` [110..145] - id, description, state, touches, checks, evidence, notes
+  - `PlanState` [25..45] - enum: Todo, Doing, Done, Blocked
+  - `Check` [60..85] - desc, target fields
+  - `Checks` [90..105] - happy, negative, boundary
+  - `get_plan_path()` [280..285] - returns `.g3/sessions/<id>/plan.g3.md`
+  - `read_plan()` [290..310] - loads plan from YAML in markdown
+  - `write_plan()` [315..335] - validates and saves plan
+  - `plan_verify()` [355..390] - placeholder called when all items done/blocked
+  - `execute_plan_read()` [395..420] - plan.read tool
+  - `execute_plan_write()` [425..490] - plan.write tool with validation
+  - `execute_plan_approve()` [495..530] - plan.approve tool
+
+- `crates/g3-core/src/tool_definitions.rs` [263..330] - plan.read, plan.write, plan.approve definitions
+- `crates/g3-core/src/tool_dispatch.rs` [36..38] - dispatch cases for plan tools
+- `crates/g3-cli/src/commands.rs` [460..490] - `/feature` command starts Plan Mode
+- `crates/g3-core/src/prompts.rs` [21..130] - SHARED_PLAN_SECTION replaces TODO section
+
+**Plan Schema (YAML)**:
+```yaml
+plan_id: feature-name
+revision: 1
+approved_revision: 1  # set by plan.approve
+items:
+  - id: I1
+    description: What to do
+    state: todo|doing|done|blocked
+    touches: [paths/modules]
+    checks:
+      happy: {desc, target}
+      negative: {desc, target}
+      boundary: {desc, target}
+    evidence: [file:line, test names]  # required when done
+    notes: Implementation explanation   # required when done
+```
+
+**Workflow**: `/feature <desc>` → agent drafts plan → user approves → agent implements → plan_verify() called when complete
+
+### Plan Mode Tool Names (IMPORTANT)
+Tool names must use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0-9_-]{1,128}$`).
+
+- `plan_read` - Read current plan
+- `plan_write` - Create/update plan
+- `plan_approve` - Approve plan revision

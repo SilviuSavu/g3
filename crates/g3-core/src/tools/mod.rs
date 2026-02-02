@@ -4,7 +4,7 @@
 //! Tools are organized by category:
 //! - `shell` - Shell command execution and background processes
 //! - `file_ops` - File reading, writing, and editing
-//! - `todo` - TODO list management
+//! - `plan` - Plan Mode for structured task planning
 //! - `webdriver` - Browser automation via WebDriver
 //! - `misc` - Other tools (screenshots, code search, etc.)
 //! - `research` - Web research via scout agent
@@ -16,9 +16,9 @@ pub mod acd;
 pub mod file_ops;
 pub mod memory;
 pub mod misc;
+pub mod plan;
 pub mod research;
 pub mod shell;
-pub mod todo;
 pub mod webdriver;
 
 pub use executor::ToolExecutor;

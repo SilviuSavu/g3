@@ -194,29 +194,6 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
             }),
         },
         Tool {
-            name: "todo_read".to_string(),
-            description: "Read your current TODO list from todo.g3.md file in the session directory. Shows what tasks are planned and their status. Call this at the start of multi-step tasks to check for existing plans, and during execution to review progress before updating. TODO lists are scoped to the current session.".to_string(),
-            input_schema: json!({
-                "type": "object",
-                "properties": {},
-                "required": []
-            }),
-        },
-        Tool {
-            name: "todo_write".to_string(),
-            description: "Create or update your TODO list in todo.g3.md file with a complete task plan. Use markdown checkboxes: - [ ] for pending, - [x] for complete. This tool replaces the entire file content, so always call todo_read first to preserve existing content. Essential for multi-step tasks. TODO lists are scoped to the current session.".to_string(),
-            input_schema: json!({
-                "type": "object",
-                "properties": {
-                    "content": {
-                        "type": "string",
-                        "description": "The TODO list content to save. Use markdown checkbox format: - [ ] for incomplete tasks, - [x] for completed tasks. Support nested tasks with indentation."
-                    }
-                },
-                "required": ["content"]
-            }),
-        },
-        Tool {
             name: "coverage".to_string(),
             description: "Generate a code coverage report for the entire workspace using cargo llvm-cov. This runs all tests with coverage instrumentation and returns a summary of coverage statistics. Requires llvm-tools-preview and cargo-llvm-cov to be installed (they will be auto-installed if missing).".to_string(),
             input_schema: json!({
@@ -287,6 +264,62 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
             }),
         });
     }
+
+    // Plan Mode tools
+    tools.push(Tool {
+        name: "plan_read".to_string(),
+        description: "Read the current Plan for this session. Shows the plan structure with items, their states, checks (happy/negative/boundary), evidence, and notes. Use this to review the plan before making updates.".to_string(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        }),
+    });
+
+    tools.push(Tool {
+        name: "plan_write".to_string(),
+        description: r#"Create or update the Plan for this session. The plan must be provided as YAML with the following structure:
+
+- plan_id: Unique identifier for the plan
+- revision: Will be auto-incremented
+- items: Array of plan items, each with:
+  - id: Stable identifier (e.g., "I1")
+  - description: What will be done
+  - state: todo | doing | done | blocked
+  - touches: Array of paths/modules affected
+  - checks:
+      happy: {desc, target} - Normal successful operation
+      negative: {desc, target} - Error handling, invalid input
+      boundary: {desc, target} - Edge cases, limits
+  - evidence: Array of file:line refs, test names (required when done)
+  - notes: Implementation explanation (required when done)
+
+Rules:
+- Keep items ≤ 7 by default
+- All three checks (happy, negative, boundary) are required
+- Cannot remove items from an approved plan (mark as blocked instead)
+- Evidence and notes required when marking item as done"#.to_string(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "plan": {
+                    "type": "string",
+                    "description": "The plan as YAML. Must include plan_id and items array."
+                }
+            },
+            "required": ["plan"]
+        }),
+    });
+
+    tools.push(Tool {
+        name: "plan_approve".to_string(),
+        description: "Mark the current plan revision as approved. This is called by the user (not the agent) to approve a drafted plan before implementation begins. Once approved, plan items cannot be removed (only marked as blocked). The agent should ask for approval after drafting a plan.".to_string(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        }),
+    });
 
     // Workspace memory tool (memory is auto-loaded at startup, only remember is needed)
     tools.push(Tool {
@@ -523,11 +556,11 @@ mod tests {
     #[test]
     fn test_core_tools_count() {
         let tools = create_core_tools(false);
-        // Should have the core tools: shell, background_process, read_file, read_image,
-        // write_file, str_replace, screenshot,
-        // todo_read, todo_write, coverage, code_search, research, research_status, remember
-        // (15 total - memory is auto-loaded, only remember tool needed)
-        assert_eq!(tools.len(), 15);
+        // Core tools: shell, background_process, read_file, read_image,
+        // write_file, str_replace, screenshot, coverage, code_search,
+        // research, research_status, remember, plan_read, plan_write, plan_approve
+        // (16 total - memory is auto-loaded, only remember tool needed)
+        assert_eq!(tools.len(), 16);
     }
 
     #[test]
@@ -541,15 +574,15 @@ mod tests {
     fn test_create_tool_definitions_core_only() {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
-        assert_eq!(tools.len(), 15);
+        assert_eq!(tools.len(), 16);
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled() {
         let config = ToolConfig::new(true, true);
         let tools = create_tool_definitions(config);
-        // 15 core + 15 webdriver = 30
-        assert_eq!(tools.len(), 30);
+        // 16 core + 15 webdriver = 31
+        assert_eq!(tools.len(), 31);
     }
 
     #[test]
@@ -567,8 +600,8 @@ mod tests {
         let tools_with_research = create_core_tools(false);
         let tools_without_research = create_core_tools(true);
         
-        assert_eq!(tools_with_research.len(), 15);
-        assert_eq!(tools_without_research.len(), 13);  // research + research_status both excluded
+        assert_eq!(tools_with_research.len(), 16);
+        assert_eq!(tools_without_research.len(), 14);  // research + research_status both excluded
         
         assert!(tools_with_research.iter().any(|t| t.name == "research"));
         assert!(!tools_without_research.iter().any(|t| t.name == "research"));

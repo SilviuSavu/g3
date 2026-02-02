@@ -589,36 +589,56 @@ mod tool_execution_integration {
         );
     }
 
-    /// CHARACTERIZATION: TODO tools work through agent
+    /// CHARACTERIZATION: Plan tools work through agent
     #[tokio::test]
     #[serial]
-    async fn todo_tools_work() {
+    async fn plan_tools_work() {
         let temp_dir = TempDir::new().unwrap();
         let mut agent = create_test_agent(&temp_dir).await;
 
-        // Write TODO
+        // Initialize session ID for plan tools (they are session-scoped)
+        agent.init_session_id_for_test("plan-tools-test");
+
+        // Write Plan
         let write_call = ToolCall {
-            tool: "todo_write".to_string(),
+            tool: "plan_write".to_string(),
             args: serde_json::json!({
-                "content": "- [ ] Test task\n- [x] Done task"
+                "plan": r#"plan_id: test-plan
+revision: 1
+items:
+  - id: I1
+    description: Test task
+    state: todo
+    touches:
+      - src/test.rs
+    checks:
+      happy:
+        desc: Works correctly
+        target: test::module
+      negative:
+        desc: Handles errors
+        target: test::module
+      boundary:
+        desc: Edge cases
+        target: test::module"#
             }),
         };
         let write_result = agent.execute_tool(&write_call).await.unwrap();
         assert!(
             write_result.contains("✅"),
-            "Write should succeed: {}",
+            "Plan write should succeed: {}",
             write_result
         );
 
-        // Read TODO
+        // Read Plan
         let read_call = ToolCall {
-            tool: "todo_read".to_string(),
+            tool: "plan_read".to_string(),
             args: serde_json::json!({}),
         };
         let read_result = agent.execute_tool(&read_call).await.unwrap();
         assert!(
-            read_result.contains("Test task"),
-            "Should read back TODO: {}",
+            read_result.contains("test-plan"),
+            "Should read back plan: {}",
             read_result
         );
     }

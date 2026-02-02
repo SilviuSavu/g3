@@ -393,21 +393,38 @@ mod str_replace_execution {
 // Test: TODO tool execution
 // =============================================================================
 
-mod todo_execution {
+mod plan_execution {
     use super::*;
 
-    /// Test writing and reading TODO
+    /// Test writing and reading Plan
     #[tokio::test]
     #[serial]
-    async fn test_todo_write_and_read() {
+    async fn test_plan_write_and_read() {
         let temp_dir = TempDir::new().unwrap();
         let mut agent = create_test_agent(&temp_dir).await;
+        agent.init_session_id_for_test("plan-test");
         
-        // Write TODO
+        // Write Plan
         let write_call = make_tool_call(
-            "todo_write",
+            "plan_write",
             serde_json::json!({
-                "content": "- [ ] Task 1\n- [x] Task 2\n- [ ] Task 3"
+                "plan": r#"plan_id: test-plan
+revision: 1
+items:
+  - id: I1
+    description: Task 1
+    state: todo
+    touches: ["src/test.rs"]
+    checks:
+      happy:
+        desc: Works
+        target: test
+      negative:
+        desc: Errors
+        target: test
+      boundary:
+        desc: Edge
+        target: test"#
             }),
         );
         
@@ -415,52 +432,61 @@ mod todo_execution {
         assert!(write_result.contains("✅") || write_result.to_lowercase().contains("success"),
             "Write should succeed: {}", write_result);
         
-        // Read TODO
-        let read_call = make_tool_call("todo_read", serde_json::json!({}));
+        // Read Plan
+        let read_call = make_tool_call("plan_read", serde_json::json!({}));
         let read_result = agent.execute_tool(&read_call).await.unwrap();
         
+        assert!(read_result.contains("test-plan"), "Should contain plan id: {}", read_result);
         assert!(read_result.contains("Task 1"), "Should contain Task 1: {}", read_result);
-        assert!(read_result.contains("Task 2"), "Should contain Task 2: {}", read_result);
-        assert!(read_result.contains("Task 3"), "Should contain Task 3: {}", read_result);
     }
 
-    /// Test reading empty TODO
+    /// Test reading empty Plan
     #[tokio::test]
     #[serial]
-    async fn test_todo_read_empty() {
+    async fn test_plan_read_empty() {
         let temp_dir = TempDir::new().unwrap();
         let mut agent = create_test_agent(&temp_dir).await;
+        agent.init_session_id_for_test("plan-empty-test");
         
-        let read_call = make_tool_call("todo_read", serde_json::json!({}));
+        let read_call = make_tool_call("plan_read", serde_json::json!({}));
         let result = agent.execute_tool(&read_call).await.unwrap();
         
-        assert!(result.to_lowercase().contains("empty") || result.contains("no todo"),
+        assert!(result.contains("No plan") || result.to_lowercase().contains("no plan"),
             "Should indicate empty: {}", result);
     }
 
-    /// Test TODO persists to file
+    /// Test Plan approval
     #[tokio::test]
     #[serial]
-    async fn test_todo_persists_to_file() {
+    async fn test_plan_approve() {
         let temp_dir = TempDir::new().unwrap();
-        let todo_path = temp_dir.path().join("todo.g3.md");
+        let mut agent = create_test_agent(&temp_dir).await;
+        agent.init_session_id_for_test("plan-approve-test");
         
-        {
-            let mut agent = create_test_agent(&temp_dir).await;
-            
-            let write_call = make_tool_call(
-                "todo_write",
-                serde_json::json!({
-                    "content": "- [ ] Persistent task"
-                }),
-            );
-            
-            agent.execute_tool(&write_call).await.unwrap();
-        }
+        // First write a plan
+        let write_call = make_tool_call(
+            "plan_write",
+            serde_json::json!({
+                "plan": r#"plan_id: approve-test
+revision: 1
+items:
+  - id: I1
+    description: Test task
+    state: todo
+    touches: ["src/test.rs"]
+    checks:
+      happy: {desc: Works, target: test}
+      negative: {desc: Errors, target: test}
+      boundary: {desc: Edge, target: test}"#
+            }),
+        );
+        agent.execute_tool(&write_call).await.unwrap();
         
-        // File should exist after agent is dropped
-        assert!(todo_path.exists(), "TODO file should persist");
-        let content = fs::read_to_string(&todo_path).unwrap();
-        assert!(content.contains("Persistent task"), "Content should persist: {}", content);
+        // Approve the plan
+        let approve_call = make_tool_call("plan_approve", serde_json::json!({}));
+        let result = agent.execute_tool(&approve_call).await.unwrap();
+        
+        assert!(result.contains("✅") && result.contains("approved"),
+            "Should approve plan: {}", result);
     }
 }
