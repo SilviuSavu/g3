@@ -828,6 +828,12 @@ pub async fn execute_plan_write<W: UiWriter>(
         return Ok(format!("❌ Plan validation failed: {}", e));
     }
 
+    // Auto-approve in non-interactive (autonomous) mode
+    if ctx.is_autonomous && !plan.is_approved() {
+        plan.approve();
+        debug!("Auto-approved plan in autonomous mode at revision {}", plan.revision);
+    }
+
     // Write the plan
     if let Err(e) = write_plan(session_id, &plan) {
         return Ok(format!("❌ Failed to write plan: {}", e));
