@@ -13,8 +13,9 @@ use tokio::sync::broadcast;
 
 use g3_core::ui_writer::UiWriter;
 use g3_core::Agent;
+use g3_core::ToolCall;
 
-use crate::commands::handle_command;
+use crate::commands::{handle_command, CommandResult};
 use crate::display::{LoadedContent, print_loaded_status, print_project_heading, print_workspace_path};
 use crate::g3_status::{G3Status, Status};
 use crate::project::Project;
@@ -25,15 +26,21 @@ use crate::template::process_template;
 use crate::task_execution::execute_task_with_retry;
 use crate::utils::display_context_progress;
 
+/// Plan mode prompt string.
+const PLAN_MODE_PROMPT: &str = " >> ";
+
 /// Build the interactive prompt string.
 ///
 /// Format:
 /// - Multiline mode: `"... > "`
+/// - Plan mode: `" >> "`
 /// - No project: `"agent_name> "` (defaults to "g3")
 /// - With project: `"agent_name | project_name> "`
-pub fn build_prompt(in_multiline: bool, agent_name: Option<&str>, active_project: &Option<Project>) -> String {
+pub fn build_prompt(in_multiline: bool, in_plan_mode: bool, agent_name: Option<&str>, active_project: &Option<Project>) -> String {
     if in_multiline {
         "... > ".to_string()
+    } else if in_plan_mode {
+        PLAN_MODE_PROMPT.to_string()
     } else {
         let base_name = agent_name.unwrap_or("g3");
         if let Some(project) = active_project {
@@ -44,6 +51,63 @@ pub fn build_prompt(in_multiline: bool, agent_name: Option<&str>, active_project
             format!("{} | {}> ", base_name, project_name)
         } else {
             format!("{}> ", base_name)
+        }
+    }
+}
+
+/// Check if the input is an approval command (for plan mode).
+///
+/// Recognizes: "a", "approve", "approved", and common misspellings.
+pub fn is_approval_input(input: &str) -> bool {
+    let normalized = input.trim().to_lowercase();
+    // Strip trailing punctuation (!, ., ,)
+    let normalized = normalized.trim_end_matches(|c| c == '!' || c == '.' || c == ',');
+
+    // Exact matches
+    if matches!(normalized, "a" | "approve" | "approved" | "yes" | "y" | "ok") {
+        return true;
+    }
+    
+    // Common misspellings of "approve" / "approved"
+    let misspellings = [
+        "approv",      // missing 'e'
+        "aprove",      // missing 'p'
+        "aproved",     // missing 'p'
+        "aprrove",     // transposed
+        "appprove",    // extra 'p'
+        "apporve",     // transposed
+        "approev",     // transposed
+        "approvd",     // missing 'e'
+        "approed",     // missing 'v'
+        "approvee",    // extra 'e'
+        "approveed",   // extra 'e'
+    ];
+    
+    misspellings.iter().any(|&m| normalized == m)
+}
+
+/// Execute plan_approve tool directly without going through the LLM.
+///
+/// Returns (success, message) where success indicates if the plan was approved.
+async fn execute_plan_approve_directly<W: UiWriter>(
+    agent: &mut Agent<W>,
+    output: &SimpleOutput,
+) -> (bool, String) {
+    let tool_call = ToolCall {
+        tool: "plan_approve".to_string(),
+        args: serde_json::json!({}),
+    };
+    
+    match agent.execute_tool_call(&tool_call).await {
+        Ok(result) => {
+            let success = result.contains("✅ Plan approved");
+            output.print(&result);
+            (success, result)
+        }
+        Err(e) => {
+            let msg = format!("❌ Failed to approve plan: {}", e);
+            output.print(&msg);
+            (false, msg)
         }
     }
 }
@@ -183,12 +247,6 @@ pub async fn run_interactive<W: UiWriter>(
 
     // Skip verbose welcome when coming from agent mode (it already printed context info)
     if !from_agent_mode {
-        output.print("");
-        output.print("g3 programming agent");
-        output.print("      >> what shall we build today?");
-        output.print("");
-
-        // Display provider and model information
         match agent.get_provider_info() {
             Ok((provider, model)) => {
                 print!(
@@ -220,8 +278,15 @@ pub async fn run_interactive<W: UiWriter>(
 
         // Display workspace path
         print_workspace_path(workspace_path);
+        
+        // Print welcome message right before the prompt
         output.print("");
+        output.print("g3 programming agent");
+        output.print("   what shall we build today?");
     }
+    
+    // Track plan mode state (start in plan mode for non-agent mode)
+    let mut in_plan_mode = !from_agent_mode;
 
     // Initialize rustyline editor with history
     let config = Config::builder()
@@ -284,7 +349,7 @@ pub async fn run_interactive<W: UiWriter>(
         }
 
         // Build prompt
-        let prompt = build_prompt(in_multiline, agent_name, &active_project);
+        let prompt = build_prompt(in_multiline, in_plan_mode, agent_name, &active_project);
         
         // Update the shared prompt for the notification handler
         *current_prompt.write().unwrap() = prompt.clone();
@@ -335,6 +400,31 @@ pub async fn run_interactive<W: UiWriter>(
                     // Single line input
                     let input = line.trim().to_string();
 
+                    // In plan mode, check for approval input before anything else
+                    if in_plan_mode && is_approval_input(&input) {
+                        // Add to history
+                        rl.add_history_entry(&input)?;
+                        
+                        // Reprint input with formatting
+                        reprint_formatted_input(&input, &prompt);
+                        
+                        is_busy.store(true, Ordering::SeqCst);
+                        let (approved, result) = execute_plan_approve_directly(&mut agent, &output).await;
+                        is_busy.store(false, Ordering::SeqCst);
+                        
+                        if approved {
+                            // Exit plan mode on successful approval
+                            in_plan_mode = false;
+                            
+                            // Add synthetic assistant message so LLM knows plan was approved
+                            use g3_providers::{Message, MessageRole};
+                            let synthetic_msg = Message::new(MessageRole::Assistant, result);
+                            agent.add_message_to_context(synthetic_msg);
+                        }
+                        // Stay in plan mode if approval failed
+                        continue;
+                    }
+
                     if input.is_empty() {
                         continue;
                     }
@@ -349,11 +439,17 @@ pub async fn run_interactive<W: UiWriter>(
                     // Check for control commands
                     if input.starts_with('/') {
                         is_busy.store(true, Ordering::SeqCst);
-                        let handled = handle_command(&input, &mut agent, workspace_path, &output, &mut active_project, &mut rl, show_prompt, show_code).await?;
+                        let result = handle_command(&input, &mut agent, workspace_path, &output, &mut active_project, &mut rl, show_prompt, show_code).await?;
                         is_busy.store(false, Ordering::SeqCst);
                         
-                        if handled {
-                            continue;
+                        match result {
+                            CommandResult::Handled => {
+                                continue;
+                            }
+                            CommandResult::EnterPlanMode => {
+                                in_plan_mode = true;
+                                continue;
+                            }
                         }
                     }
 
@@ -380,8 +476,16 @@ pub async fn run_interactive<W: UiWriter>(
                 continue;
             }
             Err(ReadlineError::Eof) => {
-                output.print("CTRL-D");
-                break;
+                // CTRL-D: if in plan mode, exit plan mode first; otherwise exit g3
+                if in_plan_mode {
+                    output.print("CTRL-D (exiting plan mode)");
+                    in_plan_mode = false;
+                    // Continue the loop with normal prompt
+                    continue;
+                } else {
+                    output.print("CTRL-D");
+                    break;
+                }
             }
             Err(err) => {
                 error!("Error: {:?}", err);
@@ -425,36 +529,54 @@ mod tests {
 
     #[test]
     fn test_build_prompt_default() {
-        let prompt = build_prompt(false, None, &None);
+        let prompt = build_prompt(false, false, None, &None);
         assert_eq!(prompt, "g3> ");
     }
 
     #[test]
     fn test_build_prompt_with_agent_name() {
-        let prompt = build_prompt(false, Some("butler"), &None);
+        let prompt = build_prompt(false, false, Some("butler"), &None);
         assert_eq!(prompt, "butler> ");
     }
 
     #[test]
     fn test_build_prompt_multiline() {
-        let prompt = build_prompt(true, None, &None);
+        let prompt = build_prompt(true, false, None, &None);
         assert_eq!(prompt, "... > ");
 
         // Multiline takes precedence over agent name
-        let prompt = build_prompt(true, Some("butler"), &None);
+        let prompt = build_prompt(true, false, Some("butler"), &None);
         assert_eq!(prompt, "... > ");
 
         // Multiline takes precedence over project
         let project = Some(create_test_project("myapp"));
-        let prompt = build_prompt(true, None, &project);
+        let prompt = build_prompt(true, false, None, &project);
         assert_eq!(prompt, "... > ");
+        
+        // Multiline takes precedence over plan mode
+        let prompt = build_prompt(true, true, None, &None);
+        assert_eq!(prompt, "... > ");
+    }
+
+    #[test]
+    fn test_build_prompt_plan_mode() {
+        let prompt = build_prompt(false, true, None, &None);
+        assert_eq!(prompt, " >> ");
+        
+        // Plan mode takes precedence over agent name
+        let prompt = build_prompt(false, true, Some("butler"), &None);
+        assert_eq!(prompt, " >> ");
+        
+        // Plan mode takes precedence over project
+        let project = Some(create_test_project("myapp"));
+        let prompt = build_prompt(false, true, None, &project);
+        assert_eq!(prompt, " >> ");
     }
 
     #[test]
     fn test_build_prompt_with_project() {
         let project = Some(create_test_project("myapp"));
-        let prompt = build_prompt(false, None, &project);
-        // Should contain the project name in the prompt
+        let prompt = build_prompt(false, false, None, &project);
         assert!(prompt.contains("g3"));
         assert!(prompt.contains("myapp"));
         assert!(prompt.contains("|"));
@@ -463,8 +585,7 @@ mod tests {
     #[test]
     fn test_build_prompt_with_agent_and_project() {
         let project = Some(create_test_project("myapp"));
-        let prompt = build_prompt(false, Some("carmack"), &project);
-        // Should contain both agent name and project name
+        let prompt = build_prompt(false, false, Some("carmack"), &project);
         assert!(prompt.contains("carmack"));
         assert!(prompt.contains("myapp"));
         assert!(prompt.contains("|"));
@@ -474,25 +595,60 @@ mod tests {
     fn test_build_prompt_unproject_resets() {
         // Simulate /project loading
         let project = Some(create_test_project("myapp"));
-        let prompt_with_project = build_prompt(false, None, &project);
+        let prompt_with_project = build_prompt(false, false, None, &project);
         assert!(prompt_with_project.contains("myapp"));
 
         // Simulate /unproject (sets active_project to None)
-        let prompt_after_unproject = build_prompt(false, None, &None);
+        let prompt_after_unproject = build_prompt(false, false, None, &None);
         assert_eq!(prompt_after_unproject, "g3> ");
         assert!(!prompt_after_unproject.contains("myapp"));
     }
 
     #[test]
     fn test_build_prompt_project_name_from_path() {
-        // Test that project name is extracted from path
         let project = Some(Project {
             path: PathBuf::from("/Users/dev/projects/awesome-app"),
             content: "test".to_string(),
             loaded_files: vec![],
         });
-        let prompt = build_prompt(false, None, &project);
+        let prompt = build_prompt(false, false, None, &project);
         assert!(prompt.contains("awesome-app"));
+    }
+
+    #[test]
+    fn test_is_approval_input() {
+        // Exact matches
+        assert!(is_approval_input("a"));
+        assert!(is_approval_input("approve"));
+        assert!(is_approval_input("approved"));
+        assert!(is_approval_input("yes"));
+        assert!(is_approval_input("y"));
+        assert!(is_approval_input("ok"));
+        
+        // Case insensitive
+        assert!(is_approval_input("APPROVE"));
+        assert!(is_approval_input("Approved"));
+        
+        // Misspellings
+        assert!(is_approval_input("approv"));
+        assert!(is_approval_input("aprove"));
+        assert!(is_approval_input("appprove"));
+        
+        // Non-approval inputs
+        assert!(!is_approval_input("no"));
+        assert!(!is_approval_input("reject"));
+        assert!(!is_approval_input("hello world"));
+        
+        // Should NOT match partial words in longer text
+        assert!(!is_approval_input("I want to approve this"));
+        assert!(!is_approval_input("please approve the plan"));
+        assert!(!is_approval_input("a]ppro ve")); // gibberish with 'a' at start
+        
+        // Should match with trailing punctuation
+        assert!(is_approval_input("approved!"));
+        assert!(is_approval_input("approve."));
+        assert!(is_approval_input("yes!"));
+        assert!(is_approval_input("ok,"));
     }
 }
 

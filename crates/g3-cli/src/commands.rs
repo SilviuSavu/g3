@@ -16,6 +16,15 @@ use crate::project::load_and_validate_project;
 use crate::template::process_template;
 use crate::task_execution::execute_task_with_retry;
 
+/// Result of handling a command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CommandResult {
+    /// Command was handled, continue the loop
+    Handled,
+    /// Enter plan mode (after /plan command)
+    EnterPlanMode,
+}
+
 // --- Research command helpers ---
 
 fn format_research_task_summary(task: &g3_core::pending_research::ResearchTask) -> String {
@@ -53,7 +62,7 @@ pub async fn handle_command<W: UiWriter>(
     rl: &mut Editor<G3Helper, rustyline::history::DefaultHistory>,
     show_prompt: bool,
     show_code: bool,
-) -> Result<bool> {
+) -> Result<CommandResult> {
     match input {
         "/help" => {
             output.print("");
@@ -78,7 +87,7 @@ pub async fn handle_command<W: UiWriter>(
             output.print("  /help      - Show this help message");
             output.print("  exit/quit  - Exit the interactive session");
             output.print("");
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/compact" => {
             output.print_g3_progress("compacting session");
@@ -93,17 +102,17 @@ pub async fn handle_command<W: UiWriter>(
                     output.print_g3_status("compacting session", &format!("error: {}", e));
                 }
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/thinnify" => {
             let result = agent.force_thin();
             G3Status::thin_result(&result);
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/skinnify" => {
             let result = agent.force_thin_all();
             G3Status::thin_result(&result);
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/fragments" => {
             if let Some(session_id) = agent.get_session_id() {
@@ -129,7 +138,7 @@ pub async fn handle_command<W: UiWriter>(
             } else {
                 output.print("No active session - fragments are session-scoped.");
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         cmd if cmd.starts_with("/rehydrate") => {
             let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
@@ -159,7 +168,7 @@ pub async fn handle_command<W: UiWriter>(
                     output.print("No active session - fragments are session-scoped.");
                 }
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         cmd if cmd == "/research" || cmd.starts_with("/research ") => {
             let manager = agent.get_pending_research_manager();
@@ -209,7 +218,7 @@ pub async fn handle_command<W: UiWriter>(
                     }
                 }
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         cmd if cmd.starts_with("/run") => {
             let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
@@ -245,7 +254,7 @@ pub async fn handle_command<W: UiWriter>(
                     }
                 }
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/dump" => {
             // Dump entire context window to a file for debugging
@@ -253,7 +262,7 @@ pub async fn handle_command<W: UiWriter>(
             if !dump_dir.exists() {
                 if let Err(e) = std::fs::create_dir_all(dump_dir) {
                     output.print(&format!("❌ Failed to create tmp directory: {}", e));
-                    return Ok(true);
+                    return Ok(CommandResult::Handled);
                 }
             }
 
@@ -294,7 +303,7 @@ pub async fn handle_command<W: UiWriter>(
                 }
                 Err(e) => output.print(&format!("❌ Failed to write dump: {}", e)),
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/clear" => {
             use crate::g3_status::G3Status;
@@ -302,7 +311,7 @@ pub async fn handle_command<W: UiWriter>(
             agent.clear_session();
             G3Status::done();
             output.print("Starting fresh.");
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/readme" => {
             use crate::g3_status::G3Status;
@@ -319,12 +328,12 @@ pub async fn handle_command<W: UiWriter>(
                     G3Status::error(&e.to_string());
                 }
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/stats" => {
             let stats = agent.get_stats();
             output.print(&stats);
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         "/resume" => {
             output.print("📋 Scanning for available sessions...");
@@ -333,7 +342,7 @@ pub async fn handle_command<W: UiWriter>(
                 Ok(sessions) => {
                     if sessions.is_empty() {
                         output.print("No sessions found for this directory.");
-                        return Ok(true);
+                        return Ok(CommandResult::Handled);
                     }
 
                     // Get current session ID to mark it
@@ -408,7 +417,7 @@ pub async fn handle_command<W: UiWriter>(
                 }
                 Err(e) => output.print(&format!("❌ Error listing sessions: {}", e)),
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         cmd if cmd.starts_with("/project") => {
             let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
@@ -451,7 +460,7 @@ pub async fn handle_command<W: UiWriter>(
                     }
                 }
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         cmd if cmd.starts_with("/plan") => {
             let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
@@ -463,6 +472,7 @@ pub async fn handle_command<W: UiWriter>(
                 output.print("  3. Request approval before coding");
                 output.print("");
                 output.print("Example: /plan Add CSV import for comic book metadata");
+                Ok(CommandResult::Handled)
             } else {
                 let feature_description = parts[1].trim();
                 
@@ -478,9 +488,14 @@ pub async fn handle_command<W: UiWriter>(
                     feature_description
                 );
                 
+                // Print the welcome message for plan mode
+                output.print("   what shall we build today?");
+                
                 execute_task_with_retry(agent, &prompt, show_prompt, show_code, output).await;
+                
+                // Return EnterPlanMode to signal interactive loop to switch prompts
+                Ok(CommandResult::EnterPlanMode)
             }
-            Ok(true)
         }
         "/unproject" => {
             if active_project.is_some() {
@@ -494,14 +509,14 @@ pub async fn handle_command<W: UiWriter>(
             } else {
                 output.print("No project is currently loaded.");
             }
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
         _ => {
             output.print(&format!(
                 "❌ Unknown command: {}. Type /help for available commands.",
                 input
             ));
-            Ok(true)
+            Ok(CommandResult::Handled)
         }
     }
 }
