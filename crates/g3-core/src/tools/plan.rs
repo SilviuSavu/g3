@@ -277,6 +277,282 @@ impl Plan {
 }
 
 // ============================================================================
+// Evidence Verification Types
+// ============================================================================
+
+/// Type of evidence that can be verified.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvidenceType {
+    /// Code location: file path with optional line range (e.g., "src/foo.rs:42-118")
+    CodeLocation {
+        file_path: String,
+        start_line: Option<u32>,
+        end_line: Option<u32>,
+    },
+    /// Test reference: file path with test function name (e.g., "tests/foo.rs::test_bar")
+    TestReference {
+        file_path: String,
+        test_name: String,
+    },
+    /// Unknown format - will be skipped with a warning
+    Unknown(String),
+}
+
+/// Result of verifying a single piece of evidence.
+#[derive(Debug, Clone)]
+pub enum VerificationStatus {
+    /// Evidence verified successfully
+    Verified,
+    /// Warning - evidence may be invalid but not blocking
+    Warning(String),
+    /// Error - evidence is definitely invalid
+    Error(String),
+    /// Skipped - couldn't verify (e.g., unknown format)
+    Skipped(String),
+}
+
+impl VerificationStatus {
+    pub fn is_ok(&self) -> bool {
+        matches!(self, VerificationStatus::Verified | VerificationStatus::Skipped(_))
+    }
+
+    pub fn is_warning_or_error(&self) -> bool {
+        matches!(self, VerificationStatus::Warning(_) | VerificationStatus::Error(_))
+    }
+}
+
+/// Result of verifying a single evidence string.
+#[derive(Debug, Clone)]
+pub struct EvidenceVerification {
+    /// The original evidence string
+    pub evidence: String,
+    /// Parsed evidence type
+    pub evidence_type: EvidenceType,
+    /// Verification result
+    pub status: VerificationStatus,
+}
+
+/// Result of verifying all evidence for a plan item.
+#[derive(Debug, Clone)]
+pub struct ItemVerification {
+    /// Item ID
+    pub item_id: String,
+    /// Item description (for display)
+    pub description: String,
+    /// Results for each piece of evidence
+    pub evidence_results: Vec<EvidenceVerification>,
+    /// Whether the item had no evidence (warning condition)
+    pub missing_evidence: bool,
+}
+
+/// Result of verifying an entire plan.
+#[derive(Debug, Clone)]
+pub struct PlanVerification {
+    /// Plan ID
+    pub plan_id: String,
+    /// Results for each verified item
+    pub item_results: Vec<ItemVerification>,
+    /// Count of items that were skipped (blocked state)
+    pub skipped_count: usize,
+}
+
+impl PlanVerification {
+    /// Check if all verifications passed (no errors or warnings).
+    pub fn all_passed(&self) -> bool {
+        self.item_results.iter().all(|item| {
+            !item.missing_evidence
+                && item.evidence_results.iter().all(|e| e.status.is_ok())
+        })
+    }
+
+    /// Count total warnings and errors.
+    pub fn count_issues(&self) -> (usize, usize) {
+        let mut warnings = 0;
+        let mut errors = 0;
+        for item in &self.item_results {
+            if item.missing_evidence {
+                warnings += 1;
+            }
+            for ev in &item.evidence_results {
+                match &ev.status {
+                    VerificationStatus::Warning(_) => warnings += 1,
+                    VerificationStatus::Error(_) => errors += 1,
+                    _ => {}
+                }
+            }
+        }
+        (warnings, errors)
+    }
+}
+
+/// Parse an evidence string into an EvidenceType.
+pub fn parse_evidence(evidence: &str) -> EvidenceType {
+    let evidence = evidence.trim();
+    
+    // Check for test reference format: "path/to/file.rs::test_name"
+    if let Some(idx) = evidence.find("::") {
+        let file_path = evidence[..idx].to_string();
+        let test_name = evidence[idx + 2..].to_string();
+        return EvidenceType::TestReference { file_path, test_name };
+    }
+    
+    // Check for code location format: "path/to/file.rs:42" or "path/to/file.rs:42-118"
+    if let Some(idx) = evidence.rfind(':') {
+        let file_path = evidence[..idx].to_string();
+        let line_part = &evidence[idx + 1..];
+        
+        // Try to parse line range (e.g., "42-118" or just "42")
+        if let Some((start, end)) = parse_line_range(line_part) {
+            return EvidenceType::CodeLocation {
+                file_path,
+                start_line: Some(start),
+                end_line: end,
+            };
+        }
+    }
+    
+    // Check if it looks like a file path (contains . or /)
+    if evidence.contains('.') || evidence.contains('/') {
+        return EvidenceType::CodeLocation {
+            file_path: evidence.to_string(),
+            start_line: None,
+            end_line: None,
+        };
+    }
+    
+    // Unknown format
+    EvidenceType::Unknown(evidence.to_string())
+}
+
+/// Parse a line range string like "42" or "42-118".
+/// Returns (start_line, optional_end_line).
+fn parse_line_range(s: &str) -> Option<(u32, Option<u32>)> {
+    if let Some(dash_idx) = s.find('-') {
+        let start_str = &s[..dash_idx];
+        let end_str = &s[dash_idx + 1..];
+        let start = start_str.parse::<u32>().ok()?;
+        let end = end_str.parse::<u32>().ok()?;
+        Some((start, Some(end)))
+    } else {
+        let line = s.parse::<u32>().ok()?;
+        Some((line, None))
+    }
+}
+
+/// Verify a code location evidence (file exists, line numbers valid).
+/// 
+/// # Arguments
+/// * `file_path` - Path to the file (relative to working_dir or absolute)
+/// * `start_line` - Optional start line number (1-indexed)
+/// * `end_line` - Optional end line number (1-indexed)
+/// * `working_dir` - Working directory for resolving relative paths
+pub fn verify_code_location(
+    file_path: &str,
+    start_line: Option<u32>,
+    end_line: Option<u32>,
+    working_dir: Option<&str>,
+) -> VerificationStatus {
+    use std::path::Path;
+    
+    // Resolve the file path
+    let resolved_path = if Path::new(file_path).is_absolute() {
+        PathBuf::from(file_path)
+    } else {
+        match working_dir {
+            Some(dir) => PathBuf::from(dir).join(file_path),
+            None => PathBuf::from(file_path),
+        }
+    };
+    
+    // Check if file exists
+    if !resolved_path.exists() {
+        return VerificationStatus::Error(format!("File not found: {}", file_path));
+    }
+    
+    // If no line numbers specified, file existence is enough
+    if start_line.is_none() {
+        return VerificationStatus::Verified;
+    }
+    
+    // Read file and count lines
+    let content = match std::fs::read_to_string(&resolved_path) {
+        Ok(c) => c,
+        Err(e) => return VerificationStatus::Error(format!("Cannot read file {}: {}", file_path, e)),
+    };
+    
+    let line_count = content.lines().count() as u32;
+    let check_line = end_line.unwrap_or_else(|| start_line.unwrap());
+    
+    if check_line > line_count {
+        return VerificationStatus::Warning(format!(
+            "Line {} exceeds file length ({} lines) in {}",
+            check_line, line_count, file_path
+        ));
+    }
+    
+    VerificationStatus::Verified
+}
+
+/// Verify a test reference evidence (test function exists in file).
+/// 
+/// This checks that the test file exists and contains a function with the given name.
+/// It does NOT run the test - just verifies it exists.
+/// 
+/// # Arguments
+/// * `file_path` - Path to the test file (relative to working_dir or absolute)
+/// * `test_name` - Name of the test function to find
+/// * `working_dir` - Working directory for resolving relative paths
+pub fn verify_test_reference(
+    file_path: &str,
+    test_name: &str,
+    working_dir: Option<&str>,
+) -> VerificationStatus {
+    use std::path::Path;
+    
+    // Resolve the file path
+    let resolved_path = if Path::new(file_path).is_absolute() {
+        PathBuf::from(file_path)
+    } else {
+        match working_dir {
+            Some(dir) => PathBuf::from(dir).join(file_path),
+            None => PathBuf::from(file_path),
+        }
+    };
+    
+    // Check if file exists
+    if !resolved_path.exists() {
+        return VerificationStatus::Error(format!("Test file not found: {}", file_path));
+    }
+    
+    // Read file content
+    let content = match std::fs::read_to_string(&resolved_path) {
+        Ok(c) => c,
+        Err(e) => return VerificationStatus::Error(format!("Cannot read test file {}: {}", file_path, e)),
+    };
+    
+    // Look for the test function
+    // For Rust: look for `fn test_name` or `fn test_name(`
+    // TODO: Add support for other languages (Python: def test_name, JS: test('name', etc.)
+    let rust_pattern = format!("fn {}", test_name);
+    let rust_pattern_with_paren = format!("fn {}(", test_name);
+    
+    if content.contains(&rust_pattern) || content.contains(&rust_pattern_with_paren) {
+        return VerificationStatus::Verified;
+    }
+    
+    // Check for #[test] attribute near the function name as a fallback
+    // This handles cases where the function might be named differently
+    if content.contains(test_name) && content.contains("#[test]") {
+        return VerificationStatus::Verified;
+    }
+    
+    VerificationStatus::Warning(format!(
+        "Test function '{}' not found in {}",
+        test_name, file_path
+    ))
+}
+
+// ============================================================================
 // Plan Storage
 // ============================================================================
 
@@ -353,39 +629,117 @@ fn format_plan_as_markdown(plan: &Plan) -> String {
 // Plan Verification
 // ============================================================================
 
-/// Verify a completed plan. Called by the agent loop when all items are done/blocked.
+/// Verify a single piece of evidence.
+fn verify_single_evidence(evidence: &str, working_dir: Option<&str>) -> EvidenceVerification {
+    let evidence_type = parse_evidence(evidence);
+    
+    let status = match &evidence_type {
+        EvidenceType::CodeLocation { file_path, start_line, end_line } => {
+            verify_code_location(file_path, *start_line, *end_line, working_dir)
+        }
+        EvidenceType::TestReference { file_path, test_name } => {
+            verify_test_reference(file_path, test_name, working_dir)
+        }
+        EvidenceType::Unknown(s) => {
+            VerificationStatus::Skipped(format!("Unknown evidence format: {}", s))
+        }
+    };
+    
+    EvidenceVerification {
+        evidence: evidence.to_string(),
+        evidence_type,
+        status,
+    }
+}
+
+/// Verify a completed plan. Called when all items are done/blocked.
 /// 
-/// This is a placeholder that prints the plan contents.
-/// In the future, this could perform additional validation.
-pub fn plan_verify(plan: &Plan) {
-    println!("\n{}", "=".repeat(60));
-    println!("PLAN VERIFY CALLED");
-    println!("{}", "=".repeat(60));
-    println!("Plan ID: {}", plan.plan_id);
-    println!("Revision: {}", plan.revision);
-    println!("Approved: {:?}", plan.approved_revision);
-    println!("Status: {}", plan.status_summary());
-    println!();
+/// Returns a PlanVerification with results for each done item's evidence.
+/// Blocked items are skipped (counted but not verified).
+pub fn plan_verify(plan: &Plan, working_dir: Option<&str>) -> PlanVerification {
+    let mut item_results = Vec::new();
+    let mut skipped_count = 0;
     
     for item in &plan.items {
-        println!("[{}] {} - {}", item.id, item.state, item.description);
-        println!("  Touches: {:?}", item.touches);
-        println!("  Checks:");
-        println!("    Happy: {} -> {}", item.checks.happy.desc, item.checks.happy.target);
-        println!("    Negative: {} -> {}", item.checks.negative.desc, item.checks.negative.target);
-        println!("    Boundary: {} -> {}", item.checks.boundary.desc, item.checks.boundary.target);
-        if !item.evidence.is_empty() {
-            println!("  Evidence:");
-            for e in &item.evidence {
-                println!("    - {}", e);
+        match item.state {
+            PlanState::Blocked => {
+                skipped_count += 1;
+                continue;
             }
+            PlanState::Done => {
+                // Verify this item's evidence
+                let missing_evidence = item.evidence.is_empty();
+                let evidence_results: Vec<EvidenceVerification> = item
+                    .evidence
+                    .iter()
+                    .map(|e| verify_single_evidence(e, working_dir))
+                    .collect();
+                
+                item_results.push(ItemVerification {
+                    item_id: item.id.clone(),
+                    description: item.description.clone(),
+                    evidence_results,
+                    missing_evidence,
+                });
+            }
+            // Skip todo/doing items - they shouldn't be in a complete plan
+            _ => {}
         }
-        if let Some(notes) = &item.notes {
-            println!("  Notes: {}", notes);
-        }
-        println!();
     }
-    println!("{}\n", "=".repeat(60));
+    
+    PlanVerification {
+        plan_id: plan.plan_id.clone(),
+        item_results,
+        skipped_count,
+    }
+}
+
+/// Format verification results as a string for display.
+/// Uses loud formatting for warnings and errors.
+pub fn format_verification_results(verification: &PlanVerification) -> String {
+    let mut output = String::new();
+    let (warnings, errors) = verification.count_issues();
+    
+    output.push_str("\n");
+    output.push_str(&"═".repeat(60));
+    output.push_str("\n");
+    output.push_str("📋 PLAN VERIFICATION RESULTS\n");
+    output.push_str(&"═".repeat(60));
+    output.push_str("\n\n");
+    
+    for item in &verification.item_results {
+        output.push_str(&format!("[{}] {}\n", item.item_id, item.description));
+        
+        if item.missing_evidence {
+            output.push_str("  ⚠️  WARNING: No evidence provided for done item!\n");
+        }
+        
+        for ev in &item.evidence_results {
+            let status_str = match &ev.status {
+                VerificationStatus::Verified => "✅".to_string(),
+                VerificationStatus::Warning(msg) => format!("⚠️  WARNING: {}", msg),
+                VerificationStatus::Error(msg) => format!("❌ ERROR: {}", msg),
+                VerificationStatus::Skipped(msg) => format!("⏭️  SKIPPED: {}", msg),
+            };
+            output.push_str(&format!("  {} {}\n", status_str, ev.evidence));
+        }
+        output.push_str("\n");
+    }
+    
+    if verification.skipped_count > 0 {
+        output.push_str(&format!("ℹ️  {} blocked item(s) skipped\n\n", verification.skipped_count));
+    }
+    
+    // Summary line
+    if errors > 0 || warnings > 0 {
+        output.push_str(&format!("⚠️  VERIFICATION COMPLETE: {} error(s), {} warning(s)\n", errors, warnings));
+    } else {
+        output.push_str("✅ VERIFICATION COMPLETE: All evidence validated\n");
+    }
+    output.push_str(&"═".repeat(60));
+    output.push_str("\n");
+    
+    output
 }
 
 // ============================================================================
@@ -474,7 +828,9 @@ pub async fn execute_plan_write<W: UiWriter>(
 
     // Check if plan is now complete and trigger verification
     if plan.is_complete() && plan.is_approved() {
-        plan_verify(&plan);
+        let verification = plan_verify(&plan, ctx.working_dir);
+        let verification_output = format_verification_results(&verification);
+        return Ok(format!("✅ Plan updated: {}\n{}", plan.status_summary(), verification_output));
     }
 
     Ok(format!("✅ Plan updated: {}", plan.status_summary()))
@@ -670,5 +1026,140 @@ items: []
         assert_eq!(parsed.revision, plan.revision);
         assert_eq!(parsed.approved_revision, plan.approved_revision);
         assert_eq!(parsed.items.len(), plan.items.len());
+    }
+
+    // ========================================================================
+    // Evidence Parsing Tests
+    // ========================================================================
+
+    #[test]
+    fn test_parse_evidence_code_location_with_line_range() {
+        let evidence = "src/foo.rs:42-118";
+        match parse_evidence(evidence) {
+            EvidenceType::CodeLocation { file_path, start_line, end_line } => {
+                assert_eq!(file_path, "src/foo.rs");
+                assert_eq!(start_line, Some(42));
+                assert_eq!(end_line, Some(118));
+            }
+            _ => panic!("Expected CodeLocation"),
+        }
+    }
+
+    #[test]
+    fn test_parse_evidence_code_location_single_line() {
+        let evidence = "src/bar.rs:99";
+        match parse_evidence(evidence) {
+            EvidenceType::CodeLocation { file_path, start_line, end_line } => {
+                assert_eq!(file_path, "src/bar.rs");
+                assert_eq!(start_line, Some(99));
+                assert_eq!(end_line, None);
+            }
+            _ => panic!("Expected CodeLocation"),
+        }
+    }
+
+    #[test]
+    fn test_parse_evidence_code_location_file_only() {
+        let evidence = "src/lib.rs";
+        match parse_evidence(evidence) {
+            EvidenceType::CodeLocation { file_path, start_line, end_line } => {
+                assert_eq!(file_path, "src/lib.rs");
+                assert_eq!(start_line, None);
+                assert_eq!(end_line, None);
+            }
+            _ => panic!("Expected CodeLocation"),
+        }
+    }
+
+    #[test]
+    fn test_parse_evidence_test_reference() {
+        let evidence = "tests/integration.rs::test_happy_path";
+        match parse_evidence(evidence) {
+            EvidenceType::TestReference { file_path, test_name } => {
+                assert_eq!(file_path, "tests/integration.rs");
+                assert_eq!(test_name, "test_happy_path");
+            }
+            _ => panic!("Expected TestReference"),
+        }
+    }
+
+    #[test]
+    fn test_parse_evidence_unknown_format() {
+        let evidence = "some random text";
+        match parse_evidence(evidence) {
+            EvidenceType::Unknown(s) => {
+                assert_eq!(s, "some random text");
+            }
+            _ => panic!("Expected Unknown"),
+        }
+    }
+
+    #[test]
+    fn test_parse_evidence_whitespace_trimmed() {
+        let evidence = "  src/foo.rs:42  ";
+        match parse_evidence(evidence) {
+            EvidenceType::CodeLocation { file_path, start_line, .. } => {
+                assert_eq!(file_path, "src/foo.rs");
+                assert_eq!(start_line, Some(42));
+            }
+            _ => panic!("Expected CodeLocation"),
+        }
+    }
+
+    // ========================================================================
+    // Verification Tests
+    // ========================================================================
+
+    #[test]
+    fn test_verify_code_location_file_exists() {
+        // Use Cargo.toml which should always exist in the workspace
+        let status = verify_code_location("Cargo.toml", None, None, None);
+        assert!(matches!(status, VerificationStatus::Verified));
+    }
+
+    #[test]
+    fn test_verify_code_location_file_not_found() {
+        let status = verify_code_location("nonexistent_file_xyz.rs", None, None, None);
+        match status {
+            VerificationStatus::Error(msg) => {
+                assert!(msg.contains("not found"));
+            }
+            _ => panic!("Expected Error"),
+        }
+    }
+
+    #[test]
+    fn test_verify_code_location_line_out_of_range() {
+        // Cargo.toml exists but probably doesn't have 999999 lines
+        let status = verify_code_location("Cargo.toml", Some(1), Some(999999), None);
+        match status {
+            VerificationStatus::Warning(msg) => {
+                assert!(msg.contains("exceeds file length"));
+            }
+            _ => panic!("Expected Warning, got {:?}", status),
+        }
+    }
+
+    #[test]
+    fn test_verify_test_reference_file_not_found() {
+        let status = verify_test_reference("nonexistent_test.rs", "test_foo", None);
+        match status {
+            VerificationStatus::Error(msg) => {
+                assert!(msg.contains("not found"));
+            }
+            _ => panic!("Expected Error"),
+        }
+    }
+
+    #[test]
+    fn test_verification_status_helpers() {
+        assert!(VerificationStatus::Verified.is_ok());
+        assert!(VerificationStatus::Skipped("reason".to_string()).is_ok());
+        assert!(!VerificationStatus::Warning("warn".to_string()).is_ok());
+        assert!(!VerificationStatus::Error("err".to_string()).is_ok());
+
+        assert!(!VerificationStatus::Verified.is_warning_or_error());
+        assert!(VerificationStatus::Warning("warn".to_string()).is_warning_or_error());
+        assert!(VerificationStatus::Error("err".to_string()).is_warning_or_error());
     }
 }

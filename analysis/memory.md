@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-02T03:16:47Z | Size: 15.3k chars
+> Updated: 2026-02-02T03:53:06Z | Size: 16.9k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -290,3 +290,28 @@ Tool names must use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0
 - `plan_read` - Read current plan
 - `plan_write` - Create/update plan
 - `plan_approve` - Approve plan revision
+
+### Plan Verification System
+Verifies evidence in completed plan items deterministically.
+
+- `crates/g3-core/src/tools/plan.rs`
+  - `EvidenceType` [283..300] - enum: CodeLocation{file_path, start_line, end_line}, TestReference{file_path, test_name}, Unknown
+  - `VerificationStatus` [303..320] - enum: Verified, Warning(String), Error(String), Skipped(String)
+  - `EvidenceVerification` [330..345] - evidence string + parsed type + status
+  - `ItemVerification` [348..365] - item_id, description, evidence_results[], missing_evidence flag
+  - `PlanVerification` [368..385] - plan_id, item_results[], skipped_count; has all_passed(), count_issues()
+  - `parse_evidence()` [390..428] - parses evidence string into EvidenceType
+  - `parse_line_range()` [429..440] - parses "42" or "42-118" into (start, Option<end>)
+  - `verify_code_location()` [443..495] - checks file exists, line numbers in range
+  - `verify_test_reference()` [496..554] - checks test file exists, searches for fn test_name
+  - `verify_single_evidence()` [632..655] - dispatches to appropriate verifier
+  - `plan_verify()` [659..700] - iterates done items, collects verification results
+  - `format_verification_results()` [703..745] - formats results with emoji, loud warnings
+
+**Evidence formats supported:**
+- Code location with range: `src/foo.rs:42-118`
+- Code location single line: `src/foo.rs:42`
+- Code location file only: `src/foo.rs`
+- Test reference: `tests/foo.rs::test_bar`
+
+**Integration:** Called from `execute_plan_write()` when plan is complete and approved (line 828-833)
