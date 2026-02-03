@@ -202,6 +202,11 @@ fn register_zai_providers(
                 zai_config.temperature,
                 zai_config.enable_thinking.unwrap_or(false),
                 zai_config.preserve_thinking.unwrap_or(false),
+                zai_config.enable_web_search_in_chat.unwrap_or(false),
+                zai_config.web_search_engine.clone(),
+                zai_config.web_search_count,
+                zai_config.web_search_recency.clone(),
+                zai_config.web_search_content_size.clone(),
             )?;
             registry.register(zai_provider);
         }

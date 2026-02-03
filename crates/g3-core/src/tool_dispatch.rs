@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, file_ops, memory, misc, plan, research, shell, webdriver};
+use crate::tools::{acd, file_ops, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -68,6 +68,18 @@ pub async fn dispatch_tool<W: UiWriter>(
         "webdriver_forward" => webdriver::execute_webdriver_forward(tool_call, ctx).await,
         "webdriver_refresh" => webdriver::execute_webdriver_refresh(tool_call, ctx).await,
         "webdriver_quit" => webdriver::execute_webdriver_quit(tool_call, ctx).await,
+
+        // Z.ai standalone tools
+        "zai_web_search" => zai_tools::execute_web_search(tool_call, ctx).await,
+        "zai_web_reader" => zai_tools::execute_web_reader(tool_call, ctx).await,
+        "zai_ocr" => zai_tools::execute_ocr(tool_call, ctx).await,
+
+        // MCP tools (Z.ai MCP servers)
+        "mcp_web_search" => mcp_tools::execute_mcp_web_search(tool_call, ctx).await,
+        "mcp_web_reader" => mcp_tools::execute_mcp_web_reader(tool_call, ctx).await,
+        "mcp_search_doc" => mcp_tools::execute_mcp_search_doc(tool_call, ctx).await,
+        "mcp_get_repo_structure" => mcp_tools::execute_mcp_get_repo_structure(tool_call, ctx).await,
+        "mcp_read_file" => mcp_tools::execute_mcp_read_file(tool_call, ctx).await,
 
         // Unknown tool
         _ => {

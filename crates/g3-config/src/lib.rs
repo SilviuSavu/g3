@@ -13,6 +13,10 @@ pub struct Config {
     pub computer_control: ComputerControlConfig,
     #[serde(default)]
     pub webdriver: WebDriverConfig,
+    #[serde(default)]
+    pub zai_tools: ZaiToolsConfig,
+    #[serde(default)]
+    pub zai_mcp: ZaiMcpConfig,
 }
 
 /// Provider configuration with named configs per provider type
@@ -121,6 +125,52 @@ pub struct ZaiConfig {
     pub enable_thinking: Option<bool>,
     /// Preserve reasoning content across conversation turns
     pub preserve_thinking: Option<bool>,
+    /// Enable web search tool injection in chat completions
+    pub enable_web_search_in_chat: Option<bool>,
+    /// Search engine to use: "bing" or "google" (default: "bing")
+    pub web_search_engine: Option<String>,
+    /// Number of search results (1-50, default: 10)
+    pub web_search_count: Option<u32>,
+    /// Recency filter: "day", "week", "month", "year"
+    pub web_search_recency: Option<String>,
+    /// Content size: "medium" or "high" (default: "medium")
+    pub web_search_content_size: Option<String>,
+}
+
+/// Configuration for Z.ai standalone tools (web search, web reader, OCR)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ZaiToolsConfig {
+    /// Enable Z.ai standalone tools (web search, web reader, OCR)
+    #[serde(default)]
+    pub enabled: bool,
+    /// API key for Z.ai tools. Falls back to providers.zai.*.api_key if not set
+    pub api_key: Option<String>,
+    /// Base URL for Z.ai tools API. Defaults to https://api.z.ai/api/paas/v4
+    pub base_url: Option<String>,
+}
+
+/// Configuration for Z.ai MCP servers.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ZaiMcpConfig {
+    /// Enable web search MCP server
+    #[serde(default)]
+    pub web_search: Option<McpServerConfig>,
+    /// Enable web reader MCP server
+    #[serde(default)]
+    pub web_reader: Option<McpServerConfig>,
+    /// Enable zread MCP server (GitHub repo access)
+    #[serde(default)]
+    pub zread: Option<McpServerConfig>,
+}
+
+/// Configuration for an individual MCP server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    /// Whether this MCP server is enabled
+    #[serde(default)]
+    pub enabled: bool,
+    /// API key for this MCP server (falls back to zai_tools.api_key)
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -277,6 +327,8 @@ impl Default for Config {
             },
             computer_control: ComputerControlConfig::default(),
             webdriver: WebDriverConfig::default(),
+            zai_tools: ZaiToolsConfig::default(),
+            zai_mcp: ZaiMcpConfig::default(),
         }
     }
 }
@@ -764,6 +816,16 @@ impl Config {
                     anyhow::anyhow!("OpenAI compatible config '{}' not found", provider_type)
                 }),
         }
+    }
+
+    /// Get the API key for Z.ai tools, falling back to any configured zai provider
+    pub fn get_zai_tools_api_key(&self) -> Option<String> {
+        // First check dedicated zai_tools config
+        if let Some(key) = &self.zai_tools.api_key {
+            return Some(key.clone());
+        }
+        // Fall back to first available zai provider config
+        self.providers.zai.values().next().map(|c| c.api_key.clone())
     }
 }
 

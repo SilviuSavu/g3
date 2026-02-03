@@ -10,15 +10,20 @@
 //! - `research` - Web research via scout agent
 //! - `memory` - Workspace memory (remember)
 //! - `acd` - Aggressive Context Dehydration (rehydrate)
+//! - `mcp_tools` - MCP (Model Context Protocol) tools for Z.ai servers
+//! - `zai_tools` - Z.ai standalone tools (web search, web reader, OCR)
 
 pub mod executor;
 pub mod acd;
 pub mod file_ops;
+pub mod mcp_tools;
 pub mod memory;
 pub mod misc;
 pub mod plan;
 pub mod research;
 pub mod shell;
 pub mod webdriver;
+pub mod zai_tools;
 
 pub use executor::ToolExecutor;
+pub use mcp_tools::McpClients;

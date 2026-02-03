@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 use crate::background_process::BackgroundProcessManager;
 use crate::pending_research::PendingResearchManager;
 use crate::paths::{ensure_session_dir, get_session_todo_path, get_todo_path};
+use crate::tools::mcp_tools::McpClients;
 use crate::ui_writer::UiWriter;
 use crate::webdriver_session::WebDriverSession;
 use crate::ToolCall;
@@ -29,6 +30,9 @@ pub struct ToolContext<'a, W: UiWriter> {
     pub context_total_tokens: u32,
     pub context_used_tokens: u32,
     pub pending_research_manager: &'a PendingResearchManager,
+    pub zai_tools_client: Option<Arc<g3_providers::ZaiToolsClient>>,
+    /// MCP clients for Z.ai MCP servers (web search, web reader, zread)
+    pub mcp_clients: Option<Arc<McpClients>>,
 }
 
 impl<'a, W: UiWriter> ToolContext<'a, W> {

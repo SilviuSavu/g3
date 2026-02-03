@@ -173,6 +173,8 @@ mod tests {
             context_total_tokens: 100000,
             context_used_tokens: 10000,
             pending_research_manager: &test_ctx.pending_research_manager,
+            zai_tools_client: None,
+            mcp_clients: None,
         };
 
         let tool_call = ToolCall {
@@ -204,6 +206,8 @@ mod tests {
             context_total_tokens: 100000,
             context_used_tokens: 10000,
             pending_research_manager: &test_ctx.pending_research_manager,
+            zai_tools_client: None,
+            mcp_clients: None,
         };
 
         let tool_call = ToolCall {
@@ -235,6 +239,8 @@ mod tests {
             context_total_tokens: 100000,
             context_used_tokens: 10000,
             pending_research_manager: &test_ctx.pending_research_manager,
+            zai_tools_client: None,
+            mcp_clients: None,
         };
 
         let tool_call = ToolCall {
