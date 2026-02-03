@@ -101,6 +101,50 @@ model = "claude-sonnet-4-5"
 # base_url = "https://open.bigmodel.cn/api/paas/v4"
 # enable_thinking = true
 
+# Web search in chat (integrated with model responses)
+# enable_web_search_in_chat = true
+# web_search_engine = "bing"        # "bing" or "google"
+# web_search_count = 10             # 1-50
+# web_search_recency = "week"       # "day", "week", "month", "year"
+# web_search_content_size = "medium" # "medium" or "high"
+
+# =============================================================================
+# Z.ai Standalone Tools (REST API - usable with any provider)
+# =============================================================================
+# These tools can be used independently of which LLM provider is active.
+# They provide web search, web reading, and OCR capabilities.
+#
+# [zai_tools]
+# enabled = true
+# # api_key = "..."       # Optional: defaults to providers.zai.*.api_key
+# # base_url = "..."      # Optional: defaults to https://api.z.ai/api/paas/v4
+#
+# Available tools when enabled:
+# - zai_web_search: Search the web, returns structured results
+# - zai_web_reader: Fetch URL and convert to markdown
+# - zai_ocr: Extract text from images/PDFs using GLM-OCR
+
+# =============================================================================
+# Z.ai MCP Servers (Model Context Protocol)
+# =============================================================================
+# Connect to Z.ai's remote MCP servers for additional tool capabilities.
+# MCP provides a standardized way to access tools across different AI systems.
+#
+# [zai_mcp.web_search]
+# enabled = true
+# # api_key = "..."  # Optional: falls back to zai_tools.api_key
+#
+# [zai_mcp.web_reader]
+# enabled = true
+#
+# [zai_mcp.zread]
+# enabled = true  # GitHub repo documentation/code access
+#
+# MCP Server Endpoints:
+# - Web Search: https://api.z.ai/api/mcp/web_search_prime/mcp
+# - Web Reader: https://api.z.ai/api/mcp/web_reader/mcp
+# - Zread: https://api.z.ai/api/mcp/zread/mcp
+
 # =============================================================================
 # Embedded providers (local models via llama.cpp with Metal acceleration)
 # =============================================================================

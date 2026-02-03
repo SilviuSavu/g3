@@ -5,6 +5,7 @@ pub mod compaction;
 pub mod context_window;
 pub mod error_handling;
 pub mod feedback_extraction;
+pub mod mcp_client;
 pub mod paths;
 pub mod pending_research;
 pub mod project;
@@ -156,6 +157,10 @@ pub struct Agent<W: UiWriter> {
     acd_enabled: bool,
     /// Manager for async research tasks
     pending_research_manager: pending_research::PendingResearchManager,
+    /// Z.ai tools client for web search, web reader, and OCR
+    zai_tools_client: Option<std::sync::Arc<g3_providers::ZaiToolsClient>>,
+    /// MCP clients for Z.ai MCP servers (web search, web reader, zread)
+    mcp_clients: Option<std::sync::Arc<tools::mcp_tools::McpClients>>,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -175,6 +180,8 @@ impl<W: UiWriter> Agent<W> {
         is_autonomous: bool,
         quiet: bool,
         computer_controller: Option<Box<dyn g3_computer_control::ComputerController>>,
+        zai_tools_client: Option<std::sync::Arc<g3_providers::ZaiToolsClient>>,
+        mcp_clients: Option<std::sync::Arc<tools::mcp_tools::McpClients>>,
     ) -> Self {
         Self {
             providers,
@@ -210,6 +217,8 @@ impl<W: UiWriter> Agent<W> {
             auto_memory: false,
             acd_enabled: false,
             pending_research_manager: pending_research::PendingResearchManager::new(),
+            zai_tools_client,
+            mcp_clients,
         }
     }
 
@@ -308,6 +317,8 @@ impl<W: UiWriter> Agent<W> {
             false, // is_autonomous
             true,  // quiet
             None,  // computer_controller
+            None,  // zai_tools_client
+            None,  // mcp_clients
         ))
     }
 
@@ -391,6 +402,119 @@ impl<W: UiWriter> Agent<W> {
             None
         };
 
+        // Initialize Z.ai tools client if enabled
+        let zai_tools_client = if config.zai_tools.enabled {
+            // Try to get API key from zai_tools config, or fall back to first zai provider config
+            let api_key = config.zai_tools.api_key.clone().or_else(|| {
+                config
+                    .providers
+                    .zai
+                    .values()
+                    .next()
+                    .map(|c| c.api_key.clone())
+            });
+
+            if let Some(api_key) = api_key {
+                let client = g3_providers::ZaiToolsClient::new(
+                    api_key,
+                    config.zai_tools.base_url.clone(),
+                );
+                debug!("Initialized Z.ai tools client");
+                Some(std::sync::Arc::new(client))
+            } else {
+                warn!("Z.ai tools enabled but no API key configured. Set zai_tools.api_key or configure a zai provider.");
+                None
+            }
+        } else {
+            None
+        };
+
+        // Initialize MCP clients if any are enabled
+        let mcp_clients = {
+            let zai_mcp = &config.zai_mcp;
+            let mut has_any = false;
+
+            // Get API key (from zai_tools or zai provider)
+            let api_key = config.zai_tools.api_key.clone().or_else(|| {
+                config
+                    .providers
+                    .zai
+                    .values()
+                    .next()
+                    .map(|c| c.api_key.clone())
+            });
+
+            if let Some(api_key) = api_key {
+                let web_search = if zai_mcp
+                    .web_search
+                    .as_ref()
+                    .map(|c| c.enabled)
+                    .unwrap_or(false)
+                {
+                    has_any = true;
+                    let key = zai_mcp
+                        .web_search
+                        .as_ref()
+                        .and_then(|c| c.api_key.clone())
+                        .unwrap_or_else(|| api_key.clone());
+                    Some(mcp_client::McpHttpClient::new(
+                        "https://api.z.ai/api/mcp/web_search_prime/mcp",
+                        &key,
+                    ))
+                } else {
+                    None
+                };
+
+                let web_reader = if zai_mcp
+                    .web_reader
+                    .as_ref()
+                    .map(|c| c.enabled)
+                    .unwrap_or(false)
+                {
+                    has_any = true;
+                    let key = zai_mcp
+                        .web_reader
+                        .as_ref()
+                        .and_then(|c| c.api_key.clone())
+                        .unwrap_or_else(|| api_key.clone());
+                    Some(mcp_client::McpHttpClient::new(
+                        "https://api.z.ai/api/mcp/web_reader/mcp",
+                        &key,
+                    ))
+                } else {
+                    None
+                };
+
+                let zread = if zai_mcp.zread.as_ref().map(|c| c.enabled).unwrap_or(false) {
+                    has_any = true;
+                    let key = zai_mcp
+                        .zread
+                        .as_ref()
+                        .and_then(|c| c.api_key.clone())
+                        .unwrap_or_else(|| api_key.clone());
+                    Some(mcp_client::McpHttpClient::new(
+                        "https://api.z.ai/api/mcp/zread/mcp",
+                        &key,
+                    ))
+                } else {
+                    None
+                };
+
+                if has_any {
+                    debug!("Initialized MCP clients");
+                    Some(std::sync::Arc::new(tools::mcp_tools::McpClients {
+                        web_search,
+                        web_reader,
+                        zread,
+                    }))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
         let auto_compact = config.agent.auto_compact;
         Ok(Self::build_agent(
             config,
@@ -401,6 +525,8 @@ impl<W: UiWriter> Agent<W> {
             is_autonomous,
             quiet,
             computer_controller,
+            zai_tools_client,
+            mcp_clients,
         ))
     }
 
@@ -936,6 +1062,7 @@ impl<W: UiWriter> Agent<W> {
             let mut tool_config = tool_definitions::ToolConfig::new(
                 self.config.webdriver.enabled,
                 self.config.computer_control.enabled,
+                self.config.zai_tools.enabled,
             );
             if exclude_research {
                 tool_config = tool_config.with_research_excluded();
@@ -1853,6 +1980,7 @@ Skip if nothing new. Be brief."#;
             let tool_config = tool_definitions::ToolConfig::new(
                 self.config.webdriver.enabled,
                 self.config.computer_control.enabled,
+                self.config.zai_tools.enabled,
             );
             Some(tool_definitions::create_tool_definitions(tool_config))
         } else {
@@ -2536,6 +2664,7 @@ Skip if nothing new. Be brief."#;
                                 let mut tool_config = tool_definitions::ToolConfig::new(
                                     self.config.webdriver.enabled,
                                     self.config.computer_control.enabled,
+                                    self.config.zai_tools.enabled,
                                 );
                                 // Exclude research tool for scout agent to prevent recursion
                                 if self.agent_name.as_deref() == Some("scout") {
@@ -2937,6 +3066,8 @@ Skip if nothing new. Be brief."#;
             context_total_tokens: self.context_window.total_tokens,
             context_used_tokens: self.context_window.used_tokens,
             pending_research_manager: &self.pending_research_manager,
+            zai_tools_client: self.zai_tools_client.clone(),
+            mcp_clients: self.mcp_clients.clone(),
         };
 
         // Dispatch to the appropriate tool handler

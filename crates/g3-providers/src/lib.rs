@@ -255,7 +255,11 @@ pub use databricks::DatabricksProvider;
 pub use embedded::EmbeddedProvider;
 pub use gemini::GeminiProvider;
 pub use openai::OpenAIProvider;
-pub use zai::ZaiProvider;
+pub use zai::{
+    ZaiProvider, ZaiToolsClient, ZaiWebSearchRequest, ZaiWebSearchResponse, ZaiSearchResult,
+    ZaiWebReaderRequest, ZaiWebReaderResponse, ZaiLayoutParsingRequest, ZaiLayoutParsingResponse,
+    ZaiToolsUsage,
+};
 
 impl Message {
     /// Generate a unique message ID in format HHMMSS-XXX

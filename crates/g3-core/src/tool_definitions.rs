@@ -13,15 +13,25 @@ pub struct ToolConfig {
     pub webdriver: bool,
     pub computer_control: bool,
     pub exclude_research: bool,
+    pub zai_tools: bool,
+    pub mcp_tools: bool,
 }
 
 impl ToolConfig {
-    pub fn new(webdriver: bool, computer_control: bool) -> Self {
+    pub fn new(webdriver: bool, computer_control: bool, zai_tools: bool) -> Self {
         Self {
             webdriver,
             computer_control,
             exclude_research: false,
+            zai_tools,
+            mcp_tools: false,
         }
+    }
+
+    /// Create a config with MCP tools enabled.
+    pub fn with_mcp_tools(mut self) -> Self {
+        self.mcp_tools = true;
+        self
     }
 
     /// Create a config with the research tool excluded.
@@ -41,6 +51,14 @@ pub fn create_tool_definitions(config: ToolConfig) -> Vec<Tool> {
 
     if config.webdriver {
         tools.extend(create_webdriver_tools());
+    }
+
+    if config.zai_tools {
+        tools.extend(create_zai_tools());
+    }
+
+    if config.mcp_tools {
+        tools.extend(create_mcp_tools());
     }
 
     tools
@@ -549,6 +567,224 @@ fn create_webdriver_tools() -> Vec<Tool> {
     ]
 }
 
+/// Create Z.ai special tools for web search, web reading, and OCR
+pub fn create_zai_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "zai_web_search".to_string(),
+            description: "Search the web using Z.ai's Web Search API. Returns structured results with title, link, and content snippet. Useful for finding current information, documentation, or researching topics.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "description": "Number of results to return (1-50, default 10)"
+                    },
+                    "search_domain_filter": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional list of domains to limit search to"
+                    },
+                    "search_recency_filter": {
+                        "type": "string",
+                        "enum": ["day", "week", "month", "year"],
+                        "description": "Filter results by recency"
+                    }
+                },
+                "required": ["query"]
+            }),
+        },
+        Tool {
+            name: "zai_web_reader".to_string(),
+            description: "Fetch a webpage and convert it to markdown or plain text using Z.ai's Web Reader API. Useful for reading web content, documentation pages, or articles.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to fetch and convert"
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "text"],
+                        "description": "Output format (default: markdown)"
+                    },
+                    "retain_images": {
+                        "type": "boolean",
+                        "description": "Whether to retain image references (default: true)"
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Request timeout in seconds (default: 20)"
+                    }
+                },
+                "required": ["url"]
+            }),
+        },
+        Tool {
+            name: "zai_ocr".to_string(),
+            description: "Extract text from images or PDFs using Z.ai's GLM-OCR model. Performs layout-aware text extraction.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "description": "URL or base64 data URI of the image/PDF to process"
+                    },
+                    "page_range": {
+                        "type": "string",
+                        "description": "For PDFs, specify page range (e.g., '1-5')"
+                    }
+                },
+                "required": ["file"]
+            }),
+        },
+    ]
+}
+
+/// Create MCP (Model Context Protocol) tools for Z.ai MCP servers
+pub fn create_mcp_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "mcp_web_search".to_string(),
+            description: "Search the web using Z.ai's MCP web search server (webSearchPrime). Returns structured search results with title, URL, and content summary.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "search_query": {
+                        "type": "string",
+                        "description": "The search query (recommended: not exceed 70 characters)"
+                    },
+                    "content_size": {
+                        "type": "string",
+                        "enum": ["medium", "high"],
+                        "description": "Control web page summary size: medium (400-600 words), high (2500 words, higher cost)"
+                    },
+                    "location": {
+                        "type": "string",
+                        "enum": ["cn", "us"],
+                        "description": "Region hint: cn (Chinese), us (non-Chinese). Default: cn"
+                    },
+                    "search_recency_filter": {
+                        "type": "string",
+                        "enum": ["oneDay", "oneWeek", "oneMonth", "oneYear", "noLimit"],
+                        "description": "Filter results by recency. Default: noLimit"
+                    },
+                    "search_domain_filter": {
+                        "type": "string",
+                        "description": "Limit search to specific domain (e.g., www.example.com)"
+                    }
+                },
+                "required": ["search_query"]
+            }),
+        },
+        Tool {
+            name: "mcp_web_reader".to_string(),
+            description: "Fetch and convert a URL to markdown or text using Z.ai's MCP web reader server. Ideal for reading documentation, articles, or web content.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to fetch and convert"
+                    },
+                    "return_format": {
+                        "type": "string",
+                        "enum": ["markdown", "text"],
+                        "description": "Output format. Default: markdown"
+                    },
+                    "retain_images": {
+                        "type": "boolean",
+                        "description": "Whether to retain images. Default: true"
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Request timeout in seconds. Default: 20"
+                    },
+                    "no_cache": {
+                        "type": "boolean",
+                        "description": "Disable caching. Default: false"
+                    },
+                    "with_links_summary": {
+                        "type": "boolean",
+                        "description": "Include links summary. Default: false"
+                    },
+                    "with_images_summary": {
+                        "type": "boolean",
+                        "description": "Include images summary. Default: false"
+                    }
+                },
+                "required": ["url"]
+            }),
+        },
+        Tool {
+            name: "mcp_search_doc".to_string(),
+            description: "Search documentation, issues, and commits of a GitHub repository using Z.ai's MCP zread server.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "repo_name": {
+                        "type": "string",
+                        "description": "GitHub repository in owner/repo format (e.g., 'vitejs/vite')"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Search keywords or question about the repository"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": ["zh", "en"],
+                        "description": "Response language: 'zh' (Chinese) or 'en' (English)"
+                    }
+                },
+                "required": ["repo_name", "query"]
+            }),
+        },
+        Tool {
+            name: "mcp_get_repo_structure".to_string(),
+            description: "Get the directory structure and file list of a GitHub repository using Z.ai's MCP zread server.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "repo_name": {
+                        "type": "string",
+                        "description": "GitHub repository in owner/repo format (e.g., 'vitejs/vite')"
+                    },
+                    "dir_path": {
+                        "type": "string",
+                        "description": "Directory path to inspect. Default: root '/'"
+                    }
+                },
+                "required": ["repo_name"]
+            }),
+        },
+        Tool {
+            name: "mcp_read_file".to_string(),
+            description: "Read the full code content of a specific file in a GitHub repository using Z.ai's MCP zread server.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "repo_name": {
+                        "type": "string",
+                        "description": "GitHub repository in owner/repo format (e.g., 'vitejs/vite')"
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "Relative path to the file (e.g., 'src/index.ts')"
+                    }
+                },
+                "required": ["repo_name", "file_path"]
+            }),
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -558,7 +794,7 @@ mod tests {
         let tools = create_core_tools(false);
         // Core tools: shell, background_process, read_file, read_image,
         // write_file, str_replace, screenshot, coverage, code_search,
-        // research, research_status, remember, plan_read, plan_write, plan_approve
+        // research, research_status, remember, plan_read, plan_write, plan_approve, rehydrate
         // (16 total - memory is auto-loaded, only remember tool needed)
         assert_eq!(tools.len(), 16);
     }
@@ -571,6 +807,13 @@ mod tests {
     }
 
     #[test]
+    fn test_zai_tools_count() {
+        let tools = create_zai_tools();
+        // 3 Z.ai tools: zai_web_search, zai_web_reader, zai_ocr
+        assert_eq!(tools.len(), 3);
+    }
+
+    #[test]
     fn test_create_tool_definitions_core_only() {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
@@ -579,10 +822,23 @@ mod tests {
 
     #[test]
     fn test_create_tool_definitions_all_enabled() {
-        let config = ToolConfig::new(true, true);
+        let config = ToolConfig::new(true, true, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver = 31
-        assert_eq!(tools.len(), 31);
+        // 16 core + 15 webdriver + 3 zai = 34
+        assert_eq!(tools.len(), 34);
+    }
+
+    #[test]
+    fn test_create_tool_definitions_with_zai_tools() {
+        let config = ToolConfig::new(false, false, true);
+        let tools = create_tool_definitions(config);
+        // 16 core + 3 zai = 19
+        assert_eq!(tools.len(), 19);
+
+        // Verify Z.ai tools are present
+        assert!(tools.iter().any(|t| t.name == "zai_web_search"));
+        assert!(tools.iter().any(|t| t.name == "zai_web_reader"));
+        assert!(tools.iter().any(|t| t.name == "zai_ocr"));
     }
 
     #[test]
@@ -596,14 +852,64 @@ mod tests {
     }
 
     #[test]
+    fn test_zai_tools_have_required_fields() {
+        let tools = create_zai_tools();
+        for tool in tools {
+            assert!(!tool.name.is_empty(), "Tool name should not be empty");
+            assert!(!tool.description.is_empty(), "Tool description should not be empty");
+            assert!(tool.input_schema.is_object(), "Tool input_schema should be an object");
+        }
+    }
+
+    #[test]
     fn test_research_tool_excluded() {
         let tools_with_research = create_core_tools(false);
         let tools_without_research = create_core_tools(true);
-        
+
         assert_eq!(tools_with_research.len(), 16);
         assert_eq!(tools_without_research.len(), 14);  // research + research_status both excluded
-        
+
         assert!(tools_with_research.iter().any(|t| t.name == "research"));
         assert!(!tools_without_research.iter().any(|t| t.name == "research"));
+    }
+
+    #[test]
+    fn test_mcp_tools_count() {
+        let tools = create_mcp_tools();
+        // 5 MCP tools: mcp_web_search, mcp_web_reader, mcp_search_doc, mcp_get_repo_structure, mcp_read_file
+        assert_eq!(tools.len(), 5);
+    }
+
+    #[test]
+    fn test_create_tool_definitions_with_mcp_tools() {
+        let config = ToolConfig::default().with_mcp_tools();
+        let tools = create_tool_definitions(config);
+        // 16 core + 5 mcp = 21
+        assert_eq!(tools.len(), 21);
+
+        // Verify MCP tools are present
+        assert!(tools.iter().any(|t| t.name == "mcp_web_search"));
+        assert!(tools.iter().any(|t| t.name == "mcp_web_reader"));
+        assert!(tools.iter().any(|t| t.name == "mcp_search_doc"));
+        assert!(tools.iter().any(|t| t.name == "mcp_get_repo_structure"));
+        assert!(tools.iter().any(|t| t.name == "mcp_read_file"));
+    }
+
+    #[test]
+    fn test_mcp_tools_have_required_fields() {
+        let tools = create_mcp_tools();
+        for tool in tools {
+            assert!(!tool.name.is_empty(), "Tool name should not be empty");
+            assert!(!tool.description.is_empty(), "Tool description should not be empty");
+            assert!(tool.input_schema.is_object(), "Tool input_schema should be an object");
+        }
+    }
+
+    #[test]
+    fn test_create_tool_definitions_all_enabled_with_mcp() {
+        let config = ToolConfig::new(true, true, true).with_mcp_tools();
+        let tools = create_tool_definitions(config);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp = 39
+        assert_eq!(tools.len(), 39);
     }
 }
