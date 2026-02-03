@@ -58,6 +58,7 @@ pub async fn register_providers(
     register_openai_compatible_providers(config, providers_to_register, &mut registry)?;
     register_anthropic_providers(config, providers_to_register, &mut registry)?;
     register_gemini_providers(config, providers_to_register, &mut registry)?;
+    register_zai_providers(config, providers_to_register, &mut registry)?;
     register_databricks_providers(config, providers_to_register, &mut registry).await?;
 
     // Set default provider
@@ -179,6 +180,30 @@ fn register_gemini_providers(
                 gemini_config.temperature,
             )?;
             registry.register(gemini_provider);
+        }
+    }
+    Ok(())
+}
+
+/// Register Z.ai (Zhipu AI) providers from configuration.
+fn register_zai_providers(
+    config: &Config,
+    providers_to_register: &[String],
+    registry: &mut ProviderRegistry,
+) -> Result<()> {
+    for (name, zai_config) in &config.providers.zai {
+        if should_register(providers_to_register, "zai", name) {
+            let zai_provider = g3_providers::ZaiProvider::new_with_name(
+                format!("zai.{}", name),
+                zai_config.api_key.clone(),
+                Some(zai_config.model.clone()),
+                zai_config.base_url.clone(),
+                zai_config.max_tokens,
+                zai_config.temperature,
+                zai_config.enable_thinking.unwrap_or(false),
+                zai_config.preserve_thinking.unwrap_or(false),
+            )?;
+            registry.register(zai_provider);
         }
     }
     Ok(())

@@ -50,6 +50,10 @@ pub struct ProvidersConfig {
     #[serde(default)]
     pub gemini: HashMap<String, GeminiConfig>,
 
+    /// Named Z.ai (Zhipu AI) provider configs
+    #[serde(default)]
+    pub zai: HashMap<String, ZaiConfig>,
+
     /// Multiple named OpenAI-compatible providers (e.g., openrouter, groq, etc.)
     #[serde(default)]
     pub openai_compatible: HashMap<String, OpenAIConfig>,
@@ -102,6 +106,21 @@ pub struct GeminiConfig {
     pub model: String,
     pub max_tokens: Option<u32>,
     pub temperature: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZaiConfig {
+    pub api_key: String,
+    pub model: String,
+    /// Base URL for Z.ai API. Defaults to https://api.z.ai/api/paas/v4
+    /// Other options: https://open.bigmodel.cn/api/paas/v4 (China)
+    pub base_url: Option<String>,
+    pub max_tokens: Option<u32>,
+    pub temperature: Option<f32>,
+    /// Enable thinking/reasoning mode (GLM-4.7 feature)
+    pub enable_thinking: Option<bool>,
+    /// Preserve reasoning content across conversation turns
+    pub preserve_thinking: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -243,6 +262,7 @@ impl Default for Config {
                 databricks: databricks_configs,
                 embedded: HashMap::new(),
                 gemini: HashMap::new(),
+                zai: HashMap::new(),
                 openai_compatible: HashMap::new(),
             },
             agent: AgentConfig {
@@ -467,11 +487,20 @@ impl Config {
                     );
                 }
             }
+            "zai" => {
+                if !self.providers.zai.contains_key(config_name) {
+                    anyhow::bail!(
+                        "Provider config 'zai.{}' not found. Available: {:?}",
+                        config_name,
+                        self.providers.zai.keys().collect::<Vec<_>>()
+                    );
+                }
+            }
             _ => {
                 // Check openai_compatible providers
                 if !self.providers.openai_compatible.contains_key(provider_type) {
                     anyhow::bail!(
-                        "Unknown provider type '{}'. Valid types: anthropic, openai, databricks, embedded, gemini, or openai_compatible names",
+                        "Unknown provider type '{}'. Valid types: anthropic, openai, databricks, embedded, gemini, zai, or openai_compatible names",
                         provider_type
                     );
                 }
@@ -580,6 +609,16 @@ impl Config {
                     } else {
                         return Err(anyhow::anyhow!(
                             "Provider config 'gemini.{}' not found.",
+                            config_name
+                        ));
+                    }
+                }
+                "zai" => {
+                    if let Some(ref mut zai_config) = config.providers.zai.get_mut(&config_name) {
+                        zai_config.model = model;
+                    } else {
+                        return Err(anyhow::anyhow!(
+                            "Provider config 'zai.{}' not found.",
                             config_name
                         ));
                     }
@@ -710,6 +749,12 @@ impl Config {
                 .get(&config_name)
                 .map(ProviderConfigRef::Gemini)
                 .ok_or_else(|| anyhow::anyhow!("Gemini config '{}' not found", config_name)),
+            "zai" => self
+                .providers
+                .zai
+                .get(&config_name)
+                .map(ProviderConfigRef::Zai)
+                .ok_or_else(|| anyhow::anyhow!("Z.ai config '{}' not found", config_name)),
             _ => self
                 .providers
                 .openai_compatible
@@ -730,6 +775,7 @@ pub enum ProviderConfigRef<'a> {
     Databricks(&'a DatabricksConfig),
     Embedded(&'a EmbeddedConfig),
     Gemini(&'a GeminiConfig),
+    Zai(&'a ZaiConfig),
     OpenAICompatible(&'a OpenAIConfig),
 }
 

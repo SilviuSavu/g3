@@ -74,7 +74,7 @@ pub async fn create_planner_provider(
             let databricks_config = config
                 .get_databricks_config(&config_name)
                 .ok_or_else(|| anyhow!("Databricks config '{}' not found", config_name))?;
-            
+
             let provider = if let Some(token) = &databricks_config.token {
                 g3_providers::DatabricksProvider::from_token_with_name(
                     format!("databricks.{}", config_name),
@@ -96,9 +96,40 @@ pub async fn create_planner_provider(
             };
             Ok(Box::new(provider))
         }
+        "zai" => {
+            let zai_config = config.providers.zai
+                .get(&config_name)
+                .ok_or_else(|| anyhow!("Z.ai config '{}' not found", config_name))?;
+
+            let provider = g3_providers::ZaiProvider::new_with_name(
+                format!("zai.{}", config_name),
+                zai_config.api_key.clone(),
+                Some(zai_config.model.clone()),
+                zai_config.base_url.clone(),
+                zai_config.max_tokens,
+                zai_config.temperature,
+                zai_config.enable_thinking.unwrap_or(false),
+                zai_config.preserve_thinking.unwrap_or(false),
+            )?;
+            Ok(Box::new(provider))
+        }
+        "gemini" => {
+            let gemini_config = config
+                .get_gemini_config(&config_name)
+                .ok_or_else(|| anyhow!("Gemini config '{}' not found", config_name))?;
+
+            let provider = g3_providers::GeminiProvider::new_with_name(
+                format!("gemini.{}", config_name),
+                gemini_config.api_key.clone(),
+                Some(gemini_config.model.clone()),
+                gemini_config.max_tokens,
+                gemini_config.temperature,
+            )?;
+            Ok(Box::new(provider))
+        }
         _ => {
             Err(anyhow!(
-                "Unsupported provider type '{}' for planner. Supported: anthropic, openai, databricks",
+                "Unsupported provider type '{}' for planner. Supported: anthropic, openai, databricks, zai, gemini",
                 provider_type
             ))
         }
