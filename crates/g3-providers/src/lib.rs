@@ -244,12 +244,14 @@ pub mod embedded;
 pub mod gemini;
 pub mod oauth;
 pub mod openai;
+pub mod zai;
 
 pub use anthropic::AnthropicProvider;
 pub use databricks::DatabricksProvider;
 pub use embedded::EmbeddedProvider;
 pub use gemini::GeminiProvider;
 pub use openai::OpenAIProvider;
+pub use zai::ZaiProvider;
 
 impl Message {
     /// Generate a unique message ID in format HHMMSS-XXX
