@@ -448,7 +448,7 @@ Format this as a detailed but concise summary that can be used to resume the con
             // Process User messages that look like tool results
             if matches!(message.role, MessageRole::User)
                 && message.content.starts_with("Tool result:")
-                && !self.is_todo_tool_result(i)
+                && !self.is_protected_tool_result(i)
                 && message.content.len() > 500
             {
                 if let Some(m) =
@@ -501,8 +501,9 @@ Format this as a detailed but concise summary that can be used to resume the con
         (leaned_count, tool_call_leaned_count, chars_saved)
     }
 
-    /// Check if message at index i is a result of a TODO tool call.
-    fn is_todo_tool_result(&self, i: usize) -> bool {
+    /// Check if message at index i is a result of a protected tool call (TODO or Beads).
+    /// These tool results should not be thinned to preserve task tracking context.
+    fn is_protected_tool_result(&self, i: usize) -> bool {
         if i == 0 {
             return false;
         }
@@ -511,7 +512,11 @@ Format this as a detailed but concise summary that can be used to resume the con
             .get(i - 1)
             .map(|prev| {
                 matches!(prev.role, MessageRole::Assistant)
-                    && (prev.content.contains(r#""tool":"todo_read""#)
+                    && (// Beads tools
+                        prev.content.contains(r#""tool":"beads_"#)
+                        || prev.content.contains(r#""tool": "beads_"#)
+                        // Legacy TODO tools (for backwards compatibility)
+                        || prev.content.contains(r#""tool":"todo_read""#)
                         || prev.content.contains(r#""tool":"todo_write""#)
                         || prev.content.contains(r#""tool": "todo_read""#)
                         || prev.content.contains(r#""tool": "todo_write""#))

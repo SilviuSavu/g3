@@ -15,6 +15,7 @@ pub struct ToolConfig {
     pub exclude_research: bool,
     pub zai_tools: bool,
     pub mcp_tools: bool,
+    pub beads_tools: bool,
 }
 
 impl ToolConfig {
@@ -25,6 +26,7 @@ impl ToolConfig {
             exclude_research: false,
             zai_tools,
             mcp_tools: false,
+            beads_tools: true,  // enabled by default
         }
     }
 
@@ -38,6 +40,12 @@ impl ToolConfig {
     /// Used for scout agent to prevent recursion.
     pub fn with_research_excluded(mut self) -> Self {
         self.exclude_research = true;
+        self
+    }
+
+    /// Create a config with Beads tools disabled.
+    pub fn without_beads_tools(mut self) -> Self {
+        self.beads_tools = false;
         self
     }
 }
@@ -59,6 +67,10 @@ pub fn create_tool_definitions(config: ToolConfig) -> Vec<Tool> {
 
     if config.mcp_tools {
         tools.extend(create_mcp_tools());
+    }
+
+    if config.beads_tools {
+        tools.extend(create_beads_tools());
     }
 
     tools
@@ -785,6 +797,280 @@ pub fn create_mcp_tools() -> Vec<Tool> {
     ]
 }
 
+/// Create Beads distributed issue tracking and molecule workflow tools
+pub fn create_beads_tools() -> Vec<Tool> {
+    vec![
+        // === Basic Issue Operations (9 tools) ===
+        Tool {
+            name: "beads_ready".to_string(),
+            description: "Get the list of unblocked issues ready to work on, sorted by priority. This is the recommended way to find your next task.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "beads_create".to_string(),
+            description: "Create a new issue in Beads. Returns the new issue ID.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Title of the issue"
+                    },
+                    "priority": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4,
+                        "description": "Priority level: 0=critical, 1=high, 2=medium, 3=low, 4=backlog"
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Issue type (e.g., 'bug', 'feature', 'task')"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Detailed description of the issue"
+                    },
+                    "parent": {
+                        "type": "string",
+                        "description": "Parent issue ID for hierarchical tasks (creates child like parent.1, parent.2)"
+                    }
+                },
+                "required": ["title", "priority"]
+            }),
+        },
+        Tool {
+            name: "beads_update".to_string(),
+            description: "Update an existing issue's status or priority.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Issue ID to update (e.g., 'bd-a1b2')"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["open", "in_progress", "closed"],
+                        "description": "New status for the issue"
+                    },
+                    "priority": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4,
+                        "description": "New priority level"
+                    }
+                },
+                "required": ["id"]
+            }),
+        },
+        Tool {
+            name: "beads_close".to_string(),
+            description: "Close an issue. Use --continue flag for workflow propulsion (auto-advances to next step in a molecule).".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Issue ID to close"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Reason for closing (completion note)"
+                    },
+                    "continue": {
+                        "type": "boolean",
+                        "description": "If true, auto-advance to next step in molecule workflow"
+                    }
+                },
+                "required": ["id"]
+            }),
+        },
+        Tool {
+            name: "beads_show".to_string(),
+            description: "Show detailed information about a specific issue.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Issue ID to show"
+                    }
+                },
+                "required": ["id"]
+            }),
+        },
+        Tool {
+            name: "beads_list".to_string(),
+            description: "List issues with optional filtering by status, type, or limit.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": ["open", "in_progress", "closed", "all"],
+                        "description": "Filter by status"
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Filter by issue type"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of issues to return"
+                    }
+                },
+                "required": []
+            }),
+        },
+        Tool {
+            name: "beads_dep".to_string(),
+            description: "Add or remove dependencies between issues.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["add", "remove"],
+                        "description": "Whether to add or remove the dependency"
+                    },
+                    "child_id": {
+                        "type": "string",
+                        "description": "The dependent issue ID (the one that is blocked)"
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "description": "The blocking issue ID (the one that must complete first)"
+                    },
+                    "dep_type": {
+                        "type": "string",
+                        "enum": ["blocks", "related", "discovered-from"],
+                        "description": "Type of dependency (default: blocks)"
+                    }
+                },
+                "required": ["action", "child_id", "parent_id"]
+            }),
+        },
+        Tool {
+            name: "beads_sync".to_string(),
+            description: "Sync Beads state with git. Commits any pending changes and pulls updates.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "beads_prime".to_string(),
+            description: "Prime the context with Beads project state. Returns a summary of open issues, ready queue, and active molecules for LLM context.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        // === Molecule Operations (6 tools) ===
+        Tool {
+            name: "beads_formula_list".to_string(),
+            description: "List available workflow formulas. Formulas are TOML templates that define reusable multi-step workflows.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "beads_formula_cook".to_string(),
+            description: "Cook a formula into a proto (frozen template ready for instantiation). Like compiling source code.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "formula": {
+                        "type": "string",
+                        "description": "Name of the formula to cook"
+                    },
+                    "vars": {
+                        "type": "object",
+                        "description": "Variable substitutions as key-value pairs"
+                    }
+                },
+                "required": ["formula"]
+            }),
+        },
+        Tool {
+            name: "beads_mol_pour".to_string(),
+            description: "Pour a proto into a persistent molecule (workflow instance with full audit trail). Use for feature work requiring history.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "proto": {
+                        "type": "string",
+                        "description": "Name of the proto to instantiate"
+                    },
+                    "vars": {
+                        "type": "object",
+                        "description": "Variable substitutions as key-value pairs"
+                    }
+                },
+                "required": ["proto"]
+            }),
+        },
+        Tool {
+            name: "beads_mol_wisp".to_string(),
+            description: "Create an ephemeral wisp from a proto (no sync overhead). Use for routine operations that don't need audit trail.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "proto": {
+                        "type": "string",
+                        "description": "Name of the proto to instantiate"
+                    },
+                    "vars": {
+                        "type": "object",
+                        "description": "Variable substitutions as key-value pairs"
+                    }
+                },
+                "required": ["proto"]
+            }),
+        },
+        Tool {
+            name: "beads_mol_current".to_string(),
+            description: "Show the current state of a molecule workflow, including progress and next step.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Molecule ID (optional, shows active molecule if omitted)"
+                    }
+                },
+                "required": []
+            }),
+        },
+        Tool {
+            name: "beads_mol_squash".to_string(),
+            description: "Squash a completed molecule into a digest summary. Archives the workflow history.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Molecule ID to squash"
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": "Summary of the completed work"
+                    }
+                },
+                "required": ["id"]
+            }),
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -817,6 +1103,7 @@ mod tests {
     fn test_create_tool_definitions_core_only() {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
+        // Default config has beads_tools: false (from derive Default)
         assert_eq!(tools.len(), 16);
     }
 
@@ -824,16 +1111,16 @@ mod tests {
     fn test_create_tool_definitions_all_enabled() {
         let config = ToolConfig::new(true, true, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai = 34
-        assert_eq!(tools.len(), 34);
+        // 16 core + 15 webdriver + 3 zai + 15 beads = 49
+        assert_eq!(tools.len(), 49);
     }
 
     #[test]
     fn test_create_tool_definitions_with_zai_tools() {
         let config = ToolConfig::new(false, false, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 3 zai = 19
-        assert_eq!(tools.len(), 19);
+        // 16 core + 3 zai + 15 beads = 34
+        assert_eq!(tools.len(), 34);
 
         // Verify Z.ai tools are present
         assert!(tools.iter().any(|t| t.name == "zai_web_search"));
@@ -884,7 +1171,7 @@ mod tests {
     fn test_create_tool_definitions_with_mcp_tools() {
         let config = ToolConfig::default().with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 5 mcp = 21
+        // 16 core + 5 mcp = 21 (default has beads_tools: false)
         assert_eq!(tools.len(), 21);
 
         // Verify MCP tools are present
@@ -909,7 +1196,48 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_mcp() {
         let config = ToolConfig::new(true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp = 39
-        assert_eq!(tools.len(), 39);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads = 54
+        assert_eq!(tools.len(), 54);
+    }
+
+    #[test]
+    fn test_beads_tools_count() {
+        let tools = create_beads_tools();
+        // 15 Beads tools: 9 basic issue ops + 6 molecule ops
+        assert_eq!(tools.len(), 15);
+    }
+
+    #[test]
+    fn test_beads_tools_have_required_fields() {
+        let tools = create_beads_tools();
+        for tool in tools {
+            assert!(!tool.name.is_empty(), "Tool name should not be empty");
+            assert!(!tool.description.is_empty(), "Tool description should not be empty");
+            assert!(tool.input_schema.is_object(), "Tool input_schema should be an object");
+        }
+    }
+
+    #[test]
+    fn test_create_tool_definitions_with_beads_tools() {
+        let config = ToolConfig::new(false, false, false);
+        let tools = create_tool_definitions(config);
+        // 16 core + 15 beads = 31
+        assert_eq!(tools.len(), 31);
+
+        // Verify Beads tools are present
+        assert!(tools.iter().any(|t| t.name == "beads_ready"));
+        assert!(tools.iter().any(|t| t.name == "beads_create"));
+        assert!(tools.iter().any(|t| t.name == "beads_mol_pour"));
+    }
+
+    #[test]
+    fn test_create_tool_definitions_without_beads_tools() {
+        let config = ToolConfig::new(false, false, false).without_beads_tools();
+        let tools = create_tool_definitions(config);
+        // 16 core only (beads disabled)
+        assert_eq!(tools.len(), 16);
+
+        // Verify Beads tools are NOT present
+        assert!(!tools.iter().any(|t| t.name == "beads_ready"));
     }
 }

@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, file_ops, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
+use crate::tools::{acd, beads, file_ops, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -80,6 +80,25 @@ pub async fn dispatch_tool<W: UiWriter>(
         "mcp_search_doc" => mcp_tools::execute_mcp_search_doc(tool_call, ctx).await,
         "mcp_get_repo_structure" => mcp_tools::execute_mcp_get_repo_structure(tool_call, ctx).await,
         "mcp_read_file" => mcp_tools::execute_mcp_read_file(tool_call, ctx).await,
+
+        // Beads tools (issue tracking and molecule workflows)
+        "beads_ready" => beads::execute_beads_ready(tool_call, ctx).await,
+        "beads_create" => beads::execute_beads_create(tool_call, ctx).await,
+        "beads_update" => beads::execute_beads_update(tool_call, ctx).await,
+        "beads_close" => beads::execute_beads_close(tool_call, ctx).await,
+        "beads_show" => beads::execute_beads_show(tool_call, ctx).await,
+        "beads_list" => beads::execute_beads_list(tool_call, ctx).await,
+        "beads_dep" => beads::execute_beads_dep(tool_call, ctx).await,
+        "beads_sync" => beads::execute_beads_sync(tool_call, ctx).await,
+        "beads_prime" => beads::execute_beads_prime(tool_call, ctx).await,
+
+        // Beads molecule/formula tools
+        "beads_formula_list" => beads::execute_formula_list(tool_call, ctx).await,
+        "beads_formula_cook" => beads::execute_formula_cook(tool_call, ctx).await,
+        "beads_mol_pour" => beads::execute_mol_pour(tool_call, ctx).await,
+        "beads_mol_wisp" => beads::execute_mol_wisp(tool_call, ctx).await,
+        "beads_mol_current" => beads::execute_mol_current(tool_call, ctx).await,
+        "beads_mol_squash" => beads::execute_mol_squash(tool_call, ctx).await,
 
         // Unknown tool
         _ => {

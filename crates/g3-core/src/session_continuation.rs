@@ -43,6 +43,9 @@ pub struct SessionContinuation {
     pub context_percentage: f32,
     /// Snapshot of the TODO list content
     pub todo_snapshot: Option<String>,
+    /// Active Beads issue IDs (issues currently in_progress)
+    #[serde(default)]
+    pub active_beads_issues: Option<Vec<String>>,
     /// Working directory where the session was running
     pub working_directory: String,
 }
@@ -58,6 +61,7 @@ impl SessionContinuation {
         session_log_path: String,
         context_percentage: f32,
         todo_snapshot: Option<String>,
+        active_beads_issues: Option<Vec<String>>,
         working_directory: String,
     ) -> Self {
         Self {
@@ -71,6 +75,7 @@ impl SessionContinuation {
             session_log_path,
             context_percentage,
             todo_snapshot,
+            active_beads_issues,
             working_directory,
         }
     }
@@ -80,12 +85,24 @@ impl SessionContinuation {
         self.context_percentage < 80.0
     }
 
-    /// Check if this session has incomplete TODO items
-    pub fn has_incomplete_todos(&self) -> bool {
-        match &self.todo_snapshot {
-            Some(todo) => todo.contains("- [ ]"),
+    /// Check if this session has active Beads issues
+    pub fn has_active_beads_issues(&self) -> bool {
+        match &self.active_beads_issues {
+            Some(issues) => !issues.is_empty(),
             None => false,
         }
+    }
+
+    /// Check if this session has incomplete TODO items or active Beads issues
+    pub fn has_incomplete_todos(&self) -> bool {
+        // Check legacy todo snapshot
+        if let Some(todo) = &self.todo_snapshot {
+            if todo.contains("- [ ]") {
+                return true;
+            }
+        }
+        // Check active Beads issues
+        self.has_active_beads_issues()
     }
 }
 
@@ -355,7 +372,9 @@ pub fn find_incomplete_agent_session(agent_name: &str) -> Result<Option<SessionC
         // Check if has incomplete TODOs (either in snapshot or in the actual file)
         let has_incomplete = if continuation.has_incomplete_todos() {
             true
-        } else if continuation.todo_snapshot.is_none() {
+        } else if continuation.has_active_beads_issues() {
+            true
+        } else if continuation.todo_snapshot.is_none() && continuation.active_beads_issues.is_none() {
             // Fallback: check the actual todo.g3.md file in the session directory
             // This handles sessions created before todo_snapshot was properly saved
             let todo_file_path = path.join("todo.g3.md");
@@ -485,9 +504,10 @@ mod tests {
             "/path/to/session.json".to_string(),
             45.0,
             Some("- [x] Task 1\n- [ ] Task 2".to_string()),
+            None,
             "/home/user/project".to_string(),
         );
-        
+
         assert_eq!(continuation.version, CONTINUATION_VERSION);
         assert_eq!(continuation.session_id, "test_session_123");
         assert!(continuation.can_restore_full_context());
@@ -504,14 +524,15 @@ mod tests {
             "path".to_string(),
             50.0,
             None,
+            None,
             ".".to_string(),
         );
-        
+
         assert!(continuation.can_restore_full_context()); // 50% < 80%
-        
+
         continuation.context_percentage = 80.0;
         assert!(!continuation.can_restore_full_context()); // 80% >= 80%
-        
+
         continuation.context_percentage = 95.0;
         assert!(!continuation.can_restore_full_context()); // 95% >= 80%
     }
@@ -527,15 +548,41 @@ mod tests {
             "path".to_string(),
             50.0,
             Some("- [x] Done\n- [ ] Not done".to_string()),
+            None,
             ".".to_string(),
         );
-        
+
         assert!(continuation.has_incomplete_todos());
-        
+
         continuation.todo_snapshot = Some("- [x] All done".to_string());
         assert!(!continuation.has_incomplete_todos());
-        
+
         continuation.todo_snapshot = None;
         assert!(!continuation.has_incomplete_todos());
+    }
+
+    #[test]
+    fn test_has_active_beads_issues() {
+        let mut continuation = SessionContinuation::new(
+            true,
+            Some("fowler".to_string()),
+            "test".to_string(),
+            None,
+            None,
+            "path".to_string(),
+            50.0,
+            None,
+            Some(vec!["issue-1".to_string(), "issue-2".to_string()]),
+            ".".to_string(),
+        );
+
+        assert!(continuation.has_active_beads_issues());
+        assert!(continuation.has_incomplete_todos()); // Beads issues count as incomplete
+
+        continuation.active_beads_issues = Some(vec![]);
+        assert!(!continuation.has_active_beads_issues());
+
+        continuation.active_beads_issues = None;
+        assert!(!continuation.has_active_beads_issues());
     }
 }
