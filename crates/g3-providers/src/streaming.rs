@@ -63,6 +63,28 @@ pub fn make_final_chunk(tool_calls: Vec<ToolCall>, usage: Option<Usage>) -> Comp
         },
         stop_reason: None,
         tool_call_streaming: None,
+        reasoning_content: None,
+    }
+}
+
+/// Create a final completion chunk with tool calls, usage, and reasoning content.
+pub fn make_final_chunk_with_reasoning(
+    tool_calls: Vec<ToolCall>,
+    usage: Option<Usage>,
+    reasoning_content: Option<String>,
+) -> CompletionChunk {
+    CompletionChunk {
+        content: String::new(),
+        finished: true,
+        usage,
+        tool_calls: if tool_calls.is_empty() {
+            None
+        } else {
+            Some(tool_calls)
+        },
+        stop_reason: None,
+        tool_call_streaming: None,
+        reasoning_content,
     }
 }
 
@@ -79,6 +101,7 @@ pub fn make_final_chunk_with_reason(tool_calls: Vec<ToolCall>, usage: Option<Usa
         },
         stop_reason,
         tool_call_streaming: None,
+        reasoning_content: None,
     }
 }
 
@@ -91,6 +114,7 @@ pub fn make_text_chunk(content: String) -> CompletionChunk {
         tool_calls: None,
         stop_reason: None,
         tool_call_streaming: None,
+        reasoning_content: None,
     }
 }
 
@@ -103,6 +127,7 @@ pub fn make_tool_chunk(tool_calls: Vec<ToolCall>) -> CompletionChunk {
         tool_calls: Some(tool_calls),
         stop_reason: None,
         tool_call_streaming: None,
+        reasoning_content: None,
     }
 }
 
@@ -115,6 +140,7 @@ pub fn make_tool_streaming_hint(tool_name: String) -> CompletionChunk {
         tool_calls: None,
         stop_reason: None,
         tool_call_streaming: Some(tool_name),
+        reasoning_content: None,
     }
 }
 
@@ -128,5 +154,6 @@ pub fn make_tool_streaming_active() -> CompletionChunk {
         tool_calls: None,
         stop_reason: None,
         tool_call_streaming: Some(String::new()), // Empty string signals "active" vs "detected"
+        reasoning_content: None,
     }
 }

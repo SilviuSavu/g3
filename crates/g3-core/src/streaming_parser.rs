@@ -631,6 +631,7 @@ Some text after"#;
             usage: None,
             stop_reason: None,
             tool_call_streaming: None,
+            reasoning_content: None,
         };
 
         let tools = parser.process_chunk(&chunk);
@@ -777,6 +778,7 @@ Some text after"#;
             usage: None,
             stop_reason: None,
             tool_call_streaming: None,
+            reasoning_content: None,
         };
 
         let tools = parser.process_chunk(&chunk);

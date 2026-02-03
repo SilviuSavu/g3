@@ -46,7 +46,17 @@ tokio = { workspace = true }
 anyhow = { workspace = true }
 g3-providers = { path = "crates/g3-providers" }
 serde_json = { workspace = true }
+tokio-stream = "0.1"
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [[example]]
 name = "verify_message_id"
 path = "examples/verify_message_id.rs"
+
+[[example]]
+name = "zai_demo"
+path = "examples/zai_demo.rs"
+
+[[example]]
+name = "provider_benchmark"
+path = "examples/provider_benchmark.rs"

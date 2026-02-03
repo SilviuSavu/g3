@@ -92,6 +92,7 @@ impl LLMProvider for MockStreamingProvider {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -110,6 +111,7 @@ impl LLMProvider for MockStreamingProvider {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -128,6 +130,7 @@ impl LLMProvider for MockStreamingProvider {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -142,6 +145,7 @@ impl LLMProvider for MockStreamingProvider {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -156,6 +160,7 @@ impl LLMProvider for MockStreamingProvider {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -176,6 +181,7 @@ impl LLMProvider for MockStreamingProvider {
                         }),
                         stop_reason: Some("end_turn".to_string()),
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -193,6 +199,7 @@ impl LLMProvider for MockStreamingProvider {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -210,6 +217,7 @@ impl LLMProvider for MockStreamingProvider {
                         }),
                         stop_reason: Some("end_turn".to_string()),
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
             });
@@ -434,6 +442,7 @@ async fn test_finished_signal_terminates_stream() {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -452,6 +461,7 @@ async fn test_finished_signal_terminates_stream() {
                         }),
                         stop_reason: Some("end_turn".to_string()),
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await;
 
@@ -468,6 +478,7 @@ async fn test_finished_signal_terminates_stream() {
                         usage: None,
                         stop_reason: None,
                         tool_call_streaming: None,
+            reasoning_content: None,
                     }))
                     .await
                     .is_ok()

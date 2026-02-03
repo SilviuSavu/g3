@@ -2,7 +2,7 @@ mod streaming;
 pub mod mock;
 pub use mock::{MockProvider, MockResponse, MockChunk};
 
-pub use streaming::{decode_utf8_streaming, is_incomplete_json_error, make_final_chunk, make_text_chunk, make_tool_chunk};
+pub use streaming::{decode_utf8_streaming, is_incomplete_json_error, make_final_chunk, make_final_chunk_with_reasoning, make_text_chunk, make_tool_chunk};
 
 use anyhow::Result;
 use rand::Rng;
@@ -222,6 +222,10 @@ pub struct CompletionChunk {
     pub stop_reason: Option<String>,
     /// Tool call currently being streamed (name only, for UI hint)
     pub tool_call_streaming: Option<String>,
+    /// Reasoning content from thinking/reasoning mode (Z.ai GLM-4.7)
+    /// When preserved thinking is enabled, this should be returned to the API
+    /// in subsequent requests to maintain coherence.
+    pub reasoning_content: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
