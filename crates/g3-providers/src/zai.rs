@@ -66,7 +66,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error};
 
 use crate::{
-    streaming::{decode_utf8_streaming, make_final_chunk, make_text_chunk, make_tool_chunk},
+    streaming::{decode_utf8_streaming, make_final_chunk_with_reasoning, make_text_chunk, make_tool_chunk},
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Tool, ToolCall, Usage,
 };
@@ -179,6 +179,7 @@ impl ZaiProvider {
         if let Some(tools) = tools {
             if !tools.is_empty() {
                 body["tools"] = json!(convert_tools(tools));
+                body["parallel_tool_calls"] = json!(true);
             }
         }
 
@@ -249,8 +250,18 @@ impl ZaiProvider {
                                         .collect()
                                 };
 
-                                let final_chunk =
-                                    make_final_chunk(tool_calls, accumulated_usage.clone());
+                                // Include reasoning content if accumulated (for preserved thinking)
+                                let reasoning = if accumulated_reasoning.is_empty() {
+                                    None
+                                } else {
+                                    Some(accumulated_reasoning.clone())
+                                };
+
+                                let final_chunk = make_final_chunk_with_reasoning(
+                                    tool_calls,
+                                    accumulated_usage.clone(),
+                                    reasoning,
+                                );
                                 let _ = tx.send(Ok(final_chunk)).await;
 
                                 return accumulated_usage;
@@ -366,7 +377,14 @@ impl ZaiProvider {
             .filter_map(|tc| tc.to_tool_call())
             .collect();
 
-        let final_chunk = make_final_chunk(tool_calls, accumulated_usage.clone());
+        // Include reasoning content if accumulated (for preserved thinking)
+        let reasoning = if accumulated_reasoning.is_empty() {
+            None
+        } else {
+            Some(accumulated_reasoning)
+        };
+
+        let final_chunk = make_final_chunk_with_reasoning(tool_calls, accumulated_usage.clone(), reasoning);
         let _ = tx.send(Ok(final_chunk)).await;
 
         accumulated_usage

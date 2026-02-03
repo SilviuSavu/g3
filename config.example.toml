@@ -53,6 +53,55 @@ model = "claude-sonnet-4-5"
 # base_url = "https://openrouter.ai/api/v1"
 
 # =============================================================================
+# Z.ai (Zhipu AI) provider - GLM-4.7 with thinking mode
+# =============================================================================
+# Get API key from: https://z.ai/ (International) or https://open.bigmodel.cn/ (China)
+#
+# ENDPOINTS:
+#   Standard API (pay-as-you-go, token-based pricing):
+#     International: https://api.z.ai/api/paas/v4 (default)
+#     China:         https://open.bigmodel.cn/api/paas/v4
+#
+#   Coding Plan API (subscription, prompt-based pricing - RECOMMENDED for g3):
+#     International: https://api.z.ai/api/coding/paas/v4
+#     China:         https://open.bigmodel.cn/api/coding/paas/v4
+#     Pricing: Lite $3/mo (120 prompts/5hr), Pro $15/mo (600 prompts/5hr)
+#     Note: Preserved thinking is ENABLED by default on coding endpoints
+#
+# MODELS:
+#   glm-4.7        - Flagship (200K context, 128K output, ~55 tok/s)
+#   glm-4.7-flashx - High-speed variant (cheaper, good balance)
+#   glm-4.7-flash  - Standard variant (FREE tier available)
+#
+# THINKING MODE:
+#   enable_thinking = true   -> Interleaved thinking (thinks before responses)
+#   preserve_thinking = true -> Retains reasoning across turns
+#                              (ON by default for coding endpoints)
+#
+# Basic configuration (Standard API - International)
+# [providers.zai.default]
+# api_key = "your-zai-api-key"
+# model = "glm-4.7"
+# # base_url = "https://api.z.ai/api/paas/v4"  # Default (International)
+# enable_thinking = true
+# preserve_thinking = false
+
+# Coding Plan configuration (RECOMMENDED for AI-assisted coding)
+# [providers.zai.coding]
+# api_key = "your-zai-api-key"
+# model = "glm-4.7"
+# base_url = "https://api.z.ai/api/coding/paas/v4"
+# enable_thinking = true
+# preserve_thinking = true  # Enabled by default on coding endpoints
+
+# China region configuration
+# [providers.zai.china]
+# api_key = "your-zai-api-key"
+# model = "glm-4.7"
+# base_url = "https://open.bigmodel.cn/api/paas/v4"
+# enable_thinking = true
+
+# =============================================================================
 # Embedded providers (local models via llama.cpp with Metal acceleration)
 # =============================================================================
 # Download models from Hugging Face:

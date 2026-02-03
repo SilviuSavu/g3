@@ -1358,6 +1358,8 @@ dependencies = [
  "g3-providers",
  "serde_json",
  "tokio",
+ "tokio-stream",
+ "tracing-subscriber",
 ]
 
 [[package]]

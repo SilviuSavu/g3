@@ -419,6 +419,7 @@ impl LLMProvider for MockProvider {
                     usage: if is_last { Some(usage.clone()) } else { None },
                     stop_reason: chunk.stop_reason,
                     tool_call_streaming: chunk.tool_call_streaming,
+                    reasoning_content: None,
                 };
 
                 if tx.send(Ok(completion_chunk)).await.is_err() {
