@@ -1689,6 +1689,7 @@ impl<W: UiWriter> Agent<W> {
             session_log_path.to_string_lossy().to_string(),
             self.context_window.percentage_used(),
             todo_snapshot,
+            None, // active_beads_issues - TODO: populate from Beads state
             working_directory,
         );
 
