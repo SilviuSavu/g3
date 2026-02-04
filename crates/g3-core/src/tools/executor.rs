@@ -5,8 +5,10 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::background_process::BackgroundProcessManager;
+use crate::index_client::IndexClient;
 use crate::pending_research::PendingResearchManager;
 use crate::paths::{ensure_session_dir, get_session_todo_path, get_todo_path};
+use crate::tools::lsp::LspManager;
 use crate::tools::mcp_tools::McpClients;
 use crate::ui_writer::UiWriter;
 use crate::webdriver_session::WebDriverSession;
@@ -33,6 +35,10 @@ pub struct ToolContext<'a, W: UiWriter> {
     pub zai_tools_client: Option<Arc<g3_providers::ZaiToolsClient>>,
     /// MCP clients for Z.ai MCP servers (web search, web reader, zread)
     pub mcp_clients: Option<Arc<McpClients>>,
+    /// Index client for codebase semantic search
+    pub index_client: Option<Arc<IndexClient>>,
+    /// LSP manager for code intelligence
+    pub lsp_manager: Option<Arc<LspManager>>,
 }
 
 impl<'a, W: UiWriter> ToolContext<'a, W> {

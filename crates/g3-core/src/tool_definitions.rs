@@ -17,6 +17,7 @@ pub struct ToolConfig {
     pub mcp_tools: bool,
     pub beads_tools: bool,
     pub index_tools: bool,
+    pub lsp_tools: bool,
 }
 
 impl ToolConfig {
@@ -29,6 +30,7 @@ impl ToolConfig {
             mcp_tools: false,
             beads_tools: true,  // enabled by default
             index_tools,
+            lsp_tools: false,
         }
     }
 
@@ -54,6 +56,12 @@ impl ToolConfig {
     /// Create a config with index tools enabled.
     pub fn with_index_tools(mut self) -> Self {
         self.index_tools = true;
+        self
+    }
+
+    /// Create a config with LSP tools enabled.
+    pub fn with_lsp_tools(mut self) -> Self {
+        self.lsp_tools = true;
         self
     }
 }
@@ -83,6 +91,10 @@ pub fn create_tool_definitions(config: ToolConfig) -> Vec<Tool> {
 
     if config.index_tools {
         tools.extend(create_index_tools());
+    }
+
+    if config.lsp_tools {
+        tools.extend(create_lsp_tools());
     }
 
     tools
@@ -864,6 +876,197 @@ fn create_index_tools() -> Vec<Tool> {
     ]
 }
 
+/// Create LSP (Language Server Protocol) tools for code intelligence
+pub fn create_lsp_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "lsp_goto_definition".to_string(),
+            description: "Jump to the definition of a symbol at the given position. Returns the file path and location where the symbol is defined. Works for functions, types, variables, imports, etc.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the source file"
+                    },
+                    "line": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Line number (1-indexed)"
+                    },
+                    "character": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Character position on the line (1-indexed)"
+                    }
+                },
+                "required": ["file_path", "line", "character"]
+            }),
+        },
+        Tool {
+            name: "lsp_find_references".to_string(),
+            description: "Find all references (usages) of a symbol at the given position. Returns a list of locations where the symbol is used throughout the codebase.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the source file"
+                    },
+                    "line": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Line number (1-indexed)"
+                    },
+                    "character": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Character position on the line (1-indexed)"
+                    },
+                    "include_declaration": {
+                        "type": "boolean",
+                        "description": "Include the declaration itself in results (default: true)"
+                    }
+                },
+                "required": ["file_path", "line", "character"]
+            }),
+        },
+        Tool {
+            name: "lsp_hover".to_string(),
+            description: "Get type information and documentation for the symbol at the given position. Returns type signatures, doc comments, and other relevant information.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the source file"
+                    },
+                    "line": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Line number (1-indexed)"
+                    },
+                    "character": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Character position on the line (1-indexed)"
+                    }
+                },
+                "required": ["file_path", "line", "character"]
+            }),
+        },
+        Tool {
+            name: "lsp_document_symbols".to_string(),
+            description: "List all symbols (functions, types, variables, etc.) defined in a document. Returns a hierarchical tree of symbols with their kinds and locations.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the source file"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "lsp_workspace_symbols".to_string(),
+            description: "Search for symbols across the entire workspace by name. Returns matching functions, types, and other symbols from all indexed files.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query to match symbol names"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": ["rust", "typescript", "javascript", "python", "go"],
+                        "description": "Language server to use (default: rust)"
+                    }
+                },
+                "required": ["query"]
+            }),
+        },
+        Tool {
+            name: "lsp_goto_implementation".to_string(),
+            description: "Find implementations of a trait/interface or abstract method. For a trait, returns all types that implement it. For an interface method, returns all concrete implementations.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the source file"
+                    },
+                    "line": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Line number (1-indexed)"
+                    },
+                    "character": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Character position on the line (1-indexed)"
+                    }
+                },
+                "required": ["file_path", "line", "character"]
+            }),
+        },
+        Tool {
+            name: "lsp_call_hierarchy".to_string(),
+            description: "Get the call hierarchy for a function - who calls it (incoming) and what it calls (outgoing). Useful for understanding code flow and impact analysis.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the source file"
+                    },
+                    "line": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Line number (1-indexed)"
+                    },
+                    "character": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Character position on the line (1-indexed)"
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["incoming", "outgoing", "both"],
+                        "description": "Which direction to query: incoming (callers), outgoing (callees), or both (default: both)"
+                    }
+                },
+                "required": ["file_path", "line", "character"]
+            }),
+        },
+        Tool {
+            name: "lsp_diagnostics".to_string(),
+            description: "Get compiler errors and warnings for a file. Note: For immediate diagnostics, prefer using the compiler directly (e.g., 'cargo check' for Rust).".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the source file"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "lsp_status".to_string(),
+            description: "Show the status of active LSP servers. Lists which language servers are running and their connection state.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+    ]
+}
+
 /// Create Beads distributed issue tracking and molecule workflow tools
 pub fn create_beads_tools() -> Vec<Tool> {
     vec![
@@ -1344,5 +1547,50 @@ mod tests {
         let tools = create_tool_definitions(config);
         // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 3 index = 57
         assert_eq!(tools.len(), 57);
+    }
+
+    #[test]
+    fn test_lsp_tools_count() {
+        let tools = create_lsp_tools();
+        // 9 LSP tools: goto_definition, find_references, hover, document_symbols,
+        // workspace_symbols, goto_implementation, call_hierarchy, diagnostics, status
+        assert_eq!(tools.len(), 9);
+    }
+
+    #[test]
+    fn test_lsp_tools_have_required_fields() {
+        let tools = create_lsp_tools();
+        for tool in tools {
+            assert!(!tool.name.is_empty(), "Tool name should not be empty");
+            assert!(!tool.description.is_empty(), "Tool description should not be empty");
+            assert!(tool.input_schema.is_object(), "Tool input_schema should be an object");
+        }
+    }
+
+    #[test]
+    fn test_create_tool_definitions_with_lsp_tools() {
+        let config = ToolConfig::default().with_lsp_tools();
+        let tools = create_tool_definitions(config);
+        // 16 core + 9 lsp = 25 (default has beads_tools: false)
+        assert_eq!(tools.len(), 25);
+
+        // Verify LSP tools are present
+        assert!(tools.iter().any(|t| t.name == "lsp_goto_definition"));
+        assert!(tools.iter().any(|t| t.name == "lsp_find_references"));
+        assert!(tools.iter().any(|t| t.name == "lsp_hover"));
+        assert!(tools.iter().any(|t| t.name == "lsp_document_symbols"));
+        assert!(tools.iter().any(|t| t.name == "lsp_workspace_symbols"));
+        assert!(tools.iter().any(|t| t.name == "lsp_goto_implementation"));
+        assert!(tools.iter().any(|t| t.name == "lsp_call_hierarchy"));
+        assert!(tools.iter().any(|t| t.name == "lsp_diagnostics"));
+        assert!(tools.iter().any(|t| t.name == "lsp_status"));
+    }
+
+    #[test]
+    fn test_create_tool_definitions_all_enabled_with_lsp() {
+        let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
+        let tools = create_tool_definitions(config);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 3 index + 9 lsp = 66
+        assert_eq!(tools.len(), 66);
     }
 }

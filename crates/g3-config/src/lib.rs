@@ -2,6 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
+use std::path::PathBuf;
 
 /// Main configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +20,8 @@ pub struct Config {
     pub zai_mcp: ZaiMcpConfig,
     #[serde(default)]
     pub index: IndexConfig,
+    #[serde(default)]
+    pub lsp: LspConfig,
 }
 
 /// Provider configuration with named configs per provider type
@@ -361,6 +364,135 @@ impl Default for WatcherConfig {
     }
 }
 
+// ============================================================================
+// LSP Configuration
+// ============================================================================
+
+/// LSP server configuration for a specific language (TOML representation).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LspServerConfigToml {
+    /// Path to the LSP server executable.
+    pub command: String,
+    /// Arguments to pass to the server.
+    #[serde(default)]
+    pub args: Vec<String>,
+    /// File extensions this server handles.
+    #[serde(default)]
+    pub extensions: Vec<String>,
+    /// Marker files to identify project root.
+    #[serde(default)]
+    pub root_markers: Vec<String>,
+    /// Environment variables to set.
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+    /// Request timeout in milliseconds (overrides global).
+    pub timeout_ms: Option<u64>,
+    /// Working directory for the server process.
+    pub working_directory: Option<PathBuf>,
+}
+
+/// Main LSP configuration section.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LspConfig {
+    /// Whether LSP features are enabled.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Whether to auto-start servers when needed.
+    #[serde(default = "default_true")]
+    pub auto_start: bool,
+
+    /// Global request timeout in seconds.
+    #[serde(default = "default_lsp_timeout")]
+    pub request_timeout_seconds: u64,
+
+    /// Custom server configurations by language.
+    #[serde(default)]
+    pub servers: HashMap<String, LspServerConfigToml>,
+}
+
+fn default_lsp_timeout() -> u64 {
+    30
+}
+
+impl Default for LspConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            auto_start: true,
+            request_timeout_seconds: 30,
+            servers: HashMap::new(),
+        }
+    }
+}
+
+impl LspConfig {
+    /// Get the timeout in milliseconds.
+    pub fn timeout_ms(&self) -> u64 {
+        self.request_timeout_seconds * 1000
+    }
+
+    /// Get server configuration for a language, if configured.
+    pub fn get_server_config(&self, language: &str) -> Option<&LspServerConfigToml> {
+        self.servers.get(language)
+    }
+
+    /// Check if a specific language server is configured.
+    pub fn has_server_config(&self, language: &str) -> bool {
+        self.servers.contains_key(language)
+    }
+}
+
+impl LspServerConfigToml {
+    /// Get the effective timeout in milliseconds.
+    pub fn effective_timeout_ms(&self, global_timeout_ms: u64) -> u64 {
+        self.timeout_ms.unwrap_or(global_timeout_ms)
+    }
+}
+
+// Feature-gated conversion to g3-lsp types
+#[cfg(feature = "lsp")]
+impl LspServerConfigToml {
+    /// Convert to g3-lsp's LspServerConfig.
+    pub fn to_lsp_config(&self, language_id: &str) -> g3_lsp::LspServerConfig {
+        let mut config = g3_lsp::LspServerConfig::new(language_id, &self.command)
+            .with_args(self.args.clone())
+            .with_extensions(self.extensions.clone());
+
+        if let Some(timeout) = self.timeout_ms {
+            config = config.with_timeout(timeout);
+        }
+
+        if let Some(ref dir) = self.working_directory {
+            config = config.with_working_directory(dir.clone());
+        }
+
+        // Set environment variables
+        config.env = self.env.clone();
+
+        config
+    }
+}
+
+#[cfg(feature = "lsp")]
+impl LspConfig {
+    /// Convert all configured servers to g3-lsp LspServerConfig instances.
+    pub fn to_lsp_server_configs(&self) -> HashMap<String, g3_lsp::LspServerConfig> {
+        let global_timeout_ms = self.timeout_ms();
+        self.servers
+            .iter()
+            .map(|(lang, config)| {
+                let mut lsp_config = config.to_lsp_config(lang);
+                // Apply global timeout if server-specific not set
+                if config.timeout_ms.is_none() {
+                    lsp_config = lsp_config.with_timeout(global_timeout_ms);
+                }
+                (lang.clone(), lsp_config)
+            })
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
     pub max_context_length: Option<u32>,
@@ -518,6 +650,7 @@ impl Default for Config {
             zai_tools: ZaiToolsConfig::default(),
             zai_mcp: ZaiMcpConfig::default(),
             index: IndexConfig::default(),
+            lsp: LspConfig::default(),
         }
     }
 }

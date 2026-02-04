@@ -13,6 +13,7 @@ g3-config = { path = "../g3-config" }
 g3-execution = { path = "../g3-execution" }
 g3-computer-control = { path = "../g3-computer-control" }
 g3-index = { path = "../g3-index" }
+g3-lsp = { path = "../g3-lsp" }
 tokio = { workspace = true }
 reqwest = { workspace = true }
 anyhow = { workspace = true }
