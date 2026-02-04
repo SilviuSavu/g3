@@ -110,8 +110,6 @@ pub struct Chunk {
 /// Code chunker that uses tree-sitter for AST-aware chunking.
 pub struct CodeChunker {
     parsers: HashMap<String, Parser>,
-    languages: HashMap<String, Language>,
-    max_chunk_tokens: usize,
     include_context: bool,
 }
 
@@ -119,11 +117,10 @@ impl CodeChunker {
     /// Create a new code chunker with AST parsing support.
     ///
     /// # Arguments
-    /// * `max_chunk_tokens` - Maximum tokens per chunk (for reference, not enforced)
+    /// * `_max_chunk_tokens` - Maximum tokens per chunk (reserved for future use)
     /// * `include_context` - Whether to enrich chunks with file/scope context
-    pub fn new(max_chunk_tokens: usize, include_context: bool) -> Result<Self> {
+    pub fn new(_max_chunk_tokens: usize, include_context: bool) -> Result<Self> {
         let mut parsers = HashMap::new();
-        let mut languages = HashMap::new();
 
         // Initialize Rust parser
         {
@@ -131,7 +128,6 @@ impl CodeChunker {
             let language: Language = tree_sitter_rust::LANGUAGE.into();
             parser.set_language(&language)?;
             parsers.insert("rust".to_string(), parser);
-            languages.insert("rust".to_string(), language);
         }
 
         // Initialize Python parser
@@ -140,7 +136,6 @@ impl CodeChunker {
             let language: Language = tree_sitter_python::LANGUAGE.into();
             parser.set_language(&language)?;
             parsers.insert("python".to_string(), parser);
-            languages.insert("python".to_string(), language);
         }
 
         // Initialize JavaScript parser
@@ -149,7 +144,6 @@ impl CodeChunker {
             let language: Language = tree_sitter_javascript::LANGUAGE.into();
             parser.set_language(&language)?;
             parsers.insert("javascript".to_string(), parser);
-            languages.insert("javascript".to_string(), language);
         }
 
         // Initialize TypeScript parser
@@ -158,7 +152,6 @@ impl CodeChunker {
             let language: Language = tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into();
             parser.set_language(&language)?;
             parsers.insert("typescript".to_string(), parser);
-            languages.insert("typescript".to_string(), language);
         }
 
         // Initialize Go parser
@@ -167,13 +160,10 @@ impl CodeChunker {
             let language: Language = tree_sitter_go::LANGUAGE.into();
             parser.set_language(&language)?;
             parsers.insert("go".to_string(), parser);
-            languages.insert("go".to_string(), language);
         }
 
         Ok(Self {
             parsers,
-            languages,
-            max_chunk_tokens,
             include_context,
         })
     }

@@ -187,6 +187,8 @@ pub struct IndexConfig {
     /// Qdrant server URL
     #[serde(default = "default_qdrant_url")]
     pub qdrant_url: String,
+    /// Qdrant API key (for secured instances)
+    pub qdrant_api_key: Option<String>,
     /// Collection name in Qdrant
     #[serde(default = "default_collection_name")]
     pub collection_name: String,
@@ -639,7 +641,7 @@ impl Default for Config {
                 max_context_length: None,
                 fallback_default_max_tokens: 32000,
                 enable_streaming: true,
-                timeout_seconds: 60,
+                timeout_seconds: 120,
                 auto_compact: true,
                 max_retry_attempts: 3,
                 autonomous_max_retry_attempts: 6,
