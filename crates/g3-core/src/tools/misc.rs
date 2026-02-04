@@ -67,10 +67,8 @@ pub async fn execute_take_screenshot<W: UiWriter>(
             let actual_path = if path.starts_with('/') {
                 path.to_string()
             } else {
-                let temp_dir = std::env::var("TMPDIR")
-                    .or_else(|_| std::env::var("HOME").map(|h| format!("{}/tmp", h)))
-                    .unwrap_or_else(|_| "/tmp".to_string());
-                format!("{}/{}", temp_dir.trim_end_matches('/'), path)
+                let temp_dir = std::env::temp_dir();
+                format!("{}/{}", temp_dir.display().to_string().trim_end_matches('/'), path)
             };
 
             Ok(format!(
