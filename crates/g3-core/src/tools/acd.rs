@@ -175,6 +175,8 @@ mod tests {
             pending_research_manager: &test_ctx.pending_research_manager,
             zai_tools_client: None,
             mcp_clients: None,
+            index_client: None,
+            lsp_manager: None,
         };
 
         let tool_call = ToolCall {
@@ -208,6 +210,8 @@ mod tests {
             pending_research_manager: &test_ctx.pending_research_manager,
             zai_tools_client: None,
             mcp_clients: None,
+            index_client: None,
+            lsp_manager: None,
         };
 
         let tool_call = ToolCall {
@@ -241,6 +245,8 @@ mod tests {
             pending_research_manager: &test_ctx.pending_research_manager,
             zai_tools_client: None,
             mcp_clients: None,
+            index_client: None,
+            lsp_manager: None,
         };
 
         let tool_call = ToolCall {

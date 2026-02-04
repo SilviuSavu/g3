@@ -21,6 +21,7 @@ pub mod task_result;
 pub mod tool_definitions;
 pub mod tool_dispatch;
 pub mod tools;
+pub mod index_client;
 pub mod ui_writer;
 pub mod utils;
 pub mod webdriver_session;
@@ -161,6 +162,10 @@ pub struct Agent<W: UiWriter> {
     zai_tools_client: Option<std::sync::Arc<g3_providers::ZaiToolsClient>>,
     /// MCP clients for Z.ai MCP servers (web search, web reader, zread)
     mcp_clients: Option<std::sync::Arc<tools::mcp_tools::McpClients>>,
+    /// Index client for codebase semantic search (lazy-initialized)
+    index_client: std::sync::Arc<tokio::sync::RwLock<Option<std::sync::Arc<index_client::IndexClient>>>>,
+    /// LSP manager for code intelligence (lazy-initialized)
+    lsp_manager: Option<std::sync::Arc<tools::lsp::LspManager>>,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -182,6 +187,7 @@ impl<W: UiWriter> Agent<W> {
         computer_controller: Option<Box<dyn g3_computer_control::ComputerController>>,
         zai_tools_client: Option<std::sync::Arc<g3_providers::ZaiToolsClient>>,
         mcp_clients: Option<std::sync::Arc<tools::mcp_tools::McpClients>>,
+        lsp_manager: Option<std::sync::Arc<tools::lsp::LspManager>>,
     ) -> Self {
         Self {
             providers,
@@ -219,6 +225,8 @@ impl<W: UiWriter> Agent<W> {
             pending_research_manager: pending_research::PendingResearchManager::new(),
             zai_tools_client,
             mcp_clients,
+            index_client: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
+            lsp_manager,
         }
     }
 
@@ -319,6 +327,7 @@ impl<W: UiWriter> Agent<W> {
             None,  // computer_controller
             None,  // zai_tools_client
             None,  // mcp_clients
+            None,  // lsp_manager
         ))
     }
 
@@ -515,6 +524,16 @@ impl<W: UiWriter> Agent<W> {
             }
         };
 
+        // Initialize LSP manager if LSP is enabled
+        let lsp_manager = if config.lsp.enabled {
+            // Get the working directory (default to current directory)
+            let work_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            debug!("Initialized LSP manager for workspace: {}", work_dir.display());
+            Some(std::sync::Arc::new(tools::lsp::LspManager::new(work_dir)))
+        } else {
+            None
+        };
+
         let auto_compact = config.agent.auto_compact;
         Ok(Self::build_agent(
             config,
@@ -527,6 +546,7 @@ impl<W: UiWriter> Agent<W> {
             computer_controller,
             zai_tools_client,
             mcp_clients,
+            lsp_manager,
         ))
     }
 
@@ -1067,6 +1087,9 @@ impl<W: UiWriter> Agent<W> {
             );
             if exclude_research {
                 tool_config = tool_config.with_research_excluded();
+            }
+            if self.config.lsp.enabled {
+                tool_config = tool_config.with_lsp_tools();
             }
             Some(tool_definitions::create_tool_definitions(tool_config))
         } else {
@@ -1979,12 +2002,15 @@ Skip if nothing new. Be brief."#;
         let provider = self.providers.get(None)?;
         let provider_name = provider.name().to_string();
         let tools = if provider.has_native_tool_calling() {
-            let tool_config = tool_definitions::ToolConfig::new(
+            let mut tool_config = tool_definitions::ToolConfig::new(
                 self.config.webdriver.enabled,
                 self.config.computer_control.enabled,
                 self.config.zai_tools.enabled,
                 self.config.index.enabled,
             );
+            if self.config.lsp.enabled {
+                tool_config = tool_config.with_lsp_tools();
+            }
             Some(tool_definitions::create_tool_definitions(tool_config))
         } else {
             None
@@ -2674,6 +2700,9 @@ Skip if nothing new. Be brief."#;
                                 if self.agent_name.as_deref() == Some("scout") {
                                     tool_config = tool_config.with_research_excluded();
                                 }
+                                if self.config.lsp.enabled {
+                                    tool_config = tool_config.with_lsp_tools();
+                                }
                                 request.tools =
                                     Some(tool_definitions::create_tool_definitions(tool_config));
                             }
@@ -3072,6 +3101,8 @@ Skip if nothing new. Be brief."#;
             pending_research_manager: &self.pending_research_manager,
             zai_tools_client: self.zai_tools_client.clone(),
             mcp_clients: self.mcp_clients.clone(),
+            index_client: self.index_client.read().await.clone(),
+            lsp_manager: self.lsp_manager.clone(),
         };
 
         // Dispatch to the appropriate tool handler

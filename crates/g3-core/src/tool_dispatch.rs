@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, beads, file_ops, index, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
+use crate::tools::{acd, beads, file_ops, index, lsp, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -104,6 +104,17 @@ pub async fn dispatch_tool<W: UiWriter>(
         "index_codebase" => index::execute_index_codebase(tool_call, ctx).await,
         "semantic_search" => index::execute_semantic_search(tool_call, ctx).await,
         "index_status" => index::execute_index_status(tool_call, ctx).await,
+
+        // LSP tools (code intelligence)
+        "lsp_goto_definition" => lsp::execute_goto_definition(tool_call, ctx).await,
+        "lsp_find_references" => lsp::execute_find_references(tool_call, ctx).await,
+        "lsp_hover" => lsp::execute_hover(tool_call, ctx).await,
+        "lsp_document_symbols" => lsp::execute_document_symbols(tool_call, ctx).await,
+        "lsp_workspace_symbols" => lsp::execute_workspace_symbols(tool_call, ctx).await,
+        "lsp_goto_implementation" => lsp::execute_goto_implementation(tool_call, ctx).await,
+        "lsp_call_hierarchy" => lsp::execute_call_hierarchy(tool_call, ctx).await,
+        "lsp_diagnostics" => lsp::execute_diagnostics(tool_call, ctx).await,
+        "lsp_status" => lsp::execute_status(tool_call, ctx).await,
 
         // Unknown tool
         _ => {

@@ -1,0 +1,33 @@
+[package]
+name = "g3-lsp"
+version = "0.1.0"
+edition = "2021"
+description = "Language Server Protocol client for G3 AI agent"
+
+[dependencies]
+# LSP types
+lsp-types = "0.95"
+
+# URL handling
+url = "2.5"
+
+# Async runtime
+tokio = { workspace = true, features = ["process", "io-util", "sync", "time"] }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Utilities
+which = "6.0"
+
+[dev-dependencies]
+tempfile = "3.8"
+tokio-test = "0.4"

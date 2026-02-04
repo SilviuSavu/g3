@@ -20,6 +20,7 @@ pub mod acd;
 pub mod beads;
 pub mod file_ops;
 pub mod index;
+pub mod lsp;
 pub mod mcp_tools;
 pub mod memory;
 pub mod misc;
@@ -30,4 +31,5 @@ pub mod webdriver;
 pub mod zai_tools;
 
 pub use executor::ToolExecutor;
+pub use lsp::LspManager;
 pub use mcp_tools::McpClients;
