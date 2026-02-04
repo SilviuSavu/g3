@@ -1,12 +1,13 @@
 [workspace]
 members = [
     "crates/g3-cli",
-    "crates/g3-core", 
+    "crates/g3-core",
     "crates/g3-planner",
     "crates/g3-providers",
     "crates/g3-config",
     "crates/g3-execution",
     "crates/g3-computer-control",
+    "crates/g3-index",
     "crates/studio"
 ]
 resolver = "2"

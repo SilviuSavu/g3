@@ -13,11 +13,13 @@
 //! - `beads` - Beads distributed issue tracking and molecule workflows
 //! - `mcp_tools` - MCP (Model Context Protocol) tools for Z.ai servers
 //! - `zai_tools` - Z.ai standalone tools (web search, web reader, OCR)
+//! - `index` - Codebase indexing and semantic search
 
 pub mod executor;
 pub mod acd;
 pub mod beads;
 pub mod file_ops;
+pub mod index;
 pub mod mcp_tools;
 pub mod memory;
 pub mod misc;

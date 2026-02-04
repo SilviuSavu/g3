@@ -202,3 +202,85 @@ model = "claude-sonnet-4-5"
 # browser = "chrome-headless"     # Default. Alternative: "safari"
 # chrome_binary = "/path/to/chrome"        # Optional: custom Chrome path
 # chromedriver_binary = "/path/to/driver"  # Optional: custom ChromeDriver path
+
+# =============================================================================
+# Codebase Indexing Configuration
+# =============================================================================
+# Semantic code search using vector embeddings and hybrid search.
+# Requires a running Qdrant instance: docker run -p 6334:6334 qdrant/qdrant
+
+[index]
+# Enable codebase indexing (default: false)
+enabled = false
+
+# Qdrant vector database URL
+qdrant_url = "http://localhost:6334"
+
+# Collection name in Qdrant (unique per project)
+collection_name = "g3-codebase"
+
+# -----------------------------------------------------------------------------
+# Embedding Configuration
+# -----------------------------------------------------------------------------
+[index.embeddings]
+# Provider: "openrouter" (recommended), "nvidia", or "vllm" (self-hosted)
+provider = "openrouter"
+
+# API key - use environment variable reference
+# api_key = "${OPENROUTER_API_KEY}"
+
+# Model for generating embeddings
+# Qwen3-Embedding-8B: 4096 dims, #1 MTEB benchmark, $0.01/M tokens
+model = "qwen/qwen3-embedding-8b"
+
+# Vector dimensions (must match model output)
+dimensions = 4096
+
+# Base URL for self-hosted vLLM (only used when provider = "vllm")
+# base_url = "http://localhost:8000/v1/embeddings"
+
+# -----------------------------------------------------------------------------
+# Search Configuration
+# -----------------------------------------------------------------------------
+[index.search]
+# Enable hybrid search (vector + BM25 keyword matching)
+# Improves recall for exact matches like function names, error codes
+hybrid = true
+
+# Weight for BM25 keyword matching (0.0-1.0)
+bm25_weight = 0.3
+
+# Weight for vector semantic matching (0.0-1.0)
+vector_weight = 0.7
+
+# Enable reranking step (slower but more accurate)
+rerank = false
+
+# -----------------------------------------------------------------------------
+# Code Chunking Configuration
+# -----------------------------------------------------------------------------
+[index.chunking]
+# Maximum tokens per chunk (larger = more context, fewer chunks)
+max_chunk_tokens = 500
+
+# Include context (file path, scope, imports) in chunk embeddings
+include_context = true
+
+# Languages to index
+languages = ["rust", "python", "typescript", "javascript", "go"]
+
+# -----------------------------------------------------------------------------
+# File Watcher Configuration (Auto-indexing)
+# -----------------------------------------------------------------------------
+[index.watcher]
+# Enable background file watching for automatic re-indexing
+enabled = false
+
+# Debounce time in milliseconds (wait before processing changes)
+debounce_ms = 100
+
+# Maximum files to process per batch
+batch_size = 10
+
+# Respect .gitignore patterns
+respect_gitignore = true
