@@ -3,10 +3,14 @@
 //! These tools allow the agent to index the codebase and perform
 //! semantic code searches using vector embeddings.
 
+use std::path::Path;
+use std::sync::Arc;
+
 use anyhow::Result;
 use serde_json::json;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
+use crate::index_client::IndexClient;
 use crate::tools::executor::ToolContext;
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
@@ -27,9 +31,10 @@ pub async fn execute_index_codebase<W: UiWriter>(
 
     // Check if indexing is enabled
     if !ctx.config.index.enabled {
-        return Ok(
-            "Indexing is not enabled. Set `index.enabled = true` in your config.".to_string(),
-        );
+        return Ok(json!({
+            "status": "error",
+            "message": "Indexing is not enabled. Set `index.enabled = true` in your config."
+        }).to_string());
     }
 
     let work_dir = path
@@ -37,26 +42,55 @@ pub async fn execute_index_codebase<W: UiWriter>(
         .or(ctx.working_dir)
         .unwrap_or(".");
 
+    let work_path = Path::new(work_dir);
+
     info!("Indexing codebase at: {} (force={})", work_dir, force);
 
-    // For now, return a placeholder since the full integration requires
-    // setting up the Qdrant client and embeddings provider
-    let result = json!({
-        "status": "pending",
-        "message": format!(
-            "Indexing {} {}. This feature requires a running Qdrant instance and configured embedding provider.",
-            work_dir,
-            if force { "(force rebuild)" } else { "" }
-        ),
-        "config": {
-            "qdrant_url": ctx.config.index.qdrant_url,
-            "collection": ctx.config.index.collection_name,
-            "embedding_provider": ctx.config.index.embeddings.provider,
-            "embedding_model": ctx.config.index.embeddings.model,
+    // Get or create index client
+    let client = match &ctx.index_client {
+        Some(client) => client.clone(),
+        None => {
+            // Initialize a new client
+            info!("Initializing new IndexClient for {}", work_dir);
+            match IndexClient::new(&ctx.config.index, work_path).await {
+                Ok(client) => Arc::new(client),
+                Err(e) => {
+                    warn!("Failed to initialize IndexClient: {}", e);
+                    return Ok(json!({
+                        "status": "error",
+                        "message": format!("Failed to initialize index client: {}", e),
+                        "hint": "Check that Qdrant is running and API key is configured"
+                    }).to_string());
+                }
+            }
         }
-    });
+    };
 
-    Ok(serde_json::to_string_pretty(&result)?)
+    // Perform indexing
+    match client.index(force).await {
+        Ok(stats) => {
+            let result = json!({
+                "status": "success",
+                "files_processed": stats.files_processed,
+                "chunks_created": stats.chunks_created,
+                "chunks_updated": stats.chunks_updated,
+                "chunks_deleted": stats.chunks_deleted,
+                "files_skipped": stats.files_skipped,
+                "duration_ms": stats.duration_ms,
+                "embedding_calls": stats.embedding_calls,
+                "working_dir": work_dir,
+                "force": force
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        Err(e) => {
+            warn!("Indexing failed: {}", e);
+            Ok(json!({
+                "status": "error",
+                "message": format!("Indexing failed: {}", e)
+            }).to_string())
+        }
+    }
 }
 
 /// Execute the semantic_search tool.
@@ -80,12 +114,14 @@ pub async fn execute_semantic_search<W: UiWriter>(
 
     let file_filter = args
         .get("file_filter")
-        .and_then(|v| v.as_str())
-        .map(String::from);
+        .and_then(|v| v.as_str());
 
     // Check if indexing is enabled
     if !ctx.config.index.enabled {
-        return Ok("Semantic search requires indexing to be enabled. Set `index.enabled = true` in your config and run `index_codebase` first.".to_string());
+        return Ok(json!({
+            "status": "error",
+            "message": "Semantic search requires indexing to be enabled. Set `index.enabled = true` in your config."
+        }).to_string());
     }
 
     debug!(
@@ -93,20 +129,59 @@ pub async fn execute_semantic_search<W: UiWriter>(
         query, limit, file_filter
     );
 
-    // For now, return a placeholder since the full integration requires
-    // setting up the Qdrant client and embeddings provider
-    let result = json!({
-        "status": "pending",
-        "message": format!(
-            "Searching for: '{}' (limit={}, filter={:?}). This feature requires a running Qdrant instance with an indexed codebase.",
-            query, limit, file_filter
-        ),
-        "query": query,
-        "limit": limit,
-        "file_filter": file_filter,
-    });
+    // Get index client - must be initialized first via index_codebase
+    let client = match &ctx.index_client {
+        Some(client) => client.clone(),
+        None => {
+            // Try to initialize from working directory
+            let work_dir = ctx.working_dir.unwrap_or(".");
+            let work_path = Path::new(work_dir);
 
-    Ok(serde_json::to_string_pretty(&result)?)
+            match IndexClient::new(&ctx.config.index, work_path).await {
+                Ok(client) => Arc::new(client),
+                Err(e) => {
+                    return Ok(json!({
+                        "status": "error",
+                        "message": format!("Index not initialized. Run `index_codebase` first. Error: {}", e)
+                    }).to_string());
+                }
+            }
+        }
+    };
+
+    // Perform search
+    match client.search(query, limit, file_filter).await {
+        Ok(results) => {
+            let formatted_results: Vec<serde_json::Value> = results
+                .iter()
+                .map(|r| {
+                    json!({
+                        "file": r.file_path,
+                        "lines": format!("{}-{}", r.start_line, r.end_line),
+                        "kind": r.kind,
+                        "name": r.name,
+                        "score": format!("{:.3}", r.score),
+                        "content": truncate_content(&r.content, 500)
+                    })
+                })
+                .collect();
+
+            let result = json!({
+                "status": "success",
+                "query": query,
+                "count": results.len(),
+                "results": formatted_results
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        Err(e) => {
+            warn!("Search failed: {}", e);
+            Ok(json!({
+                "status": "error",
+                "message": format!("Search failed: {}", e)
+            }).to_string())
+        }
+    }
 }
 
 /// Execute the index_status tool.
@@ -118,26 +193,68 @@ pub async fn execute_index_status<W: UiWriter>(
     if !ctx.config.index.enabled {
         return Ok(json!({
             "enabled": false,
+            "status": "disabled",
             "message": "Indexing is not enabled. Set `index.enabled = true` in your config."
-        })
-        .to_string());
+        }).to_string());
     }
 
-    let result = json!({
-        "enabled": true,
-        "config": {
-            "qdrant_url": ctx.config.index.qdrant_url,
-            "collection": ctx.config.index.collection_name,
-            "embedding_provider": ctx.config.index.embeddings.provider,
-            "embedding_model": ctx.config.index.embeddings.model,
-            "dimensions": ctx.config.index.embeddings.dimensions,
-            "hybrid_search": ctx.config.index.search.hybrid,
-            "bm25_weight": ctx.config.index.search.bm25_weight,
-            "vector_weight": ctx.config.index.search.vector_weight,
-        },
-        "status": "not_connected",
-        "message": "Index status requires connecting to Qdrant. Use `index_codebase` to initialize the index."
-    });
+    // Check if client is initialized
+    match &ctx.index_client {
+        Some(client) => {
+            let stats = client.get_stats().await;
+            let result = json!({
+                "enabled": true,
+                "status": "connected",
+                "working_dir": client.working_dir().to_string_lossy(),
+                "stats": {
+                    "files_indexed": stats.files_processed,
+                    "total_chunks": stats.chunks_created
+                },
+                "config": {
+                    "qdrant_url": ctx.config.index.qdrant_url,
+                    "collection": ctx.config.index.collection_name,
+                    "embedding_model": ctx.config.index.embeddings.model,
+                    "dimensions": ctx.config.index.embeddings.dimensions,
+                    "hybrid_search": ctx.config.index.search.hybrid,
+                    "bm25_weight": ctx.config.index.search.bm25_weight,
+                    "vector_weight": ctx.config.index.search.vector_weight,
+                }
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        None => {
+            let result = json!({
+                "enabled": true,
+                "status": "not_initialized",
+                "message": "Index client not initialized. Run `index_codebase` to initialize.",
+                "config": {
+                    "qdrant_url": ctx.config.index.qdrant_url,
+                    "collection": ctx.config.index.collection_name,
+                    "embedding_model": ctx.config.index.embeddings.model,
+                    "dimensions": ctx.config.index.embeddings.dimensions,
+                    "hybrid_search": ctx.config.index.search.hybrid,
+                    "bm25_weight": ctx.config.index.search.bm25_weight,
+                    "vector_weight": ctx.config.index.search.vector_weight,
+                }
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+    }
+}
 
-    Ok(serde_json::to_string_pretty(&result)?)
+/// Truncate content to a maximum length, preserving word boundaries.
+fn truncate_content(content: &str, max_len: usize) -> String {
+    if content.len() <= max_len {
+        return content.to_string();
+    }
+
+    // Find a good break point
+    let truncated = &content[..max_len];
+    if let Some(pos) = truncated.rfind('\n') {
+        format!("{}...", &content[..pos])
+    } else if let Some(pos) = truncated.rfind(' ') {
+        format!("{}...", &content[..pos])
+    } else {
+        format!("{}...", truncated)
+    }
 }
