@@ -261,73 +261,113 @@ hello"}}"#;
 // =============================================================================
 
 /// Test: JSON with wrong key order (args before tool)
+///
+/// The streaming parser looks for `{"tool":` pattern at the start of JSON.
+/// When keys are in wrong order (`{"args":` first), it should NOT be detected.
 #[test]
 fn test_json_wrong_key_order() {
     let mut parser = StreamingToolParser::new();
-    
-    // "args" before "tool" - doesn't match our patterns
+
+    // "args" before "tool" - doesn't match our `{"tool":` pattern
     let content = r#"{"args": {"command": "ls"}, "tool": "shell"}"#;
-    
+
     let tools = parser.process_chunk(&chunk(content));
     parser.process_chunk(&finished_chunk());
-    
-    // This might or might not be detected depending on implementation
-    // The key is documenting the behavior
-    println!("Wrong key order detected {} tools", tools.len());
+
+    // Wrong key order should NOT be detected as a tool call
+    // because the parser looks for `{"tool":` at the start
+    assert!(
+        tools.is_empty(),
+        "JSON with wrong key order should not be detected as tool call"
+    );
 }
 
 /// Test: JSON with extra keys
+///
+/// Extra keys in the JSON should be ignored - the tool call is still valid
+/// as long as "tool" and "args" are present with correct values.
 #[test]
 fn test_json_with_extra_keys() {
     let mut parser = StreamingToolParser::new();
-    
-    let content = r#"{"tool": "shell", "args": {"command": "ls"}, "extra": "ignored"}"#;
-    
-    parser.process_chunk(&chunk(content));
+
+    // JSON on its own line (no prefix) with extra keys
+    let content = r#"{"tool": "shell", "args": {"command": "ls"}, "extra": "ignored"}
+"#;
+
+    let tools = parser.process_chunk(&chunk(content));
     parser.process_chunk(&finished_chunk());
-    
-    // Extra keys should be fine - JSON is still valid
+
+    // Extra keys should be fine - JSON is still valid and should be detected
+    assert_eq!(
+        tools.len(),
+        1,
+        "Valid tool call with extra keys should be detected"
+    );
+    assert_eq!(tools[0].tool, "shell");
 }
 
 /// Test: JSON with missing args
+///
+/// JSON without "args" key should NOT be detected as a valid tool call.
+/// The ToolCall struct requires both "tool" and "args" fields.
 #[test]
 fn test_json_missing_args() {
     let mut parser = StreamingToolParser::new();
-    
+
     let content = r#"{"tool": "shell"}"#;
-    
+
     let tools = parser.process_chunk(&chunk(content));
     parser.process_chunk(&finished_chunk());
-    
-    // Missing args - might fail to parse as ToolCall
-    println!("Missing args detected {} tools", tools.len());
+
+    // Missing args should not be detected as valid tool call
+    assert!(
+        tools.is_empty(),
+        "JSON without args should not be detected as tool call"
+    );
 }
 
 /// Test: JSON with null args
+///
+/// JSON with null args should NOT be detected as a valid tool call.
+/// Args must be an object, not null.
 #[test]
 fn test_json_null_args() {
     let mut parser = StreamingToolParser::new();
-    
+
     let content = r#"{"tool": "shell", "args": null}"#;
-    
+
     let tools = parser.process_chunk(&chunk(content));
     parser.process_chunk(&finished_chunk());
-    
-    println!("Null args detected {} tools", tools.len());
+
+    // Null args should not be detected as valid tool call
+    assert!(
+        tools.is_empty(),
+        "JSON with null args should not be detected as tool call"
+    );
 }
 
 /// Test: JSON with empty args
+///
+/// Empty args `{}` is valid for tools that don't require parameters
+/// (like todo_read). This SHOULD be detected as a valid tool call.
 #[test]
 fn test_json_empty_args() {
     let mut parser = StreamingToolParser::new();
-    
-    let content = r#"{"tool": "todo_read", "args": {}}"#;
-    
+
+    // JSON on its own line with empty args
+    let content = r#"{"tool": "todo_read", "args": {}}
+"#;
+
     let tools = parser.process_chunk(&chunk(content));
-    
-    // Empty args is valid for some tools like todo_read
-    // This SHOULD be detected if on its own line
-    println!("Empty args detected {} tools", tools.len());
+    parser.process_chunk(&finished_chunk());
+
+    // Empty args is valid for tools like todo_read - should be detected
+    assert_eq!(
+        tools.len(),
+        1,
+        "Valid tool call with empty args should be detected"
+    );
+    assert_eq!(tools[0].tool, "todo_read");
 }
 
 // =============================================================================
@@ -338,24 +378,31 @@ fn test_json_empty_args() {
 ///
 /// JSON on its own line followed by more text is indistinguishable from
 /// a real tool call followed by continuation text. This is a known limitation.
-/// 
+///
 /// In practice, tool results are sent TO the LLM (as User messages), not
 /// parsed FROM the LLM, so this scenario doesn't occur in real usage.
 #[test]
 fn test_tool_pattern_in_simulated_result_limitation() {
     let mut parser = StreamingToolParser::new();
-    
+
     // Simulating what happens when a tool result contains JSON
     let content = r#"Tool result: The file contains:
 {"tool": "shell", "args": {"command": "ls"}}
 End of file content."#;
-    
+
     let tools = parser.process_chunk(&chunk(content));
     parser.process_chunk(&finished_chunk());
-    
-    // KNOWN LIMITATION: JSON on its own line followed by text is indistinguishable
-    // from a real tool call. This documents the current behavior.
-    println!("Simulated result limitation: detected {} tools", tools.len());
+
+    // KNOWN LIMITATION: JSON on its own line IS detected as a tool call.
+    // This is expected behavior - the parser cannot distinguish between
+    // "real" tool calls and JSON that happens to be on its own line.
+    // In practice, tool results are sent TO the LLM (as User messages),
+    // not parsed FROM the LLM, so this doesn't cause issues in real usage.
+    assert_eq!(
+        tools.len(),
+        1,
+        "JSON on its own line is detected (known limitation)"
+    );
 }
 
 /// Test: Log file content with tool-like JSON
@@ -429,30 +476,51 @@ fn test_json_array_with_tools() {
 }
 
 /// Test: JSON with escaped quotes
+///
+/// Valid JSON containing escaped quotes should parse correctly.
+/// The parser must handle escaped characters within string values.
 #[test]
 fn test_json_with_escaped_quotes() {
     let mut parser = StreamingToolParser::new();
-    
-    let content = r#"{"tool": "shell", "args": {"command": "echo \"hello\""}}"#;
-    
+
+    // JSON on its own line with escaped quotes in the command
+    let content = r#"{"tool": "shell", "args": {"command": "echo \"hello\""}}
+"#;
+
     let tools = parser.process_chunk(&chunk(content));
-    
-    // Valid JSON with escaped quotes should parse correctly
-    // Whether it's detected depends on line position
-    println!("Escaped quotes detected {} tools", tools.len());
+    parser.process_chunk(&finished_chunk());
+
+    // Valid JSON with escaped quotes should be detected
+    assert_eq!(
+        tools.len(),
+        1,
+        "Valid JSON with escaped quotes should be detected"
+    );
+    assert_eq!(tools[0].tool, "shell");
 }
 
 /// Test: JSON with unicode in values
+///
+/// Unicode characters (CJK, emoji) in JSON values should not break parsing.
+/// The parser must handle multi-byte UTF-8 characters correctly.
 #[test]
 fn test_json_with_unicode() {
     let mut parser = StreamingToolParser::new();
-    
-    let content = r#"{"tool": "shell", "args": {"command": "echo 你好世界 🎉"}}"#;
-    
+
+    // JSON on its own line with unicode characters
+    let content = r#"{"tool": "shell", "args": {"command": "echo 你好世界 🎉"}}
+"#;
+
     let tools = parser.process_chunk(&chunk(content));
-    
-    // Unicode should not break parsing
-    println!("Unicode JSON detected {} tools", tools.len());
+    parser.process_chunk(&finished_chunk());
+
+    // Unicode should not break parsing - should be detected
+    assert_eq!(
+        tools.len(),
+        1,
+        "Valid JSON with unicode should be detected"
+    );
+    assert_eq!(tools[0].tool, "shell");
 }
 
 // =============================================================================
@@ -460,22 +528,34 @@ fn test_json_with_unicode() {
 // =============================================================================
 
 /// Test: Tool call JSON split across chunk boundaries
+///
+/// The streaming parser must accumulate partial JSON across chunk boundaries
+/// and detect the complete tool call once all chunks are received.
+///
+/// NOTE: The parser looks for specific patterns like `{"tool":"` (no space after colon).
+/// The test JSON must match these patterns to be detected.
 #[test]
 fn test_json_split_across_chunks() {
     let mut parser = StreamingToolParser::new();
-    
+
     // Split the JSON across multiple chunks
-    parser.process_chunk(&chunk(r#"{"tool": "#));
-    parser.process_chunk(&chunk(r#"shell", "#));
-    parser.process_chunk(&chunk(r#""args": {"#));
-    parser.process_chunk(&chunk(r#""command": "ls"#));
+    // Use compact JSON format (no space after colon) to match parser patterns
+    // Final JSON: {"tool":"shell","args":{"command":"ls"}}
+    parser.process_chunk(&chunk(r#"{"tool":"#));
+    parser.process_chunk(&chunk(r#""shell","#));
+    parser.process_chunk(&chunk(r#""args":{"#));
+    parser.process_chunk(&chunk(r#""command":"ls""#));  // Include closing quote for "ls"
     parser.process_chunk(&chunk(r#"}}
 "#));
     let tools = parser.process_chunk(&finished_chunk());
-    
+
     // Should accumulate and detect the complete tool call
-    // (if it's on its own line)
-    println!("Split JSON detected {} tools", tools.len());
+    assert_eq!(
+        tools.len(),
+        1,
+        "JSON split across chunks should be accumulated and detected"
+    );
+    assert_eq!(tools[0].tool, "shell");
 }
 
 /// Test: Prose then JSON in separate chunks
@@ -492,32 +572,54 @@ fn test_prose_then_json_separate_chunks() {
 }
 
 /// Test: Newline then JSON in separate chunks
+///
+/// When prose ends with a newline and JSON arrives in the next chunk,
+/// the JSON is on its own line and SHOULD be detected as a tool call.
 #[test]
 fn test_newline_then_json_separate_chunks() {
     let mut parser = StreamingToolParser::new();
-    
+
     parser.process_chunk(&chunk("I'll run the command.\n"));
-    // JSON starts on new line
-    let tools = parser.process_chunk(&chunk(r#"{"tool": "shell", "args": {"command": "ls"}}"#));
-    
+    // JSON starts on new line - add trailing newline to complete the line
+    parser.process_chunk(&chunk(r#"{"tool": "shell", "args": {"command": "ls"}}
+"#));
+    let tools = parser.process_chunk(&finished_chunk());
+
     // This SHOULD be detected as it's on its own line
-    println!("Newline then JSON detected {} tools", tools.len());
+    assert_eq!(
+        tools.len(),
+        1,
+        "JSON on its own line should be detected"
+    );
+    assert_eq!(tools[0].tool, "shell");
 }
 
 /// Test: Very small chunks (character by character)
+///
+/// The parser must handle extreme fragmentation where each character
+/// arrives in its own chunk. Without a leading newline, JSON at the
+/// start of input should be detected on its own line.
 #[test]
 fn test_character_by_character_streaming() {
     let mut parser = StreamingToolParser::new();
-    
-    let json = r#"{"tool": "shell", "args": {"command": "ls"}}"#;
-    
+
+    // Add trailing newline to complete the line
+    let json = r#"{"tool": "shell", "args": {"command": "ls"}}
+"#;
+
     for c in json.chars() {
         parser.process_chunk(&chunk(&c.to_string()));
     }
-    parser.process_chunk(&finished_chunk());
-    
-    // Should handle character-by-character streaming
-    // Detection depends on whether there's a newline before
+    let tools = parser.process_chunk(&finished_chunk());
+
+    // Should handle character-by-character streaming and detect the tool call
+    // (JSON at start of input is considered to be on its own line)
+    assert_eq!(
+        tools.len(),
+        1,
+        "Character-by-character streamed JSON should be detected"
+    );
+    assert_eq!(tools[0].tool, "shell");
 }
 
 // =============================================================================
