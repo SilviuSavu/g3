@@ -102,10 +102,29 @@ g3/
 
 ## Interactive Control Commands
 
+### Context Management
 - `/compact` - Trigger context compaction
 - `/thinnify` - Replace large tool results with file references
 - `/stats` - Show context and performance statistics
+- `/dump` - Dump entire context window to `tmp/` for debugging
+- `/clear` - Clear session and start fresh
+
+### Session Management
+- `/resume` - List available sessions and switch between them
+- `/fragments` - List dehydrated context fragments for current session
+- `/rehydrate <id>` - Reload a dehydrated fragment by ID
+
+### Project Context
+- `/project <path>` - Load project files (brief.md, contacts.yaml, status.md) from path
+- `/unproject` - Unload project context, reset to original system message
 - `/readme` - Reload README.md and AGENTS.md
+
+### Task Execution
+- `/run <file>` - Read file and execute its content as a prompt
+- `/research [id]` - List research tasks, or show details for specific ID
+- `/plan <description>` - Enter plan mode for implementing a feature
+
+### Help
 - `/help` - List all commands
 
 ## Configuration

@@ -640,10 +640,10 @@ impl AnthropicProvider {
                                         }
                                         "error" => {
                                             if let Some(error) = event.error {
-                                                error!("Anthropic API error: {:?}", error);
+                                                error!("Anthropic API error: {}", error);
                                                 let _ = tx
                                                     .send(Err(anyhow!(
-                                                        "Anthropic API error: {:?}",
+                                                        "Anthropic API error: {}",
                                                         error
                                                     )))
                                                     .await;
@@ -989,13 +989,19 @@ struct AnthropicDelta {
     stop_reason: Option<String>,
 }
 
+/// Error response from Anthropic API during streaming.
+/// Fields are used via Display formatting in error messages.
 #[derive(Debug, Deserialize)]
 struct AnthropicError {
     #[serde(rename = "type")]
-    #[allow(dead_code)]
     error_type: String,
-    #[allow(dead_code)]
     message: String,
+}
+
+impl std::fmt::Display for AnthropicError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.error_type, self.message)
+    }
 }
 
 #[cfg(test)]
