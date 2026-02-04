@@ -781,6 +781,7 @@ pub async fn execute_beads_dep<W: UiWriter>(
         args.push("--type");
         args.push(&type_flag);
     }
+    args.push("--json");
 
     let json = run_bd_command(&args, ctx.working_dir).await?;
     Ok(format_beads_output(&json, "beads_dep"))

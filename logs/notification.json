@@ -1,0 +1,394 @@
+[
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "b7f9a89f-d349-4eb3-9896-02b4a93a59ba",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b7f9a89f-d349-4eb3-9896-02b4a93a59ba.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "b7f9a89f-d349-4eb3-9896-02b4a93a59ba",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b7f9a89f-d349-4eb3-9896-02b4a93a59ba.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "44334bb4-5f55-44f0-9e62-71a7a3ba2c38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/44334bb4-5f55-44f0-9e62-71a7a3ba2c38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "44334bb4-5f55-44f0-9e62-71a7a3ba2c38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/44334bb4-5f55-44f0-9e62-71a7a3ba2c38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "44334bb4-5f55-44f0-9e62-71a7a3ba2c38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/44334bb4-5f55-44f0-9e62-71a7a3ba2c38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "44334bb4-5f55-44f0-9e62-71a7a3ba2c38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/44334bb4-5f55-44f0-9e62-71a7a3ba2c38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "44334bb4-5f55-44f0-9e62-71a7a3ba2c38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/44334bb4-5f55-44f0-9e62-71a7a3ba2c38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "44334bb4-5f55-44f0-9e62-71a7a3ba2c38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/44334bb4-5f55-44f0-9e62-71a7a3ba2c38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "ea78aba2-c678-4026-9c18-c8cd021f8bbe",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ea78aba2-c678-4026-9c18-c8cd021f8bbe.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8139606b-6db3-43fd-beb6-2ec67eab1b2d.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8139606b-6db3-43fd-beb6-2ec67eab1b2d.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8139606b-6db3-43fd-beb6-2ec67eab1b2d.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8139606b-6db3-43fd-beb6-2ec67eab1b2d.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8139606b-6db3-43fd-beb6-2ec67eab1b2d.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "ce562604-283e-4067-844f-4591324a9fad",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ce562604-283e-4067-844f-4591324a9fad.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "339380c4-7226-42b5-8252-7381cf58e56e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/339380c4-7226-42b5-8252-7381cf58e56e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "339380c4-7226-42b5-8252-7381cf58e56e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/339380c4-7226-42b5-8252-7381cf58e56e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "339380c4-7226-42b5-8252-7381cf58e56e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/339380c4-7226-42b5-8252-7381cf58e56e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "339380c4-7226-42b5-8252-7381cf58e56e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/339380c4-7226-42b5-8252-7381cf58e56e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "b4603061-711b-4119-b263-507403bac429",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b4603061-711b-4119-b263-507403bac429.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "00b2a7d6-ef25-48f3-b631-f27c2e096c7b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/00b2a7d6-ef25-48f3-b631-f27c2e096c7b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "00b2a7d6-ef25-48f3-b631-f27c2e096c7b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/00b2a7d6-ef25-48f3-b631-f27c2e096c7b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "f23e1b47-c80a-491e-8c39-96d496a04c3a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f23e1b47-c80a-491e-8c39-96d496a04c3a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "f23e1b47-c80a-491e-8c39-96d496a04c3a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f23e1b47-c80a-491e-8c39-96d496a04c3a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your attention",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "f23e1b47-c80a-491e-8c39-96d496a04c3a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f23e1b47-c80a-491e-8c39-96d496a04c3a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "17722693-67a1-40bc-b1ce-81c4b614624b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/17722693-67a1-40bc-b1ce-81c4b614624b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "ffa4af6f-d0f3-41a3-9d12-88b63d2ebdb9",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ffa4af6f-d0f3-41a3-9d12-88b63d2ebdb9.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "ecd84aa5-ed56-416d-961a-21f0f616ed38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ecd84aa5-ed56-416d-961a-21f0f616ed38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "ecd84aa5-ed56-416d-961a-21f0f616ed38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ecd84aa5-ed56-416d-961a-21f0f616ed38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "ecd84aa5-ed56-416d-961a-21f0f616ed38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ecd84aa5-ed56-416d-961a-21f0f616ed38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "b488b3af-414c-47ff-a67b-cc8af14dad5c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b488b3af-414c-47ff-a67b-cc8af14dad5c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "8f4de8d1-28d5-469c-b8ad-aac71030d4c0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8f4de8d1-28d5-469c-b8ad-aac71030d4c0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "0cb1c73d-5304-4fac-9956-b952bd529c4f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0cb1c73d-5304-4fac-9956-b952bd529c4f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "dee4eeeb-e274-4370-a45b-a286c14849d3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/dee4eeeb-e274-4370-a45b-a286c14849d3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "dee4eeeb-e274-4370-a45b-a286c14849d3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/dee4eeeb-e274-4370-a45b-a286c14849d3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude Code needs your approval for the plan",
+    "notification_type": "permission_prompt"
+  },
+  {
+    "session_id": "a7def27d-2cc7-47f6-b672-f543ce921cdb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/a7def27d-2cc7-47f6-b672-f543ce921cdb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "6c988411-ff0e-4048-9bbf-133081837986",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6c988411-ff0e-4048-9bbf-133081837986.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "6c988411-ff0e-4048-9bbf-133081837986",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6c988411-ff0e-4048-9bbf-133081837986.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "6c988411-ff0e-4048-9bbf-133081837986",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6c988411-ff0e-4048-9bbf-133081837986.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  },
+  {
+    "session_id": "6c988411-ff0e-4048-9bbf-133081837986",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6c988411-ff0e-4048-9bbf-133081837986.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  }
+]

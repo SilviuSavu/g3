@@ -1,0 +1,210 @@
+[
+  {
+    "session_id": "4cff65f2-dc30-4d1d-8dca-fcd81ede98d2",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4cff65f2-dc30-4d1d-8dca-fcd81ede98d2.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "startup",
+    "model": "claude-opus-4-5-20251101"
+  },
+  {
+    "session_id": "98116849-bde0-499b-adc6-30940ab33c9f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/98116849-bde0-499b-adc6-30940ab33c9f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "b7f9a89f-d349-4eb3-9896-02b4a93a59ba",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b7f9a89f-d349-4eb3-9896-02b4a93a59ba.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "44334bb4-5f55-44f0-9e62-71a7a3ba2c38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/44334bb4-5f55-44f0-9e62-71a7a3ba2c38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "ea78aba2-c678-4026-9c18-c8cd021f8bbe",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ea78aba2-c678-4026-9c18-c8cd021f8bbe.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8139606b-6db3-43fd-beb6-2ec67eab1b2d.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8139606b-6db3-43fd-beb6-2ec67eab1b2d.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "resume",
+    "model": "claude-opus-4-5-20251101"
+  },
+  {
+    "session_id": "ce562604-283e-4067-844f-4591324a9fad",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ce562604-283e-4067-844f-4591324a9fad.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "339380c4-7226-42b5-8252-7381cf58e56e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/339380c4-7226-42b5-8252-7381cf58e56e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "b4603061-711b-4119-b263-507403bac429",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b4603061-711b-4119-b263-507403bac429.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "00b2a7d6-ef25-48f3-b631-f27c2e096c7b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/00b2a7d6-ef25-48f3-b631-f27c2e096c7b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "f23e1b47-c80a-491e-8c39-96d496a04c3a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f23e1b47-c80a-491e-8c39-96d496a04c3a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "5e0d1b76-ef4e-40d3-861f-c7840abc9f53",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/5e0d1b76-ef4e-40d3-861f-c7840abc9f53.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "17722693-67a1-40bc-b1ce-81c4b614624b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/17722693-67a1-40bc-b1ce-81c4b614624b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "a4146719-13e2-41f1-b348-c318afbc1b72",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/a4146719-13e2-41f1-b348-c318afbc1b72.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "ffa4af6f-d0f3-41a3-9d12-88b63d2ebdb9",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ffa4af6f-d0f3-41a3-9d12-88b63d2ebdb9.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "f6115c60-3dc0-41e1-a9ed-6323a95c2647",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f6115c60-3dc0-41e1-a9ed-6323a95c2647.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "startup",
+    "model": "claude-opus-4-5-20251101"
+  },
+  {
+    "session_id": "ecd84aa5-ed56-416d-961a-21f0f616ed38",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/ecd84aa5-ed56-416d-961a-21f0f616ed38.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "b488b3af-414c-47ff-a67b-cc8af14dad5c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b488b3af-414c-47ff-a67b-cc8af14dad5c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "8f4de8d1-28d5-469c-b8ad-aac71030d4c0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8f4de8d1-28d5-469c-b8ad-aac71030d4c0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "8abd370c-e000-484e-8176-6f7d9c562ad2",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8abd370c-e000-484e-8176-6f7d9c562ad2.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "0cb1c73d-5304-4fac-9956-b952bd529c4f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0cb1c73d-5304-4fac-9956-b952bd529c4f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "startup",
+    "model": "claude-opus-4-5-20251101"
+  },
+  {
+    "session_id": "113ff21d-cb74-47e4-abcd-4e1cdcaf7829",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/113ff21d-cb74-47e4-abcd-4e1cdcaf7829.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "167af253-9bfb-4809-b2dc-f2ecd1ad9143",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/167af253-9bfb-4809-b2dc-f2ecd1ad9143.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "685aa49d-55e4-4d35-9dae-a9f7b5d0019a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/685aa49d-55e4-4d35-9dae-a9f7b5d0019a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "dee4eeeb-e274-4370-a45b-a286c14849d3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/dee4eeeb-e274-4370-a45b-a286c14849d3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "dfeebaf0-abf2-49f8-a78e-c00ebec1080a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/dfeebaf0-abf2-49f8-a78e-c00ebec1080a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "6c988411-ff0e-4048-9bbf-133081837986",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6c988411-ff0e-4048-9bbf-133081837986.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "a7def27d-2cc7-47f6-b672-f543ce921cdb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/a7def27d-2cc7-47f6-b672-f543ce921cdb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "startup",
+    "model": "claude-opus-4-5-20251101"
+  }
+]
