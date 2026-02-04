@@ -1063,6 +1063,7 @@ impl<W: UiWriter> Agent<W> {
                 self.config.webdriver.enabled,
                 self.config.computer_control.enabled,
                 self.config.zai_tools.enabled,
+                self.config.index.enabled,
             );
             if exclude_research {
                 tool_config = tool_config.with_research_excluded();
@@ -1982,6 +1983,7 @@ Skip if nothing new. Be brief."#;
                 self.config.webdriver.enabled,
                 self.config.computer_control.enabled,
                 self.config.zai_tools.enabled,
+                self.config.index.enabled,
             );
             Some(tool_definitions::create_tool_definitions(tool_config))
         } else {
@@ -2666,6 +2668,7 @@ Skip if nothing new. Be brief."#;
                                     self.config.webdriver.enabled,
                                     self.config.computer_control.enabled,
                                     self.config.zai_tools.enabled,
+                                    self.config.index.enabled,
                                 );
                                 // Exclude research tool for scout agent to prevent recursion
                                 if self.agent_name.as_deref() == Some("scout") {

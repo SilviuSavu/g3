@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, beads, file_ops, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
+use crate::tools::{acd, beads, file_ops, index, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -99,6 +99,11 @@ pub async fn dispatch_tool<W: UiWriter>(
         "beads_mol_wisp" => beads::execute_mol_wisp(tool_call, ctx).await,
         "beads_mol_current" => beads::execute_mol_current(tool_call, ctx).await,
         "beads_mol_squash" => beads::execute_mol_squash(tool_call, ctx).await,
+
+        // Index tools (codebase indexing and semantic search)
+        "index_codebase" => index::execute_index_codebase(tool_call, ctx).await,
+        "semantic_search" => index::execute_semantic_search(tool_call, ctx).await,
+        "index_status" => index::execute_index_status(tool_call, ctx).await,
 
         // Unknown tool
         _ => {

@@ -16,10 +16,11 @@ pub struct ToolConfig {
     pub zai_tools: bool,
     pub mcp_tools: bool,
     pub beads_tools: bool,
+    pub index_tools: bool,
 }
 
 impl ToolConfig {
-    pub fn new(webdriver: bool, computer_control: bool, zai_tools: bool) -> Self {
+    pub fn new(webdriver: bool, computer_control: bool, zai_tools: bool, index_tools: bool) -> Self {
         Self {
             webdriver,
             computer_control,
@@ -27,6 +28,7 @@ impl ToolConfig {
             zai_tools,
             mcp_tools: false,
             beads_tools: true,  // enabled by default
+            index_tools,
         }
     }
 
@@ -46,6 +48,12 @@ impl ToolConfig {
     /// Create a config with Beads tools disabled.
     pub fn without_beads_tools(mut self) -> Self {
         self.beads_tools = false;
+        self
+    }
+
+    /// Create a config with index tools enabled.
+    pub fn with_index_tools(mut self) -> Self {
+        self.index_tools = true;
         self
     }
 }
@@ -71,6 +79,10 @@ pub fn create_tool_definitions(config: ToolConfig) -> Vec<Tool> {
 
     if config.beads_tools {
         tools.extend(create_beads_tools());
+    }
+
+    if config.index_tools {
+        tools.extend(create_index_tools());
     }
 
     tools
@@ -797,6 +809,61 @@ pub fn create_mcp_tools() -> Vec<Tool> {
     ]
 }
 
+/// Create codebase indexing tools
+fn create_index_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "index_codebase".to_string(),
+            description: "Index the codebase for semantic search. Run on first use or after major changes. This enables the semantic_search tool to find relevant code by meaning.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory to index (default: current working directory)"
+                    },
+                    "force": {
+                        "type": "boolean",
+                        "description": "Re-index everything, ignoring cache. Use when index seems stale."
+                    }
+                },
+                "required": []
+            }),
+        },
+        Tool {
+            name: "semantic_search".to_string(),
+            description: "Search the codebase semantically. Finds code by meaning, not just keywords. Returns functions, structs, and other code constructs most relevant to your query. Much more effective than grep for understanding code relationships.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural language query describing what you're looking for (e.g., 'error handling in API responses', 'database connection pooling')"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 10, max: 50)"
+                    },
+                    "file_filter": {
+                        "type": "string",
+                        "description": "Glob pattern to filter files (e.g., 'src/**/*.rs', '*.py')"
+                    }
+                },
+                "required": ["query"]
+            }),
+        },
+        Tool {
+            name: "index_status".to_string(),
+            description: "Show codebase index status including: number of indexed files, total chunks, last update time, and index freshness. Use to check if indexing is needed.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+    ]
+}
+
 /// Create Beads distributed issue tracking and molecule workflow tools
 pub fn create_beads_tools() -> Vec<Tool> {
     vec![
@@ -1109,7 +1176,7 @@ mod tests {
 
     #[test]
     fn test_create_tool_definitions_all_enabled() {
-        let config = ToolConfig::new(true, true, true);
+        let config = ToolConfig::new(true, true, true, false);
         let tools = create_tool_definitions(config);
         // 16 core + 15 webdriver + 3 zai + 15 beads = 49
         assert_eq!(tools.len(), 49);
@@ -1117,7 +1184,7 @@ mod tests {
 
     #[test]
     fn test_create_tool_definitions_with_zai_tools() {
-        let config = ToolConfig::new(false, false, true);
+        let config = ToolConfig::new(false, false, true, false);
         let tools = create_tool_definitions(config);
         // 16 core + 3 zai + 15 beads = 34
         assert_eq!(tools.len(), 34);
@@ -1194,7 +1261,7 @@ mod tests {
 
     #[test]
     fn test_create_tool_definitions_all_enabled_with_mcp() {
-        let config = ToolConfig::new(true, true, true).with_mcp_tools();
+        let config = ToolConfig::new(true, true, true, false).with_mcp_tools();
         let tools = create_tool_definitions(config);
         // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads = 54
         assert_eq!(tools.len(), 54);
@@ -1219,7 +1286,7 @@ mod tests {
 
     #[test]
     fn test_create_tool_definitions_with_beads_tools() {
-        let config = ToolConfig::new(false, false, false);
+        let config = ToolConfig::new(false, false, false, false);
         let tools = create_tool_definitions(config);
         // 16 core + 15 beads = 31
         assert_eq!(tools.len(), 31);
@@ -1232,12 +1299,50 @@ mod tests {
 
     #[test]
     fn test_create_tool_definitions_without_beads_tools() {
-        let config = ToolConfig::new(false, false, false).without_beads_tools();
+        let config = ToolConfig::new(false, false, false, false).without_beads_tools();
         let tools = create_tool_definitions(config);
         // 16 core only (beads disabled)
         assert_eq!(tools.len(), 16);
 
         // Verify Beads tools are NOT present
         assert!(!tools.iter().any(|t| t.name == "beads_ready"));
+    }
+
+    #[test]
+    fn test_index_tools_count() {
+        let tools = create_index_tools();
+        // 3 index tools: index_codebase, semantic_search, index_status
+        assert_eq!(tools.len(), 3);
+    }
+
+    #[test]
+    fn test_index_tools_have_required_fields() {
+        let tools = create_index_tools();
+        for tool in tools {
+            assert!(!tool.name.is_empty(), "Tool name should not be empty");
+            assert!(!tool.description.is_empty(), "Tool description should not be empty");
+            assert!(tool.input_schema.is_object(), "Tool input_schema should be an object");
+        }
+    }
+
+    #[test]
+    fn test_create_tool_definitions_with_index_tools() {
+        let config = ToolConfig::new(false, false, false, true);
+        let tools = create_tool_definitions(config);
+        // 16 core + 15 beads + 3 index = 34
+        assert_eq!(tools.len(), 34);
+
+        // Verify index tools are present
+        assert!(tools.iter().any(|t| t.name == "index_codebase"));
+        assert!(tools.iter().any(|t| t.name == "semantic_search"));
+        assert!(tools.iter().any(|t| t.name == "index_status"));
+    }
+
+    #[test]
+    fn test_create_tool_definitions_all_enabled_with_index() {
+        let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
+        let tools = create_tool_definitions(config);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 3 index = 57
+        assert_eq!(tools.len(), 57);
     }
 }

@@ -17,6 +17,8 @@ pub struct Config {
     pub zai_tools: ZaiToolsConfig,
     #[serde(default)]
     pub zai_mcp: ZaiMcpConfig,
+    #[serde(default)]
+    pub index: IndexConfig,
 }
 
 /// Provider configuration with named configs per provider type
@@ -171,6 +173,192 @@ pub struct McpServerConfig {
     pub enabled: bool,
     /// API key for this MCP server (falls back to zai_tools.api_key)
     pub api_key: Option<String>,
+}
+
+/// Configuration for codebase indexing
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IndexConfig {
+    /// Whether indexing is enabled
+    #[serde(default)]
+    pub enabled: bool,
+    /// Qdrant server URL
+    #[serde(default = "default_qdrant_url")]
+    pub qdrant_url: String,
+    /// Collection name in Qdrant
+    #[serde(default = "default_collection_name")]
+    pub collection_name: String,
+    /// Embedding configuration
+    #[serde(default)]
+    pub embeddings: EmbeddingsConfig,
+    /// Search configuration
+    #[serde(default)]
+    pub search: SearchConfig,
+    /// Chunking configuration
+    #[serde(default)]
+    pub chunking: ChunkingConfig,
+    /// File watcher configuration
+    #[serde(default)]
+    pub watcher: WatcherConfig,
+}
+
+fn default_qdrant_url() -> String {
+    "http://localhost:6334".to_string()
+}
+
+fn default_collection_name() -> String {
+    "g3-codebase".to_string()
+}
+
+/// Embedding provider configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmbeddingsConfig {
+    /// Provider: "openrouter", "nvidia", "vllm"
+    #[serde(default = "default_embedding_provider")]
+    pub provider: String,
+    /// API key (use env var like ${OPENROUTER_API_KEY})
+    pub api_key: Option<String>,
+    /// Model name
+    #[serde(default = "default_embedding_model")]
+    pub model: String,
+    /// Vector dimensions
+    #[serde(default = "default_dimensions")]
+    pub dimensions: usize,
+    /// Base URL (for vLLM self-hosted)
+    pub base_url: Option<String>,
+}
+
+fn default_embedding_provider() -> String {
+    "openrouter".to_string()
+}
+
+fn default_embedding_model() -> String {
+    "qwen/qwen3-embedding-8b".to_string()
+}
+
+fn default_dimensions() -> usize {
+    4096
+}
+
+impl Default for EmbeddingsConfig {
+    fn default() -> Self {
+        Self {
+            provider: default_embedding_provider(),
+            api_key: None,
+            model: default_embedding_model(),
+            dimensions: default_dimensions(),
+            base_url: None,
+        }
+    }
+}
+
+/// Search configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchConfig {
+    /// Enable hybrid search (vector + BM25)
+    #[serde(default = "default_true")]
+    pub hybrid: bool,
+    /// Weight for BM25 keyword matching (0.0-1.0)
+    #[serde(default = "default_bm25_weight")]
+    pub bm25_weight: f32,
+    /// Weight for vector semantic matching (0.0-1.0)
+    #[serde(default = "default_vector_weight")]
+    pub vector_weight: f32,
+    /// Enable reranking step
+    #[serde(default)]
+    pub rerank: bool,
+}
+
+fn default_bm25_weight() -> f32 {
+    0.3
+}
+
+fn default_vector_weight() -> f32 {
+    0.7
+}
+
+impl Default for SearchConfig {
+    fn default() -> Self {
+        Self {
+            hybrid: true,
+            bm25_weight: default_bm25_weight(),
+            vector_weight: default_vector_weight(),
+            rerank: false,
+        }
+    }
+}
+
+/// Code chunking configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChunkingConfig {
+    /// Maximum tokens per chunk
+    #[serde(default = "default_max_chunk_tokens")]
+    pub max_chunk_tokens: usize,
+    /// Include context (scope, imports) in chunks
+    #[serde(default = "default_true")]
+    pub include_context: bool,
+    /// Supported languages
+    #[serde(default = "default_languages")]
+    pub languages: Vec<String>,
+}
+
+fn default_max_chunk_tokens() -> usize {
+    500
+}
+
+fn default_languages() -> Vec<String> {
+    vec![
+        "rust".to_string(),
+        "python".to_string(),
+        "typescript".to_string(),
+        "javascript".to_string(),
+        "go".to_string(),
+    ]
+}
+
+impl Default for ChunkingConfig {
+    fn default() -> Self {
+        Self {
+            max_chunk_tokens: default_max_chunk_tokens(),
+            include_context: true,
+            languages: default_languages(),
+        }
+    }
+}
+
+/// File watcher configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WatcherConfig {
+    /// Enable background file watching
+    #[serde(default)]
+    pub enabled: bool,
+    /// Debounce time in milliseconds
+    #[serde(default = "default_debounce_ms")]
+    pub debounce_ms: u64,
+    /// Max files per batch
+    #[serde(default = "default_batch_size")]
+    pub batch_size: usize,
+    /// Respect .gitignore patterns
+    #[serde(default = "default_true")]
+    pub respect_gitignore: bool,
+}
+
+fn default_debounce_ms() -> u64 {
+    100
+}
+
+fn default_batch_size() -> usize {
+    10
+}
+
+impl Default for WatcherConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            debounce_ms: default_debounce_ms(),
+            batch_size: default_batch_size(),
+            respect_gitignore: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -329,6 +517,7 @@ impl Default for Config {
             webdriver: WebDriverConfig::default(),
             zai_tools: ZaiToolsConfig::default(),
             zai_mcp: ZaiMcpConfig::default(),
+            index: IndexConfig::default(),
         }
     }
 }
