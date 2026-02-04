@@ -6,9 +6,11 @@
 //! - Vector storage in Qdrant (4096 dimensions)
 //! - Hybrid search (vector + BM25)
 //! - Background file watching for auto-indexing
+//! - Knowledge graph for code symbols, files, and cross-references
 
 pub mod chunker;
 pub mod embeddings;
+pub mod graph;
 pub mod indexer;
 pub mod manifest;
 pub mod qdrant;
@@ -18,6 +20,7 @@ pub mod watcher;
 // Re-exports
 pub use chunker::{Chunk, ChunkMetadata, CodeChunker};
 pub use embeddings::EmbeddingProvider;
+pub use graph::{CodeGraph, Edge, EdgeKind, FileNode, GraphError, SymbolKind, SymbolNode};
 pub use indexer::{Indexer, IndexerConfig, IndexStats};
 pub use manifest::IndexManifest;
 pub use search::{BM25Index, HybridSearcher, SearchConfig, SearchResult, reciprocal_rank_fusion};
