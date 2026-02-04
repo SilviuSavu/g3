@@ -173,6 +173,7 @@ impl QdrantClient {
         info!("Connecting to Qdrant at {}", url);
 
         let client = Qdrant::from_url(url)
+            .skip_compatibility_check()
             .build()
             .context("Failed to connect to Qdrant")?;
 
@@ -185,7 +186,8 @@ impl QdrantClient {
 
     /// Create a new Qdrant client from configuration.
     pub async fn from_config(config: &QdrantConfig) -> Result<Self> {
-        let mut builder = Qdrant::from_url(&config.url);
+        let mut builder = Qdrant::from_url(&config.url)
+            .skip_compatibility_check();
 
         if let Some(ref api_key) = config.api_key {
             builder = builder.api_key(api_key.clone());

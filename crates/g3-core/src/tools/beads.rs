@@ -14,6 +14,178 @@ use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
 // =============================================================================
+// Lifecycle Hooks
+// =============================================================================
+
+/// Check if beads is available in this project.
+/// Returns true if bd CLI is installed AND we're in a beads project.
+pub fn is_beads_available() -> bool {
+    is_beads_installed() && detect_beads_project().is_some()
+}
+
+/// Get beads context for session start (SessionStart hook equivalent).
+/// Returns formatted beads state to inject into the system context.
+/// This is called when a new session is initialized.
+pub async fn get_beads_session_context(working_dir: Option<&str>) -> Option<String> {
+    if !is_beads_installed() {
+        return None;
+    }
+
+    // Check if we're in a beads project
+    let work_dir = if let Some(dir) = working_dir {
+        detect_beads_project_from(Path::new(dir))
+    } else {
+        detect_beads_project()
+    };
+
+    if work_dir.is_none() {
+        return None;
+    }
+
+    debug!("Beads SessionStart hook: injecting workflow context");
+
+    // Run bd prime to get full context
+    match run_bd_command(&["prime", "--json"], working_dir).await {
+        Ok(json) => {
+            let mut context = String::new();
+            context.push_str("\n\n## Beads Workflow Context\n\n");
+            context.push_str("The following beads issue tracking context is available:\n\n");
+
+            // Format the prime output
+            if let Some(obj) = json.as_object() {
+                // Ready issues (unblocked work)
+                if let Some(ready) = obj.get("ready").and_then(|v| v.as_array()) {
+                    if !ready.is_empty() {
+                        context.push_str("### Ready Issues (Unblocked)\n");
+                        for issue in ready {
+                            format_issue_brief(&mut context, issue);
+                        }
+                        context.push('\n');
+                    }
+                }
+
+                // In-progress issues
+                if let Some(in_progress) = obj.get("in_progress").and_then(|v| v.as_array()) {
+                    if !in_progress.is_empty() {
+                        context.push_str("### In Progress\n");
+                        for issue in in_progress {
+                            format_issue_brief(&mut context, issue);
+                        }
+                        context.push('\n');
+                    }
+                }
+
+                // Active molecules (workflows)
+                if let Some(molecules) = obj.get("molecules").and_then(|v| v.as_array()) {
+                    if !molecules.is_empty() {
+                        context.push_str("### Active Molecules\n");
+                        for mol in molecules {
+                            if let Some(id) = mol.get("id").and_then(|v| v.as_str()) {
+                                context.push_str(&format!("- {}", id));
+                                if let Some(step) = mol.get("current_step").and_then(|v| v.as_str()) {
+                                    context.push_str(&format!(" (current: {})", step));
+                                }
+                                context.push('\n');
+                            }
+                        }
+                        context.push('\n');
+                    }
+                }
+
+                // Summary stats
+                if let Some(stats) = obj.get("stats").and_then(|v| v.as_object()) {
+                    context.push_str("### Stats\n");
+                    if let Some(total) = stats.get("total_open") {
+                        context.push_str(&format!("- Total open: {}\n", total));
+                    }
+                    if let Some(blocked) = stats.get("blocked") {
+                        context.push_str(&format!("- Blocked: {}\n", blocked));
+                    }
+                }
+            } else {
+                // Fallback: just include raw JSON if structure is unexpected
+                context.push_str("```json\n");
+                context.push_str(&serde_json::to_string_pretty(&json).unwrap_or_default());
+                context.push_str("\n```\n");
+            }
+
+            context.push_str("\nUse beads_* tools to interact with the issue tracker.\n");
+
+            Some(context)
+        }
+        Err(e) => {
+            debug!("Beads prime failed (non-fatal): {}", e);
+            None
+        }
+    }
+}
+
+/// Get beads context for pre-compaction (PreCompact hook equivalent).
+/// Returns a compact summary of beads state to preserve across compaction.
+/// This is called before context compaction to ensure workflow state isn't lost.
+pub async fn get_beads_precompact_context(working_dir: Option<&str>) -> Option<String> {
+    if !is_beads_installed() {
+        return None;
+    }
+
+    let work_dir = if let Some(dir) = working_dir {
+        detect_beads_project_from(Path::new(dir))
+    } else {
+        detect_beads_project()
+    };
+
+    if work_dir.is_none() {
+        return None;
+    }
+
+    debug!("Beads PreCompact hook: preserving workflow context");
+
+    // Get ready issues (minimal context to preserve)
+    match run_bd_command(&["ready", "--json"], working_dir).await {
+        Ok(json) => {
+            let mut context = String::new();
+            context.push_str("\n## Beads State (preserved across compaction)\n");
+
+            if let Some(issues) = json.as_array() {
+                if issues.is_empty() {
+                    context.push_str("No ready issues.\n");
+                } else {
+                    context.push_str("Ready issues:\n");
+                    for issue in issues.iter().take(5) {  // Limit to 5 to save tokens
+                        format_issue_brief(&mut context, issue);
+                    }
+                    if issues.len() > 5 {
+                        context.push_str(&format!("... and {} more\n", issues.len() - 5));
+                    }
+                }
+            }
+
+            Some(context)
+        }
+        Err(e) => {
+            debug!("Beads ready failed during precompact (non-fatal): {}", e);
+            None
+        }
+    }
+}
+
+/// Format a brief issue line for context injection.
+fn format_issue_brief(output: &mut String, issue: &Value) {
+    let id = issue.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+    let title = issue.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled");
+    let priority = issue.get("priority").and_then(|v| v.as_u64()).unwrap_or(2);
+    let priority_label = match priority {
+        0 => "P0",
+        1 => "P1",
+        2 => "P2",
+        3 => "P3",
+        4 => "P4",
+        _ => "P?",
+    };
+    output.push_str(&format!("- [{}] {} ({})\n", id, title, priority_label));
+}
+
+// =============================================================================
 // Core Utilities
 // =============================================================================
 

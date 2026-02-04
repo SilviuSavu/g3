@@ -166,6 +166,8 @@ pub struct Agent<W: UiWriter> {
     index_client: std::sync::Arc<tokio::sync::RwLock<Option<std::sync::Arc<index_client::IndexClient>>>>,
     /// LSP manager for code intelligence (lazy-initialized)
     lsp_manager: Option<std::sync::Arc<tools::lsp::LspManager>>,
+    /// Whether beads session context has been injected (SessionStart hook)
+    beads_context_injected: bool,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -227,6 +229,7 @@ impl<W: UiWriter> Agent<W> {
             mcp_clients,
             index_client: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
             lsp_manager,
+            beads_context_injected: false,
         }
     }
 
@@ -1004,6 +1007,16 @@ impl<W: UiWriter> Agent<W> {
             self.session_id = Some(self.generate_session_id(description));
         }
 
+        // Beads SessionStart hook: inject workflow context on first session initialization
+        if !self.beads_context_injected {
+            self.beads_context_injected = true;
+            if let Some(beads_context) = tools::beads::get_beads_session_context(self.working_dir.as_deref()).await {
+                debug!("Injecting beads session context ({} chars)", beads_context.len());
+                let beads_message = Message::new(MessageRole::System, beads_context);
+                self.context_window.add_message(beads_message);
+            }
+        }
+
         // Add user message to context window
         let mut user_message = {
             let provider = self.providers.get(None)?;
@@ -1320,6 +1333,13 @@ impl<W: UiWriter> Agent<W> {
 
         debug!("Manual compaction triggered");
 
+        // Beads PreCompact hook: preserve workflow context before compaction
+        if let Some(beads_context) = tools::beads::get_beads_precompact_context(self.working_dir.as_deref()).await {
+            debug!("Preserving beads context before compaction ({} chars)", beads_context.len());
+            let beads_message = Message::new(MessageRole::System, beads_context);
+            self.context_window.add_message(beads_message);
+        }
+
         // Note: Status messages are now handled by the CLI layer
 
         let provider = self.providers.get(None)?;
@@ -1422,6 +1442,13 @@ impl<W: UiWriter> Agent<W> {
         }
 
         use crate::compaction::{perform_compaction, CompactionConfig};
+
+        // Beads PreCompact hook: preserve workflow context before auto-compaction
+        if let Some(beads_context) = tools::beads::get_beads_precompact_context(self.working_dir.as_deref()).await {
+            debug!("Preserving beads context before auto-compaction ({} chars)", beads_context.len());
+            let beads_message = Message::new(MessageRole::System, beads_context);
+            self.context_window.add_message(beads_message);
+        }
 
         self.ui_writer.println("");
         self.ui_writer.print_g3_progress(
