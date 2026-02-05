@@ -301,6 +301,159 @@ impl IndexClient {
 
         Ok(())
     }
+
+    // ========================================================================
+    // Knowledge Graph Queries
+    // ========================================================================
+
+    /// Check if the knowledge graph is enabled.
+    pub async fn has_graph(&self) -> bool {
+        let indexer = self.indexer.read().await;
+        indexer.has_graph()
+    }
+
+    /// Find all symbols with a given name.
+    ///
+    /// Returns symbols that match the exact name across all files.
+    pub async fn find_symbols_by_name(&self, name: &str) -> Result<Vec<SymbolInfo>> {
+        let indexer = self.indexer.read().await;
+        let Some(gb) = indexer.graph_builder() else {
+            return Ok(Vec::new());
+        };
+
+        let gb_read = gb.read().await;
+        let symbols: Vec<SymbolInfo> = gb_read
+            .find_symbols_by_name(name)
+            .into_iter()
+            .map(SymbolInfo::from)
+            .collect();
+
+        debug!("Found {} symbols named '{}'", symbols.len(), name);
+        Ok(symbols)
+    }
+
+    /// Get all symbols in a file.
+    pub async fn get_file_symbols(&self, file_path: &str) -> Result<Vec<SymbolInfo>> {
+        let indexer = self.indexer.read().await;
+        let Some(gb) = indexer.graph_builder() else {
+            return Ok(Vec::new());
+        };
+
+        let gb_read = gb.read().await;
+        let symbols: Vec<SymbolInfo> = gb_read
+            .symbols_in_file(file_path)
+            .into_iter()
+            .map(SymbolInfo::from)
+            .collect();
+
+        debug!("Found {} symbols in file '{}'", symbols.len(), file_path);
+        Ok(symbols)
+    }
+
+    /// Find all callers of a symbol.
+    ///
+    /// Returns the IDs of symbols that call the given symbol.
+    pub async fn find_callers(&self, symbol_id: &str) -> Result<Vec<String>> {
+        let indexer = self.indexer.read().await;
+        let Some(gb) = indexer.graph_builder() else {
+            return Ok(Vec::new());
+        };
+
+        let gb_read = gb.read().await;
+        let callers = gb_read.find_callers(symbol_id);
+
+        debug!("Found {} callers for symbol '{}'", callers.len(), symbol_id);
+        Ok(callers)
+    }
+
+    /// Find all references to a symbol.
+    pub async fn find_references(&self, symbol_id: &str) -> Result<Vec<ReferenceInfo>> {
+        let indexer = self.indexer.read().await;
+        let Some(gb) = indexer.graph_builder() else {
+            return Ok(Vec::new());
+        };
+
+        let gb_read = gb.read().await;
+        let refs: Vec<ReferenceInfo> = gb_read
+            .find_references(symbol_id)
+            .into_iter()
+            .map(ReferenceInfo::from)
+            .collect();
+
+        debug!(
+            "Found {} references for symbol '{}'",
+            refs.len(),
+            symbol_id
+        );
+        Ok(refs)
+    }
+
+    /// Get knowledge graph statistics.
+    pub async fn get_graph_stats(&self) -> Result<GraphStats> {
+        let indexer = self.indexer.read().await;
+        let Some(gb) = indexer.graph_builder() else {
+            return Ok(GraphStats::default());
+        };
+
+        let gb_read = gb.read().await;
+        Ok(GraphStats {
+            symbol_count: gb_read.symbol_count(),
+            file_count: gb_read.file_count(),
+        })
+    }
+}
+
+/// Information about a code symbol.
+#[derive(Debug, Clone)]
+pub struct SymbolInfo {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+    pub file_id: String,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub signature: Option<String>,
+}
+
+impl From<&g3_index::SymbolNode> for SymbolInfo {
+    fn from(node: &g3_index::SymbolNode) -> Self {
+        Self {
+            id: node.id.clone(),
+            name: node.name.clone(),
+            kind: node.kind.label().to_string(),
+            file_id: node.file_id.clone(),
+            line_start: node.line_start,
+            line_end: node.line_end,
+            signature: node.signature.clone(),
+        }
+    }
+}
+
+/// Information about a symbol reference.
+#[derive(Debug, Clone)]
+pub struct ReferenceInfo {
+    pub source: String,
+    pub target: String,
+    pub file: Option<String>,
+    pub line: Option<usize>,
+}
+
+impl From<g3_index::Edge> for ReferenceInfo {
+    fn from(edge: g3_index::Edge) -> Self {
+        Self {
+            source: edge.source,
+            target: edge.target,
+            file: edge.location_file,
+            line: edge.location_line,
+        }
+    }
+}
+
+/// Knowledge graph statistics.
+#[derive(Debug, Clone, Default)]
+pub struct GraphStats {
+    pub symbol_count: usize,
+    pub file_count: usize,
 }
 
 /// Resolve an API key value, expanding ${ENV_VAR} syntax.

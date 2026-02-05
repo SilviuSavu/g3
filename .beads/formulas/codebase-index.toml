@@ -1,0 +1,56 @@
+# Codebase Indexing Formula
+# Full codebase indexing workflow for semantic search
+
+[formula]
+name = "codebase-index"
+description = "Full codebase indexing workflow for semantic search and knowledge graph"
+version = "1.0.0"
+author = "g3"
+
+[requirements]
+# Qdrant must be running on localhost:6334
+services = ["qdrant"]
+# API key must be configured
+env = ["OPENROUTER_API_KEY"]
+
+[[steps]]
+name = "check-qdrant"
+description = "Verify Qdrant vector database is running"
+type = "shell"
+command = "curl -s http://localhost:6334/health | jq -r '.status // \"unhealthy\"'"
+expect_output = "ok"
+on_fail = "abort"
+
+[[steps]]
+name = "check-config"
+description = "Verify indexing is enabled in config"
+type = "tool"
+tool = "index_status"
+# Check that enabled = true in output
+
+[[steps]]
+name = "index"
+description = "Run full codebase index (creates embeddings and knowledge graph)"
+type = "tool"
+tool = "index_codebase"
+args = { force = false }
+# force = true would rebuild from scratch
+
+[[steps]]
+name = "verify-graph"
+description = "Verify knowledge graph was built"
+type = "tool"
+tool = "graph_stats"
+# Should show symbol_count > 0
+
+[[steps]]
+name = "test-search"
+description = "Test semantic search works"
+type = "tool"
+tool = "semantic_search"
+args = { query = "main function entry point", limit = 3 }
+
+[post_actions]
+# Log success
+on_success = "Index complete. Run 'semantic_search' to find code by meaning."
+on_fail = "Indexing failed. Check Qdrant is running and API key is configured."

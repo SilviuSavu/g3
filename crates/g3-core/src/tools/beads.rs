@@ -27,90 +27,45 @@ pub fn is_beads_available() -> bool {
 /// Returns formatted beads state to inject into the system context.
 /// This is called when a new session is initialized.
 pub async fn get_beads_session_context(working_dir: Option<&str>) -> Option<String> {
+    debug!("get_beads_session_context called with working_dir: {:?}", working_dir);
+
     if !is_beads_installed() {
+        debug!("Beads: bd CLI not installed");
         return None;
     }
 
     // Check if we're in a beads project
     let work_dir = if let Some(dir) = working_dir {
+        debug!("Beads: checking for .beads in provided dir: {}", dir);
         detect_beads_project_from(Path::new(dir))
     } else {
+        let cwd = std::env::current_dir().ok();
+        debug!("Beads: checking for .beads from cwd: {:?}", cwd);
         detect_beads_project()
     };
 
-    if work_dir.is_none() {
-        return None;
-    }
+    let work_dir = match work_dir {
+        Some(dir) => {
+            debug!("Beads: found project at {:?}", dir);
+            dir
+        }
+        None => {
+            debug!("Beads: no .beads directory found");
+            return None;
+        }
+    };
 
-    debug!("Beads SessionStart hook: injecting workflow context");
+    debug!("Beads SessionStart hook: injecting workflow context from {:?}", work_dir);
 
-    // Run bd prime to get full context
-    match run_bd_command(&["prime", "--json"], working_dir).await {
-        Ok(json) => {
+    // Run bd prime to get AI-optimized markdown context
+    // Note: bd prime outputs markdown (not JSON) designed for AI context injection
+    match run_bd_prime_markdown(&work_dir).await {
+        Ok(markdown) => {
+            debug!("Beads: got {} bytes of context from bd prime", markdown.len());
             let mut context = String::new();
             context.push_str("\n\n## Beads Workflow Context\n\n");
-            context.push_str("The following beads issue tracking context is available:\n\n");
-
-            // Format the prime output
-            if let Some(obj) = json.as_object() {
-                // Ready issues (unblocked work)
-                if let Some(ready) = obj.get("ready").and_then(|v| v.as_array()) {
-                    if !ready.is_empty() {
-                        context.push_str("### Ready Issues (Unblocked)\n");
-                        for issue in ready {
-                            format_issue_brief(&mut context, issue);
-                        }
-                        context.push('\n');
-                    }
-                }
-
-                // In-progress issues
-                if let Some(in_progress) = obj.get("in_progress").and_then(|v| v.as_array()) {
-                    if !in_progress.is_empty() {
-                        context.push_str("### In Progress\n");
-                        for issue in in_progress {
-                            format_issue_brief(&mut context, issue);
-                        }
-                        context.push('\n');
-                    }
-                }
-
-                // Active molecules (workflows)
-                if let Some(molecules) = obj.get("molecules").and_then(|v| v.as_array()) {
-                    if !molecules.is_empty() {
-                        context.push_str("### Active Molecules\n");
-                        for mol in molecules {
-                            if let Some(id) = mol.get("id").and_then(|v| v.as_str()) {
-                                context.push_str(&format!("- {}", id));
-                                if let Some(step) = mol.get("current_step").and_then(|v| v.as_str()) {
-                                    context.push_str(&format!(" (current: {})", step));
-                                }
-                                context.push('\n');
-                            }
-                        }
-                        context.push('\n');
-                    }
-                }
-
-                // Summary stats
-                if let Some(stats) = obj.get("stats").and_then(|v| v.as_object()) {
-                    context.push_str("### Stats\n");
-                    if let Some(total) = stats.get("total_open") {
-                        context.push_str(&format!("- Total open: {}\n", total));
-                    }
-                    if let Some(blocked) = stats.get("blocked") {
-                        context.push_str(&format!("- Blocked: {}\n", blocked));
-                    }
-                }
-            } else {
-                // Fallback: just include raw JSON if structure is unexpected
-                context.push_str("```json\n");
-                context.push_str(&serde_json::to_string_pretty(&json).unwrap_or_default());
-                context.push_str("\n```\n");
-            }
-
+            context.push_str(&markdown);
             context.push_str("\nUse beads_* tools to interact with the issue tracker.\n");
-
             Some(context)
         }
         Err(e) => {
@@ -118,6 +73,26 @@ pub async fn get_beads_session_context(working_dir: Option<&str>) -> Option<Stri
             None
         }
     }
+}
+
+/// Run bd prime and return the markdown output directly.
+/// Unlike other bd commands, prime outputs AI-optimized markdown, not JSON.
+async fn run_bd_prime_markdown(work_dir: &Path) -> Result<String> {
+    debug!("Running bd prime in {:?}", work_dir);
+
+    let output = Command::new("bd")
+        .args(["prime"])
+        .current_dir(work_dir)
+        .output()
+        .await
+        .map_err(|e| anyhow!("Failed to execute bd prime: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("bd prime failed: {}", stderr));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 /// Get beads context for pre-compaction (PreCompact hook equivalent).

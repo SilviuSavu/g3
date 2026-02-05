@@ -105,6 +105,13 @@ pub async fn dispatch_tool<W: UiWriter>(
         "semantic_search" => index::execute_semantic_search(tool_call, ctx).await,
         "index_status" => index::execute_index_status(tool_call, ctx).await,
 
+        // Knowledge Graph tools
+        "graph_find_symbol" => index::execute_graph_find_symbol(tool_call, ctx).await,
+        "graph_file_symbols" => index::execute_graph_file_symbols(tool_call, ctx).await,
+        "graph_find_callers" => index::execute_graph_find_callers(tool_call, ctx).await,
+        "graph_find_references" => index::execute_graph_find_references(tool_call, ctx).await,
+        "graph_stats" => index::execute_graph_stats(tool_call, ctx).await,
+
         // LSP tools (code intelligence)
         "lsp_goto_definition" => lsp::execute_goto_definition(tool_call, ctx).await,
         "lsp_find_references" => lsp::execute_find_references(tool_call, ctx).await,

@@ -258,3 +258,321 @@ fn truncate_content(content: &str, max_len: usize) -> String {
         format!("{}...", truncated)
     }
 }
+
+// ============================================================================
+// Knowledge Graph Tools
+// ============================================================================
+
+/// Execute the graph_find_symbol tool.
+pub async fn execute_graph_find_symbol<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let name = args
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing required parameter: name"))?;
+
+    // Check if indexing is enabled
+    if !ctx.config.index.enabled {
+        return Ok(json!({
+            "status": "error",
+            "message": "Graph search requires indexing to be enabled. Set `index.enabled = true` in your config."
+        }).to_string());
+    }
+
+    // Get index client
+    let client = get_or_init_client(ctx).await?;
+
+    // Check if graph is available
+    if !client.has_graph().await {
+        return Ok(json!({
+            "status": "error",
+            "message": "Knowledge graph not available. Run `index_codebase` first to build the graph."
+        }).to_string());
+    }
+
+    // Find symbols
+    match client.find_symbols_by_name(name).await {
+        Ok(symbols) => {
+            let formatted: Vec<serde_json::Value> = symbols
+                .iter()
+                .map(|s| {
+                    json!({
+                        "id": s.id,
+                        "name": s.name,
+                        "kind": s.kind,
+                        "file": s.file_id,
+                        "lines": format!("{}-{}", s.line_start, s.line_end),
+                        "signature": s.signature
+                    })
+                })
+                .collect();
+
+            let result = json!({
+                "status": "success",
+                "name": name,
+                "count": symbols.len(),
+                "symbols": formatted
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        Err(e) => {
+            warn!("Graph find_symbol failed: {}", e);
+            Ok(json!({
+                "status": "error",
+                "message": format!("Failed to find symbols: {}", e)
+            }).to_string())
+        }
+    }
+}
+
+/// Execute the graph_file_symbols tool.
+pub async fn execute_graph_file_symbols<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let file_path = args
+        .get("file_path")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing required parameter: file_path"))?;
+
+    // Check if indexing is enabled
+    if !ctx.config.index.enabled {
+        return Ok(json!({
+            "status": "error",
+            "message": "Graph search requires indexing to be enabled."
+        }).to_string());
+    }
+
+    // Get index client
+    let client = get_or_init_client(ctx).await?;
+
+    // Check if graph is available
+    if !client.has_graph().await {
+        return Ok(json!({
+            "status": "error",
+            "message": "Knowledge graph not available. Run `index_codebase` first."
+        }).to_string());
+    }
+
+    // Get symbols in file
+    match client.get_file_symbols(file_path).await {
+        Ok(symbols) => {
+            let formatted: Vec<serde_json::Value> = symbols
+                .iter()
+                .map(|s| {
+                    json!({
+                        "id": s.id,
+                        "name": s.name,
+                        "kind": s.kind,
+                        "lines": format!("{}-{}", s.line_start, s.line_end),
+                        "signature": s.signature
+                    })
+                })
+                .collect();
+
+            let result = json!({
+                "status": "success",
+                "file": file_path,
+                "count": symbols.len(),
+                "symbols": formatted
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        Err(e) => {
+            warn!("Graph file_symbols failed: {}", e);
+            Ok(json!({
+                "status": "error",
+                "message": format!("Failed to get file symbols: {}", e)
+            }).to_string())
+        }
+    }
+}
+
+/// Execute the graph_find_callers tool.
+pub async fn execute_graph_find_callers<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let symbol_id = args
+        .get("symbol_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing required parameter: symbol_id"))?;
+
+    // Check if indexing is enabled
+    if !ctx.config.index.enabled {
+        return Ok(json!({
+            "status": "error",
+            "message": "Graph search requires indexing to be enabled."
+        }).to_string());
+    }
+
+    // Get index client
+    let client = get_or_init_client(ctx).await?;
+
+    // Check if graph is available
+    if !client.has_graph().await {
+        return Ok(json!({
+            "status": "error",
+            "message": "Knowledge graph not available. Run `index_codebase` first."
+        }).to_string());
+    }
+
+    // Find callers
+    match client.find_callers(symbol_id).await {
+        Ok(callers) => {
+            let result = json!({
+                "status": "success",
+                "symbol_id": symbol_id,
+                "count": callers.len(),
+                "callers": callers
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        Err(e) => {
+            warn!("Graph find_callers failed: {}", e);
+            Ok(json!({
+                "status": "error",
+                "message": format!("Failed to find callers: {}", e)
+            }).to_string())
+        }
+    }
+}
+
+/// Execute the graph_find_references tool.
+pub async fn execute_graph_find_references<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let symbol_id = args
+        .get("symbol_id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing required parameter: symbol_id"))?;
+
+    // Check if indexing is enabled
+    if !ctx.config.index.enabled {
+        return Ok(json!({
+            "status": "error",
+            "message": "Graph search requires indexing to be enabled."
+        }).to_string());
+    }
+
+    // Get index client
+    let client = get_or_init_client(ctx).await?;
+
+    // Check if graph is available
+    if !client.has_graph().await {
+        return Ok(json!({
+            "status": "error",
+            "message": "Knowledge graph not available. Run `index_codebase` first."
+        }).to_string());
+    }
+
+    // Find references
+    match client.find_references(symbol_id).await {
+        Ok(refs) => {
+            let formatted: Vec<serde_json::Value> = refs
+                .iter()
+                .map(|r| {
+                    json!({
+                        "source": r.source,
+                        "target": r.target,
+                        "file": r.file,
+                        "line": r.line
+                    })
+                })
+                .collect();
+
+            let result = json!({
+                "status": "success",
+                "symbol_id": symbol_id,
+                "count": refs.len(),
+                "references": formatted
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        Err(e) => {
+            warn!("Graph find_references failed: {}", e);
+            Ok(json!({
+                "status": "error",
+                "message": format!("Failed to find references: {}", e)
+            }).to_string())
+        }
+    }
+}
+
+/// Execute the graph_stats tool.
+pub async fn execute_graph_stats<W: UiWriter>(
+    _tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    // Check if indexing is enabled
+    if !ctx.config.index.enabled {
+        return Ok(json!({
+            "status": "error",
+            "message": "Graph requires indexing to be enabled."
+        }).to_string());
+    }
+
+    // Get index client
+    let client = get_or_init_client(ctx).await?;
+
+    // Check if graph is available
+    if !client.has_graph().await {
+        return Ok(json!({
+            "status": "success",
+            "graph_enabled": false,
+            "message": "Knowledge graph not initialized. Run `index_codebase` to build it."
+        }).to_string());
+    }
+
+    // Get graph stats
+    match client.get_graph_stats().await {
+        Ok(stats) => {
+            let result = json!({
+                "status": "success",
+                "graph_enabled": true,
+                "symbol_count": stats.symbol_count,
+                "file_count": stats.file_count
+            });
+            Ok(serde_json::to_string_pretty(&result)?)
+        }
+        Err(e) => {
+            warn!("Graph stats failed: {}", e);
+            Ok(json!({
+                "status": "error",
+                "message": format!("Failed to get graph stats: {}", e)
+            }).to_string())
+        }
+    }
+}
+
+/// Helper to get or initialize the index client.
+async fn get_or_init_client<W: UiWriter>(
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<Arc<IndexClient>> {
+    match &ctx.index_client {
+        Some(client) => Ok(client.clone()),
+        None => {
+            let work_dir = ctx.working_dir.unwrap_or(".");
+            let work_path = Path::new(work_dir);
+
+            match IndexClient::new(&ctx.config.index, work_path).await {
+                Ok(client) => Ok(Arc::new(client)),
+                Err(e) => anyhow::bail!(
+                    "Index not initialized. Run `index_codebase` first. Error: {}",
+                    e
+                ),
+            }
+        }
+    }
+}

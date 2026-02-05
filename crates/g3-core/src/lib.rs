@@ -190,6 +190,7 @@ impl<W: UiWriter> Agent<W> {
         zai_tools_client: Option<std::sync::Arc<g3_providers::ZaiToolsClient>>,
         mcp_clients: Option<std::sync::Arc<tools::mcp_tools::McpClients>>,
         lsp_manager: Option<std::sync::Arc<tools::lsp::LspManager>>,
+        beads_context_injected: bool,
     ) -> Self {
         Self {
             providers,
@@ -229,7 +230,7 @@ impl<W: UiWriter> Agent<W> {
             mcp_clients,
             index_client: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
             lsp_manager,
-            beads_context_injected: false,
+            beads_context_injected,
         }
     }
 
@@ -331,6 +332,7 @@ impl<W: UiWriter> Agent<W> {
             None,  // zai_tools_client
             None,  // mcp_clients
             None,  // lsp_manager
+            false, // beads_context_injected
         ))
     }
 
@@ -396,6 +398,17 @@ impl<W: UiWriter> Agent<W> {
             let context_message = Message::new(MessageRole::System, context);
             context_window.add_message(context_message);
         }
+
+        // Beads SessionStart hook: inject workflow context at agent initialization
+        let beads_context_injected = if let Some(beads_context) = tools::beads::get_beads_session_context(None).await {
+            debug!("Injecting beads session context at startup ({} chars)", beads_context.len());
+            ui_writer.println("📋 Beads workflow context loaded");
+            let beads_message = Message::new(MessageRole::System, beads_context);
+            context_window.add_message(beads_message);
+            true
+        } else {
+            false
+        };
 
         // NOTE: TODO lists are now session-scoped and stored in .g3/sessions/<session_id>/todo.g3.md
         // We don't load any TODO at initialization since we don't have a session_id yet.
@@ -550,6 +563,7 @@ impl<W: UiWriter> Agent<W> {
             zai_tools_client,
             mcp_clients,
             lsp_manager,
+            beads_context_injected,
         ))
     }
 
@@ -1005,16 +1019,6 @@ impl<W: UiWriter> Agent<W> {
         // Generate session ID based on the initial prompt if this is a new session
         if self.session_id.is_none() {
             self.session_id = Some(self.generate_session_id(description));
-        }
-
-        // Beads SessionStart hook: inject workflow context on first session initialization
-        if !self.beads_context_injected {
-            self.beads_context_injected = true;
-            if let Some(beads_context) = tools::beads::get_beads_session_context(self.working_dir.as_deref()).await {
-                debug!("Injecting beads session context ({} chars)", beads_context.len());
-                let beads_message = Message::new(MessageRole::System, beads_context);
-                self.context_window.add_message(beads_message);
-            }
         }
 
         // Add user message to context window

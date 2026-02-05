@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use crate::chunker::{Chunk, CodeChunker};
 use crate::embeddings::EmbeddingProvider;
+use crate::graph_builder::GraphBuilder;
 use crate::manifest::IndexManifest;
 use crate::qdrant::{Point, PointPayload, QdrantClient};
 use crate::search::BM25Index;
@@ -87,12 +88,26 @@ pub struct Indexer<E: EmbeddingProvider> {
     qdrant: QdrantClient,
     manifest: Arc<RwLock<IndexManifest>>,
     bm25_index: Arc<RwLock<BM25Index>>,
+    /// Optional graph builder for knowledge graph construction
+    graph_builder: Option<RwLock<GraphBuilder>>,
 }
 
 impl<E: EmbeddingProvider> Indexer<E> {
     /// Create a new indexer with the given configuration.
     pub fn new(config: IndexerConfig, embeddings: Arc<E>, qdrant: QdrantClient) -> Result<Self> {
         let chunker = CodeChunker::new(config.max_chunk_tokens, config.include_context)?;
+
+        // Try to initialize graph builder (non-fatal if it fails)
+        let graph_builder = match GraphBuilder::new(&config.root_path) {
+            Ok(gb) => {
+                info!("Graph builder initialized for knowledge graph construction");
+                Some(RwLock::new(gb))
+            }
+            Err(e) => {
+                warn!("Failed to initialize graph builder (continuing without): {}", e);
+                None
+            }
+        };
 
         Ok(Self {
             config,
@@ -101,6 +116,7 @@ impl<E: EmbeddingProvider> Indexer<E> {
             qdrant,
             manifest: Arc::new(RwLock::new(IndexManifest::new())),
             bm25_index: Arc::new(RwLock::new(BM25Index::new())),
+            graph_builder,
         })
     }
 
@@ -114,6 +130,18 @@ impl<E: EmbeddingProvider> Indexer<E> {
     ) -> Result<Self> {
         let chunker = CodeChunker::new(config.max_chunk_tokens, config.include_context)?;
 
+        // Try to initialize graph builder (non-fatal if it fails)
+        let graph_builder = match GraphBuilder::new(&config.root_path) {
+            Ok(gb) => {
+                info!("Graph builder initialized for knowledge graph construction");
+                Some(RwLock::new(gb))
+            }
+            Err(e) => {
+                warn!("Failed to initialize graph builder (continuing without): {}", e);
+                None
+            }
+        };
+
         Ok(Self {
             config,
             chunker,
@@ -121,6 +149,7 @@ impl<E: EmbeddingProvider> Indexer<E> {
             qdrant,
             manifest: Arc::new(RwLock::new(manifest)),
             bm25_index: Arc::new(RwLock::new(bm25_index)),
+            graph_builder,
         })
     }
 
@@ -137,6 +166,12 @@ impl<E: EmbeddingProvider> Indexer<E> {
             self.qdrant.ensure_collection().await?;
             self.manifest.write().await.clear();
             self.bm25_index.write().await.clear();
+            // Also clear the graph
+            if let Some(ref gb) = self.graph_builder {
+                if let Err(e) = gb.write().await.clear() {
+                    warn!("Failed to clear graph: {}", e);
+                }
+            }
         } else {
             self.qdrant.ensure_collection().await?;
         }
@@ -152,6 +187,14 @@ impl<E: EmbeddingProvider> Indexer<E> {
             match self.process_file(file_path).await {
                 Ok((chunks, hash)) => {
                     stats.files_processed += 1;
+
+                    // Add to knowledge graph if enabled
+                    if let Some(ref gb) = self.graph_builder {
+                        if let Err(e) = gb.write().await.add_file(file_path, &chunks) {
+                            debug!("Failed to add file to graph {:?}: {}", file_path, e);
+                        }
+                    }
+
                     for chunk in chunks {
                         all_chunks.push((chunk, hash.clone()));
                     }
@@ -166,6 +209,20 @@ impl<E: EmbeddingProvider> Indexer<E> {
         // Generate embeddings in batches and upsert
         stats.chunks_created = all_chunks.len();
         self.embed_and_upsert(&all_chunks, &mut stats).await?;
+
+        // Save the knowledge graph
+        if let Some(ref gb) = self.graph_builder {
+            if let Err(e) = gb.write().await.save() {
+                warn!("Failed to save knowledge graph: {}", e);
+            } else {
+                let gb_read = gb.read().await;
+                info!(
+                    "Knowledge graph updated: {} symbols, {} files",
+                    gb_read.symbol_count(),
+                    gb_read.file_count()
+                );
+            }
+        }
 
         stats.duration_ms = start.elapsed().as_millis() as u64;
         info!("Indexing complete: {:?}", stats);
@@ -218,6 +275,14 @@ impl<E: EmbeddingProvider> Indexer<E> {
                 match self.process_file(file_path).await {
                     Ok((chunks, hash)) => {
                         stats.files_processed += 1;
+
+                        // Add to knowledge graph if enabled
+                        if let Some(ref gb) = self.graph_builder {
+                            if let Err(e) = gb.write().await.add_file(file_path, &chunks) {
+                                debug!("Failed to add file to graph {:?}: {}", file_path, e);
+                            }
+                        }
+
                         for chunk in chunks {
                             chunks_to_add.push((chunk, hash.clone()));
                         }
@@ -232,6 +297,13 @@ impl<E: EmbeddingProvider> Indexer<E> {
 
         stats.chunks_created = chunks_to_add.len();
         self.embed_and_upsert(&chunks_to_add, &mut stats).await?;
+
+        // Save the knowledge graph
+        if let Some(ref gb) = self.graph_builder {
+            if let Err(e) = gb.write().await.save() {
+                warn!("Failed to save knowledge graph: {}", e);
+            }
+        }
 
         stats.duration_ms = start.elapsed().as_millis() as u64;
         info!("Incremental indexing complete: {:?}", stats);
@@ -408,6 +480,13 @@ impl<E: EmbeddingProvider> Indexer<E> {
             }
         }
 
+        // Remove from knowledge graph if enabled
+        if let Some(ref gb) = self.graph_builder {
+            if let Err(e) = gb.write().await.remove_file(path) {
+                debug!("Failed to remove file from graph {:?}: {}", path, e);
+            }
+        }
+
         Ok(())
     }
 
@@ -441,6 +520,16 @@ impl<E: EmbeddingProvider> Indexer<E> {
     /// Get the indexer configuration.
     pub fn config(&self) -> &IndexerConfig {
         &self.config
+    }
+
+    /// Get access to the knowledge graph builder (if enabled).
+    pub fn graph_builder(&self) -> Option<&RwLock<GraphBuilder>> {
+        self.graph_builder.as_ref()
+    }
+
+    /// Check if the knowledge graph is enabled.
+    pub fn has_graph(&self) -> bool {
+        self.graph_builder.is_some()
     }
 }
 
