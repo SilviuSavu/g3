@@ -125,9 +125,9 @@ fn register_openai_compatible_providers(
     registry: &mut ProviderRegistry,
 ) -> Result<()> {
     for (name, openai_config) in &config.providers.openai_compatible {
-        if should_register(providers_to_register, name, "default") {
+        if should_register(providers_to_register, "openai_compatible", name) {
             let openai_provider = g3_providers::OpenAIProvider::new_with_name(
-                name.clone(),
+                format!("openai_compatible.{}", name),
                 openai_config.api_key.clone(),
                 Some(openai_config.model.clone()),
                 openai_config.base_url.clone(),

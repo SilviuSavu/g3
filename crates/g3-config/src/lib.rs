@@ -872,14 +872,20 @@ impl Config {
                     );
                 }
             }
-            _ => {
-                // Check openai_compatible providers
-                if !self.providers.openai_compatible.contains_key(provider_type) {
+            "openai_compatible" => {
+                if !self.providers.openai_compatible.contains_key(config_name) {
                     anyhow::bail!(
-                        "Unknown provider type '{}'. Valid types: anthropic, openai, databricks, embedded, gemini, zai, or openai_compatible names",
-                        provider_type
+                        "Provider config 'openai_compatible.{}' not found. Available: {:?}",
+                        config_name,
+                        self.providers.openai_compatible.keys().collect::<Vec<_>>()
                     );
                 }
+            }
+            _ => {
+                anyhow::bail!(
+                    "Unknown provider type '{}'. Valid types: anthropic, openai, databricks, embedded, gemini, zai, openai_compatible",
+                    provider_type
+                );
             }
         }
 

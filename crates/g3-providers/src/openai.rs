@@ -138,29 +138,15 @@ impl OpenAIProvider {
                             if data == "[DONE]" {
                                 debug!("Received stream completion marker");
 
-                                // Send final chunk with accumulated content and tool calls
+                                // Send final chunk with tool calls (content already streamed via deltas)
                                 if !accumulated_content.is_empty() || !current_tool_calls.is_empty()
                                 {
-                                    let tool_calls = if current_tool_calls.is_empty() {
-                                        None
-                                    } else {
-                                        Some(
-                                            current_tool_calls
-                                                .iter()
-                                                .filter_map(|tc| tc.to_tool_call())
-                                                .collect(),
-                                        )
-                                    };
+                                    let tool_calls: Vec<ToolCall> = current_tool_calls
+                                        .iter()
+                                        .filter_map(|tc| tc.to_tool_call())
+                                        .collect();
 
-                                    let final_chunk = CompletionChunk {
-                                        content: accumulated_content.clone(),
-                                        finished: true,
-                                        tool_calls,
-                                        usage: accumulated_usage.clone(),
-                                        stop_reason: None, // TODO: Extract from OpenAI response
-                                        tool_call_streaming: None,
-                                        reasoning_content: None,
-                                    };
+                                    let final_chunk = make_final_chunk(tool_calls, accumulated_usage.clone());
                                     let _ = tx.send(Ok(final_chunk)).await;
                                 }
 
