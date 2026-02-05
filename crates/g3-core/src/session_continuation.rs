@@ -143,32 +143,41 @@ pub fn ensure_session_dir() -> Result<PathBuf> {
 }
 
 /// Update the .g3/session symlink to point to the given session directory
+///
+/// Uses atomic rename pattern to avoid TOCTOU race conditions when
+/// multiple g3 instances are running concurrently.
 fn update_session_symlink(session_id: &str) -> Result<()> {
     let symlink_path = get_session_dir();
     let target_path = get_session_path(session_id);
-    
-    // Remove existing symlink or directory if it exists
-    if symlink_path.exists() || symlink_path.is_symlink() {
-        if symlink_path.is_symlink() {
-            std::fs::remove_file(&symlink_path)
-                .context("Failed to remove existing session symlink")?;
-        } else if symlink_path.is_dir() {
-            // Migration: if it's an old-style directory, remove it
-            std::fs::remove_dir_all(&symlink_path)
-                .context("Failed to remove old session directory")?;
-            debug!("Migrated old .g3/session directory to symlink");
-        }
+
+    // Handle migration from old-style directory
+    if symlink_path.exists() && !symlink_path.is_symlink() && symlink_path.is_dir() {
+        std::fs::remove_dir_all(&symlink_path)
+            .context("Failed to remove old session directory")?;
+        debug!("Migrated old .g3/session directory to symlink");
     }
-    
-    // Create the symlink
+
+    // Atomic symlink update: create temp symlink, then rename
+    // This avoids TOCTOU race where another process could interfere
+    // between remove and create operations
+    let temp_symlink_path = symlink_path.with_extension(".tmp");
+
+    // Clean up any stale temp symlink (ignore errors)
+    let _ = std::fs::remove_file(&temp_symlink_path);
+
+    // Create the symlink at the temp location
     #[cfg(unix)]
-    std::os::unix::fs::symlink(&target_path, &symlink_path)
-        .context("Failed to create session symlink")?;
-    
+    std::os::unix::fs::symlink(&target_path, &temp_symlink_path)
+        .context("Failed to create temp session symlink")?;
+
     #[cfg(windows)]
-    std::os::windows::fs::symlink_dir(&target_path, &symlink_path)
-        .context("Failed to create session symlink")?;
-    
+    std::os::windows::fs::symlink_dir(&target_path, &temp_symlink_path)
+        .context("Failed to create temp session symlink")?;
+
+    // Atomic rename to final location (overwrites existing symlink atomically)
+    std::fs::rename(&temp_symlink_path, &symlink_path)
+        .context("Failed to atomically update session symlink")?;
+
     debug!("Updated session symlink: {:?} -> {:?}", symlink_path, target_path);
     Ok(())
 }

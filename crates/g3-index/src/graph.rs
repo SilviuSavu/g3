@@ -12,7 +12,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use g3_index::graph::{CodeGraph, SymbolKind, SymbolNode};
+//! use g3_index::graph::{CodeGraph, EdgeKind, SymbolKind, SymbolNode};
 //!
 //! let mut graph = CodeGraph::new();
 //!
@@ -26,7 +26,7 @@
 //! graph.add_symbol(symbol);
 //!
 //! // Add reference from another location
-//! graph.add_reference("src/main.rs", "my_function", "call", 5);
+//! graph.add_reference("src/main.rs", "my_function", EdgeKind::Calls, 5);
 //! ```
 
 use std::collections::HashMap;
@@ -484,8 +484,14 @@ impl CodeGraph {
             .file_id.clone();
 
         // Remove from name index
-        if let Some(ids) = self.symbol_name_index.get_mut(&symbol_name) {
+        let should_remove_key = if let Some(ids) = self.symbol_name_index.get_mut(&symbol_name) {
             ids.retain(|id| id != symbol_id);
+            ids.is_empty()
+        } else {
+            false
+        };
+        if should_remove_key {
+            self.symbol_name_index.remove(&symbol_name);
         }
 
         // Remove all edges involving this symbol
@@ -597,11 +603,11 @@ impl CodeGraph {
             .collect()
     }
 
-    /// Find all references to a symbol.
+    /// Find all references to a symbol (all incoming edges except Defines/BelongsTo).
     pub fn find_references(&self, symbol_id: &SymbolId) -> Vec<Edge> {
         self.incoming_edges(symbol_id)
             .into_iter()
-            .filter(|e| e.kind == EdgeKind::References)
+            .filter(|e| !matches!(e.kind, EdgeKind::Defines | EdgeKind::BelongsTo))
             .collect()
     }
 

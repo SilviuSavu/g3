@@ -1,0 +1,51 @@
+# Knowledge Graph Maintenance Formula
+# Incremental graph updates and health checks
+
+[formula]
+name = "graph-maintenance"
+description = "Incremental knowledge graph updates and health checks"
+version = "1.0.0"
+author = "g3"
+
+[schedule]
+# Can be run on demand or scheduled
+on_demand = true
+# Suggested: run after significant code changes
+
+[[steps]]
+name = "check-status"
+description = "Check current graph state"
+type = "tool"
+tool = "graph_stats"
+
+[[steps]]
+name = "incremental-index"
+description = "Run incremental indexing (only changed files)"
+type = "tool"
+tool = "index_codebase"
+args = { force = false }
+# force = false means only index new/changed files
+
+[[steps]]
+name = "verify-graph"
+description = "Verify graph after update"
+type = "tool"
+tool = "graph_stats"
+
+[[steps]]
+name = "sample-query"
+description = "Test graph with sample query"
+type = "tool"
+tool = "graph_find_symbol"
+args = { name = "main" }
+optional = true
+
+[post_actions]
+on_success = "Graph maintenance complete: {{verify-graph.symbol_count}} symbols, {{verify-graph.file_count}} files"
+on_fail = "Maintenance failed. Run 'index_codebase --force' to rebuild."
+
+[health_checks]
+# Thresholds for graph health
+min_symbols = 10
+min_files = 1
+max_stale_days = 7

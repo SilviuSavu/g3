@@ -270,12 +270,18 @@ fn apply_summary_fallback_sequence<W: UiWriter>(
     }
     
     // Step 3: Nothing worked, use hard-coded minimum
-    const HARD_CODED_MINIMUM: u32 = 5000;
+    // For embedded models, use 2500 to stay under their 3000 token limit
+    // For other models, use 5000 as the last resort
+    let hard_coded_minimum: u32 = if provider_name.starts_with("embedded") {
+        2500
+    } else {
+        5000
+    };
     ui_writer.print_context_status(&format!(
         "⚠️ Step 3: Context reduction insufficient. Using hard-coded max_tokens={} as last resort...\n",
-        HARD_CODED_MINIMUM
+        hard_coded_minimum
     ));
-    HARD_CODED_MINIMUM
+    hard_coded_minimum
 }
 
 #[cfg(test)]

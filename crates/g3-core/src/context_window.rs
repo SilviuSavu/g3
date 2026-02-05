@@ -183,17 +183,23 @@ impl ContextWindow {
     }
 
     /// More accurate token estimation.
+    ///
+    /// Uses heuristics based on content type with a 25% safety margin.
+    /// This margin is important because:
+    /// - Actual tokenization varies by model (BPE, SentencePiece, etc.)
+    /// - Underestimating by 20%+ can cause context overflow API errors
+    /// - Better to compact slightly early than to overflow
     pub fn estimate_tokens(text: &str) -> u32 {
         // Heuristic:
         // - Average English text: ~4 characters per token
         // - Code/JSON: ~3 characters per token (more symbols)
-        // - Add 10% buffer for safety
+        // - Add 25% buffer for safety (increased from 10% to prevent overflow)
         let base_estimate = if text.contains('{') || text.contains("```") || text.contains("fn ") {
             (text.len() as f32 / 3.0).ceil() as u32
         } else {
             (text.len() as f32 / 4.0).ceil() as u32
         };
-        (base_estimate as f32 * 1.1).ceil() as u32
+        (base_estimate as f32 * 1.25).ceil() as u32
     }
 
     // ========================================================================
@@ -503,25 +509,50 @@ Format this as a detailed but concise summary that can be used to resume the con
 
     /// Check if message at index i is a result of a protected tool call (TODO or Beads).
     /// These tool results should not be thinned to preserve task tracking context.
+    ///
+    /// Uses proper JSON parsing instead of string matching for robustness.
     fn is_protected_tool_result(&self, i: usize) -> bool {
         if i == 0 {
             return false;
         }
 
-        self.conversation_history
-            .get(i - 1)
-            .map(|prev| {
-                matches!(prev.role, MessageRole::Assistant)
-                    && (// Beads tools
-                        prev.content.contains(r#""tool":"beads_"#)
-                        || prev.content.contains(r#""tool": "beads_"#)
-                        // Legacy TODO tools (for backwards compatibility)
-                        || prev.content.contains(r#""tool":"todo_read""#)
-                        || prev.content.contains(r#""tool":"todo_write""#)
-                        || prev.content.contains(r#""tool": "todo_read""#)
-                        || prev.content.contains(r#""tool": "todo_write""#))
-            })
-            .unwrap_or(false)
+        let Some(prev) = self.conversation_history.get(i - 1) else {
+            return false;
+        };
+
+        if !matches!(prev.role, MessageRole::Assistant) {
+            return false;
+        }
+
+        // Try to find and parse a tool call in the message
+        // Look for JSON tool call pattern and parse it properly
+        let content = &prev.content;
+
+        // Find potential JSON object start
+        let tool_call_start = content
+            .find(r#"{"tool":"#)
+            .or_else(|| content.find(r#"{ "tool":"#))
+            .or_else(|| content.find(r#"{"tool" :"#))
+            .or_else(|| content.find(r#"{ "tool" :"#));
+
+        let Some(start) = tool_call_start else {
+            return false;
+        };
+
+        let json_portion = &content[start..];
+        let Some(end) = Self::find_json_end(json_portion) else {
+            return false;
+        };
+
+        let json_str = &json_portion[..=end];
+        let Ok(tool_call) = serde_json::from_str::<ToolCall>(json_str) else {
+            return false;
+        };
+
+        // Check if this is a protected tool
+        tool_call.tool.starts_with("beads_")
+            || tool_call.tool == "todo_read"
+            || tool_call.tool == "todo_write"
     }
 
     /// Create a modification for thinning a tool result message.

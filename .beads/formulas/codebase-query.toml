@@ -1,0 +1,42 @@
+# Codebase Query Formula
+# Semantic code search workflow with auto-discovery
+
+[formula]
+name = "codebase-query"
+description = "Semantic code search workflow with automatic result reading"
+version = "1.0.0"
+author = "g3"
+
+[variables]
+query = { description = "Natural language search query", required = true }
+limit = { description = "Maximum results to return", default = 10, type = "integer" }
+read_results = { description = "Automatically read top result files", default = true, type = "boolean" }
+
+[[steps]]
+name = "search"
+description = "Search codebase semantically"
+type = "tool"
+tool = "semantic_search"
+args = { query = "{{query}}", limit = "{{limit}}" }
+
+[[steps]]
+name = "read-top-result"
+description = "Read the top search result file for context"
+type = "conditional"
+condition = "{{read_results}} == true && search.count > 0"
+# Agent reads files from search results based on the query
+action = "read_files_from_search_results"
+
+[post_actions]
+on_success = "Found {{search.count}} results for '{{query}}'"
+on_empty = "No results found. Try a different query or run 'index_codebase' first."
+
+[tips]
+# Tips for effective queries
+examples = [
+    "error handling patterns",
+    "database connection setup",
+    "authentication flow",
+    "API endpoint definitions",
+    "test utilities and helpers"
+]

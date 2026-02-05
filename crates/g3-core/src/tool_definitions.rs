@@ -873,6 +873,72 @@ fn create_index_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
+        // Knowledge Graph Tools
+        Tool {
+            name: "graph_find_symbol".to_string(),
+            description: "Find all definitions of a symbol by name. Searches the knowledge graph for functions, structs, traits, etc. with the given name. Returns location and signature for each match.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The symbol name to search for (e.g., 'process_file', 'Config', 'handle_error')"
+                    }
+                },
+                "required": ["name"]
+            }),
+        },
+        Tool {
+            name: "graph_file_symbols".to_string(),
+            description: "Get all symbols defined in a file. Lists functions, structs, traits, etc. with their line numbers and signatures. Useful for understanding a file's structure.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the file (relative to workspace root)"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+        },
+        Tool {
+            name: "graph_find_callers".to_string(),
+            description: "Find all callers of a function or method. Returns symbols that call the given symbol. Useful for understanding code dependencies and impact analysis.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "symbol_id": {
+                        "type": "string",
+                        "description": "The symbol ID to find callers for (from graph_find_symbol results)"
+                    }
+                },
+                "required": ["symbol_id"]
+            }),
+        },
+        Tool {
+            name: "graph_find_references".to_string(),
+            description: "Find all references to a symbol. Returns locations where the symbol is used. More comprehensive than find_callers as it includes all usage types.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "symbol_id": {
+                        "type": "string",
+                        "description": "The symbol ID to find references for (from graph_find_symbol results)"
+                    }
+                },
+                "required": ["symbol_id"]
+            }),
+        },
+        Tool {
+            name: "graph_stats".to_string(),
+            description: "Get knowledge graph statistics including total symbols and files. Useful to verify the graph is populated after indexing.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
     ]
 }
 
@@ -1514,8 +1580,9 @@ mod tests {
     #[test]
     fn test_index_tools_count() {
         let tools = create_index_tools();
-        // 3 index tools: index_codebase, semantic_search, index_status
-        assert_eq!(tools.len(), 3);
+        // 8 index tools: index_codebase, semantic_search, index_status,
+        // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats
+        assert_eq!(tools.len(), 8);
     }
 
     #[test]
@@ -1532,21 +1599,27 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 beads + 3 index = 34
-        assert_eq!(tools.len(), 34);
+        // 16 core + 15 beads + 8 index = 39
+        assert_eq!(tools.len(), 39);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
         assert!(tools.iter().any(|t| t.name == "semantic_search"));
         assert!(tools.iter().any(|t| t.name == "index_status"));
+        // Verify graph tools are present
+        assert!(tools.iter().any(|t| t.name == "graph_find_symbol"));
+        assert!(tools.iter().any(|t| t.name == "graph_file_symbols"));
+        assert!(tools.iter().any(|t| t.name == "graph_find_callers"));
+        assert!(tools.iter().any(|t| t.name == "graph_find_references"));
+        assert!(tools.iter().any(|t| t.name == "graph_stats"));
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 3 index = 57
-        assert_eq!(tools.len(), 57);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 8 index = 62
+        assert_eq!(tools.len(), 62);
     }
 
     #[test]
@@ -1590,7 +1663,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 3 index + 9 lsp = 66
-        assert_eq!(tools.len(), 66);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 8 index + 9 lsp = 71
+        assert_eq!(tools.len(), 71);
     }
 }
