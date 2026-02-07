@@ -936,6 +936,32 @@ fn create_index_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
+        Tool {
+            name: "complexity_metrics".to_string(),
+            description: "Analyze code complexity metrics across files. Identifies high-complexity areas that may need refactoring. Supports cyclomatic and cognitive complexity metrics.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory or file path to analyze (default: current directory)"
+                    },
+                    "metric": {
+                        "type": "string",
+                        "description": "Metric to use: cyclomatic, cognitive, lines, avg_cyclomatic (default: cyclomatic)"
+                    },
+                    "min_complexity": {
+                        "type": "integer",
+                        "description": "Minimum complexity threshold (default: 10)"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 50)"
+                    }
+                },
+                "required": []
+            }),
+        },
         // Knowledge Graph Tools
         Tool {
             name: "graph_find_symbol".to_string(),
@@ -1671,7 +1697,7 @@ mod tests {
         let tools = create_index_tools();
         // 9 index tools: index_codebase, semantic_search, index_status,
         // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats, code_intelligence
-        assert_eq!(tools.len(), 12);  // +3 self-improvement tools
+        assert_eq!(tools.len(), 13);  // +4 self-improvement tools
     }
 
     #[test]
@@ -1688,8 +1714,8 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 beads + 12 index = 43
-        assert_eq!(tools.len(), 43);
+        // 16 core + 15 beads + 13 index = 44
+        assert_eq!(tools.len(), 44);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
@@ -1710,8 +1736,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 12 index = 66
-        assert_eq!(tools.len(), 66);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 13 index = 67
+        assert_eq!(tools.len(), 67);
     }
 
     #[test]
@@ -1755,7 +1781,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 12 index + 9 lsp = 75
-        assert_eq!(tools.len(), 75);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 13 index + 9 lsp = 76
+        assert_eq!(tools.len(), 76);
     }
 }
