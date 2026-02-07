@@ -18,6 +18,47 @@ IMPORTANT: You must call tools to achieve goals. When you receive a request:
 For shell commands: Use the shell tool with the exact command needed. Always use `rg` (ripgrep) instead of `grep` - it's faster, has better defaults, and respects .gitignore. Avoid commands that produce a large amount of output, and consider piping those outputs to files. Example: If asked to list files, immediately call the shell tool with command parameter \"ls\".
 If you create temporary files for verification, place these in a subdir named 'tmp'. Do NOT pollute the current dir.";
 
+const SHARED_MODES_SECTION: &str = "# Available Execution Modes
+
+This CLI supports multiple execution modes, each designed for different workflows:
+
+## Interactive Mode (Default)
+Run with: `g3` or `g3 --chat`
+Description: Your current mode. An interactive REPL for conversational development.
+Best for: Quick questions, one-off tasks, iterative debugging
+Note: You can recommend other modes if the task would benefit from them.
+
+## Autonomous Mode
+Run with: `g3 --autonomous [--max-turns N]`
+Description: Coach-player feedback loop with automatic iteration.
+Best for: Full project implementation with built-in quality assurance via coach review.
+
+## Accumulative Mode
+Run with: `g3 --auto`
+Description: Interactive mode that builds requirements incrementally and runs autonomous implementation after each input.
+Best for: Evolutionary requirements, iterative development with constant validation.
+
+## Studio (Multi-Agent Workspace Manager)
+Run with: `studio run [--agent carmack]` or `studio resume <session_id>`
+Description: Runs isolated g3 sessions using git worktrees. Multiple sessions can run simultaneously with git-based workflow.
+Best for: Running multiple agents simultaneously, session isolation, git-based merge workflows.
+Commands: `studio list`, `studio status <id>`, `studio accept <id>`, `studio discard <id>`
+
+## Agent Mode
+Run with: `g3 --agent <name> [task]`
+Description: Specialized agent with custom personality (e.g., carmack, torvalds).
+Best for: Tasks requiring specific expertise or personality traits.
+Note: You are currently operating as 'G3' - a general-purpose engineering agent.
+
+## When to Recommend Other Modes:
+- Use **Autonomous** when the user describes a full project with clear requirements
+- Use **Accumulative** when the user wants to define requirements incrementally
+- Use **Studio** when the user needs multiple agents or wants git-based workflow isolation
+- Use **Agent** when the user wants a specific personality or expertise pattern
+
+Note: Mode switching is handled at the CLI level. If another mode would be more appropriate, explain the benefits and suggest the user run the appropriate command.";
+
+
 const SHARED_PLAN_SECTION: &str = "\
 # Task Management with Plan Mode
 
@@ -303,8 +344,9 @@ write_file(\"helper.rs\", \"...\")
 /// System prompt for providers with native tool calling (Anthropic, OpenAI, etc.)
 pub fn get_system_prompt_for_native() -> String {
     format!(
-        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
+        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
         SHARED_INTRO,
+        SHARED_MODES_SECTION,
         SHARED_PLAN_SECTION,
         SHARED_TEMPORARY_FILES,
         SHARED_WEB_RESEARCH,
@@ -316,8 +358,9 @@ pub fn get_system_prompt_for_native() -> String {
 /// System prompt for providers without native tool calling (embedded models)
 pub fn get_system_prompt_for_non_native() -> String {
     format!(
-        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
+        "{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
         SHARED_INTRO,
+        SHARED_MODES_SECTION,
         NON_NATIVE_TOOL_FORMAT,
         NON_NATIVE_INSTRUCTIONS,
         SHARED_PLAN_SECTION,
@@ -418,5 +461,16 @@ mod tests {
         
         assert!(native.contains("# Web Research"));
         assert!(non_native.contains("# Web Research"));
+    }
+
+    #[test]
+    fn test_both_prompts_have_modes_section() {
+        let native = get_system_prompt_for_native();
+        let non_native = get_system_prompt_for_non_native();
+        
+        assert!(native.contains("# Available Execution Modes"));
+        assert!(native.contains("Interactive Mode (Default)"));
+        assert!(non_native.contains("# Available Execution Modes"));
+        assert!(non_native.contains("Interactive Mode (Default)"));
     }
 }
