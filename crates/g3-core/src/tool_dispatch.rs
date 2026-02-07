@@ -42,6 +42,9 @@ pub async fn dispatch_tool<W: UiWriter>(
         "coverage" => misc::execute_code_coverage(tool_call, ctx).await,
         "code_search" => misc::execute_code_search(tool_call, ctx).await,
 
+        // Mode switching
+        "switch_mode" => misc::execute_switch_mode(tool_call, ctx).await,
+
         // Research tool
         "research" => research::execute_research(tool_call, ctx).await,
         "research_status" => research::execute_research_status(tool_call, ctx).await,
