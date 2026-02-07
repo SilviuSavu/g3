@@ -334,6 +334,27 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
         }),
     });
 
+    // Switch mode tool
+    tools.push(Tool {
+        name: "switch_mode".to_string(),
+        description: "Recommended a mode switch to a different execution mode. Use this when the current mode is not optimal for the task. Available modes: interactive (default), autonomous (coach-player), accumulative (iterative requirements), studio (multi-agent). Note: Mode switching requires restarting g3 with the appropriate flag.".to_string(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ["interactive", "autonomous", "accumulative", "studio"],
+                    "description": "The target execution mode to switch to"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Explanation of why this mode would be better for the current task"
+                }
+            },
+            "required": ["mode", "reason"]
+        }),
+    });
+
     tools.push(Tool {
         name: "plan_write".to_string(),
         description: r#"Create or update the Plan for this session. The plan must be provided as YAML with the following structure:
@@ -1557,9 +1578,9 @@ mod tests {
         let tools = create_core_tools(false);
         // Core tools: shell, background_process, read_file, read_image,
         // write_file, str_replace, screenshot, coverage, code_search,
-        // research, research_status, remember, plan_read, plan_write, plan_approve, rehydrate
-        // (16 total - memory is auto-loaded, only remember tool needed)
-        assert_eq!(tools.len(), 16);
+        // research, research_status, remember, plan_read, plan_write, plan_approve, rehydrate,
+        // switch_mode (17 total - memory is auto-loaded, only remember tool needed)
+        assert_eq!(tools.len(), 17);
     }
 
     #[test]
@@ -1581,7 +1602,7 @@ mod tests {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
         // Default config has beads_tools: false (from derive Default)
-        assert_eq!(tools.len(), 16);
+        assert_eq!(tools.len(), 17);
     }
 
     #[test]
@@ -1589,7 +1610,7 @@ mod tests {
         let config = ToolConfig::new(true, true, true, false);
         let tools = create_tool_definitions(config);
         // 16 core + 15 webdriver + 3 zai + 15 beads = 49
-        assert_eq!(tools.len(), 49);
+        assert_eq!(tools.len(), 50);
     }
 
     #[test]
@@ -1597,7 +1618,7 @@ mod tests {
         let config = ToolConfig::new(false, false, true, false);
         let tools = create_tool_definitions(config);
         // 16 core + 3 zai + 15 beads = 34
-        assert_eq!(tools.len(), 34);
+        assert_eq!(tools.len(), 35);
 
         // Verify Z.ai tools are present
         assert!(tools.iter().any(|t| t.name == "zai_web_search"));
@@ -1630,8 +1651,8 @@ mod tests {
         let tools_with_research = create_core_tools(false);
         let tools_without_research = create_core_tools(true);
 
-        assert_eq!(tools_with_research.len(), 16);
-        assert_eq!(tools_without_research.len(), 14);  // research + research_status both excluded
+        assert_eq!(tools_with_research.len(), 17);
+        assert_eq!(tools_without_research.len(), 15);  // research + research_status both excluded
 
         assert!(tools_with_research.iter().any(|t| t.name == "research"));
         assert!(!tools_without_research.iter().any(|t| t.name == "research"));
@@ -1649,7 +1670,7 @@ mod tests {
         let config = ToolConfig::default().with_mcp_tools();
         let tools = create_tool_definitions(config);
         // 16 core + 5 mcp = 21 (default has beads_tools: false)
-        assert_eq!(tools.len(), 21);
+        assert_eq!(tools.len(), 22);
 
         // Verify MCP tools are present
         assert!(tools.iter().any(|t| t.name == "mcp_web_search"));
@@ -1674,7 +1695,7 @@ mod tests {
         let config = ToolConfig::new(true, true, true, false).with_mcp_tools();
         let tools = create_tool_definitions(config);
         // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads = 54
-        assert_eq!(tools.len(), 54);
+        assert_eq!(tools.len(), 55);
     }
 
     #[test]
@@ -1698,8 +1719,8 @@ mod tests {
     fn test_create_tool_definitions_with_beads_tools() {
         let config = ToolConfig::new(false, false, false, false);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 beads = 31
-        assert_eq!(tools.len(), 31);
+        // 17 core + 15 beads = 32
+        assert_eq!(tools.len(), 32);
 
         // Verify Beads tools are present
         assert!(tools.iter().any(|t| t.name == "beads_ready"));
@@ -1711,8 +1732,8 @@ mod tests {
     fn test_create_tool_definitions_without_beads_tools() {
         let config = ToolConfig::new(false, false, false, false).without_beads_tools();
         let tools = create_tool_definitions(config);
-        // 16 core only (beads disabled)
-        assert_eq!(tools.len(), 16);
+        // 17 core only (beads disabled)
+        assert_eq!(tools.len(), 17);
 
         // Verify Beads tools are NOT present
         assert!(!tools.iter().any(|t| t.name == "beads_ready"));
@@ -1741,7 +1762,7 @@ mod tests {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
         // 16 core + 15 beads + 14 index = 45
-        assert_eq!(tools.len(), 45);
+        assert_eq!(tools.len(), 46);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
@@ -1762,8 +1783,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index = 68
-        assert_eq!(tools.len(), 68);
+        // 17 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index = 69
+        assert_eq!(tools.len(), 69);
     }
 
     #[test]
@@ -1788,8 +1809,8 @@ mod tests {
     fn test_create_tool_definitions_with_lsp_tools() {
         let config = ToolConfig::default().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 9 lsp = 25 (default has beads_tools: false)
-        assert_eq!(tools.len(), 25);
+        // 17 core + 9 lsp = 26 (default has beads_tools: false)
+        assert_eq!(tools.len(), 26);
 
         // Verify LSP tools are present
         assert!(tools.iter().any(|t| t.name == "lsp_goto_definition"));
@@ -1807,7 +1828,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index + 9 lsp = 77
-        assert_eq!(tools.len(), 77);
+        // 17 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index + 9 lsp = 78
+        assert_eq!(tools.len(), 78);
     }
 }
