@@ -110,6 +110,7 @@ pub async fn dispatch_tool<W: UiWriter>(
         "preview_file" => index::execute_preview_file(tool_call, ctx).await,
 
         // Knowledge Graph tools
+        "complexity_metrics" => index::execute_complexity_metrics(tool_call, ctx).await,
         "list_files" => index::execute_list_files(tool_call, ctx).await,
         "graph_find_symbol" => index::execute_graph_find_symbol(tool_call, ctx).await,
         "graph_file_symbols" => index::execute_graph_file_symbols(tool_call, ctx).await,

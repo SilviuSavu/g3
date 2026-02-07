@@ -793,6 +793,193 @@ pub async fn execute_list_files<W: UiWriter>(
     }).to_string())
 }
 
+/// Calculate cyclomatic complexity for a Rust function
+/// Based on: count decision points (if, match, loop, while, for, &&, ||, ?)
+fn calculate_cyclomatic_complexity(source: &str) -> usize {
+    let mut complexity = 1; // Base complexity
+
+    // Decision point patterns
+    let decision_patterns = [
+        "if ", "if (", "if\t",
+        "else if ", "else if (",
+        "match ", "match\t",
+        "while ", "while (", "while\t",
+        "for ", "for (", "for\t",
+        "loop ", "loop\t",
+        "&&", "||",
+        "? ", "?\t",
+        "?;",
+    ];
+
+    for pattern in &decision_patterns {
+        let count = source.matches(pattern).count();
+        complexity += count;
+    }
+
+    complexity
+}
+
+/// Calculate cognitive complexity for a Rust function
+fn calculate_cognitive_complexity(source: &str) -> usize {
+    let mut complexity: usize = 0;
+
+    // Track nesting by counting braces
+    let mut brace_count: usize = 0;
+    for c in source.chars() {
+        if c == '{' {
+            brace_count += 1;
+            complexity += brace_count.saturating_sub(1);
+        } else if c == '}' {
+            brace_count = brace_count.saturating_sub(1);
+        }
+    }
+
+    // Decision points - count each type
+    let decision_points = source.matches("if ").count()
+        + source.matches("match ").count()
+        + source.matches("while ").count()
+        + source.matches("for ").count()
+        + source.matches("&&").count()
+        + source.matches("||").count();
+
+    // Base complexity from decision points
+    complexity += decision_points;
+
+    complexity
+}
+
+/// Analyze a single file for complexity metrics
+fn analyze_file_complexity(file_path: &std::path::Path) -> Option<serde_json::Value> {
+    // Only analyze Rust files for now
+    if file_path.extension()?.to_str()? != "rs" {
+        return None;
+    }
+
+    let content = std::fs::read_to_string(file_path).ok()?;
+
+    // Count basic metrics
+    let line_count = content.lines().count();
+    let char_count = content.chars().count();
+
+    // For now, estimate function-level complexity by splitting on common patterns
+    // A more sophisticated approach would use tree-sitter to parse the AST
+    let estimated_functions = content.matches("fn ").count() + content.matches("impl ").count();
+
+    // Estimate cyclomatic complexity (simplified)
+    let cyclomatic = calculate_cyclomatic_complexity(&content);
+    let cognitive = calculate_cognitive_complexity(&content);
+
+    // Calculate average complexity per function (if any)
+    let avg_cyclomatic = if estimated_functions > 0 {
+        (cyclomatic / estimated_functions).max(1)
+    } else {
+        0
+    };
+
+    Some(json!({
+        "file": file_path.to_string_lossy(),
+        "lines": line_count,
+        "chars": char_count,
+        "estimated_functions": estimated_functions,
+        "cyclomatic_complexity": cyclomatic,
+        "cognitive_complexity": cognitive,
+        "avg_cyclomatic_per_function": avg_cyclomatic
+    }))
+}
+
+/// Execute the complexity_metrics tool.
+pub async fn execute_complexity_metrics<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let path = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or(".");
+
+    let min_complexity = args
+        .get("min_complexity")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(10) as usize;
+
+    let metric = args
+        .get("metric")
+        .and_then(|v| v.as_str())
+        .unwrap_or("cyclomatic");
+
+    let work_dir = ctx.working_dir.unwrap_or(".");
+    let work_path = Path::new(work_dir);
+    let target_path = work_path.join(path);
+
+    if !target_path.exists() {
+        return Ok(json!({
+            "status": "error",
+            "message": format!("Path not found: {}", target_path.display())
+        }).to_string());
+    }
+
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    // Walk the directory tree
+    let walk_dir = if target_path.is_file() {
+        vec![target_path.clone()]
+    } else {
+        // Get all files in directory
+        let mut files = Vec::new();
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() {
+                    files.push(entry.path());
+                }
+            }
+        }
+        files
+    };
+
+    for file_path in walk_dir {
+        if let Some(metrics) = analyze_file_complexity(&file_path) {
+            // Filter by minimum complexity
+            let complexity = match metric {
+                "cyclomatic" => metrics["cyclomatic_complexity"].as_u64().unwrap_or(0),
+                "cognitive" => metrics["cognitive_complexity"].as_u64().unwrap_or(0),
+                "lines" => metrics["lines"].as_u64().unwrap_or(0),
+                "avg_cyclomatic" => metrics["avg_cyclomatic_per_function"].as_u64().unwrap_or(0),
+                _ => 0,
+            };
+
+            if complexity >= min_complexity as u64 {
+                results.push(metrics);
+            }
+        }
+    }
+
+    // Sort by complexity (descending)
+    results.sort_by(|a, b| {
+        let a_complexity = a[metric].as_u64().unwrap_or(0);
+        let b_complexity = b[metric].as_u64().unwrap_or(0);
+        b_complexity.cmp(&a_complexity)
+    });
+
+    // Limit results
+    let max_results = args
+        .get("max_results")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(50) as usize;
+    let truncated_results = results.into_iter().take(max_results).collect::<Vec<_>>();
+
+    Ok(json!({
+        "status": "success",
+        "path": path,
+        "metric": metric,
+        "min_complexity": min_complexity,
+        "results_count": truncated_results.len(),
+        "total_files_analyzed": truncated_results.len(),
+        "results": truncated_results
+    }).to_string())
+}
+
 /// Helper to get or initialize the index client.
 async fn get_or_init_client<W: UiWriter>(
     ctx: &mut ToolContext<'_, W>,
