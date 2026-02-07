@@ -838,8 +838,8 @@ impl<W: UiWriter> Agent<W> {
                     config.agent.fallback_default_max_tokens as u32
                 }
             }
-            "openai" => {
-                // OpenAI models have varying context windows
+            "openai" | "openai_compatible" => {
+                // OpenAI-compatible models (including vLLM, OpenRouter, Groq, etc.)
                 if let Some(max_tokens) = provider_config::get_max_tokens(config, provider_name) {
                     warnings.push(format!(
                         "Context length falling back to max_tokens ({}) for provider={}",
@@ -1120,7 +1120,7 @@ impl<W: UiWriter> Agent<W> {
         let max_tokens = Some(self.apply_max_tokens_fallback_sequence(
             &provider_name,
             initial_max_tokens,
-            16000, // Hard-coded minimum for main API calls (higher than summary's 5000)
+            8192, // Hard-coded minimum for main API calls (reduced to avoid hitting context limits)
         ));
 
         let request = CompletionRequest {

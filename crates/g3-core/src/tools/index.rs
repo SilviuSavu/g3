@@ -47,7 +47,7 @@ pub async fn execute_index_codebase<W: UiWriter>(
     info!("Indexing codebase at: {} (force={})", work_dir, force);
 
     // Get or create index client
-    let client = match &ctx.index_client {
+    let client: Arc<IndexClient> = match &ctx.index_client {
         Some(client) => client.clone(),
         None => {
             // Initialize a new client
@@ -65,6 +65,9 @@ pub async fn execute_index_codebase<W: UiWriter>(
             }
         }
     };
+
+    // Store the client in the context for future use
+    ctx.index_client = Some(client.clone());
 
     // Perform indexing
     match client.index(force).await {

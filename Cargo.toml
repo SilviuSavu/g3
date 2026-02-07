@@ -45,12 +45,14 @@ license = "MIT"
 
 [dependencies]
 g3-cli = { path = "crates/g3-cli" }
+g3-index = { path = "crates/g3-index" }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 g3-providers = { path = "crates/g3-providers" }
 serde_json = { workspace = true }
 tokio-stream = "0.1"
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tempfile = "3.8"
 
 [[example]]
 name = "verify_message_id"
@@ -63,3 +65,7 @@ path = "examples/zai_demo.rs"
 [[example]]
 name = "provider_benchmark"
 path = "examples/provider_benchmark.rs"
+
+[[example]]
+name = "demo_intelligence"
+path = "examples/demo_intelligence.rs"

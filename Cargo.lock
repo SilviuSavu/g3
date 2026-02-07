@@ -1438,8 +1438,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "g3-cli",
+ "g3-index",
  "g3-providers",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "tracing-subscriber",
