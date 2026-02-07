@@ -105,6 +105,10 @@ pub async fn dispatch_tool<W: UiWriter>(
         "semantic_search" => index::execute_semantic_search(tool_call, ctx).await,
         "index_status" => index::execute_index_status(tool_call, ctx).await,
 
+        // Self-improvement tools
+        "list_directory" => index::execute_list_directory(tool_call, ctx).await,
+        "preview_file" => index::execute_preview_file(tool_call, ctx).await,
+
         // Knowledge Graph tools
         "graph_find_symbol" => index::execute_graph_find_symbol(tool_call, ctx).await,
         "graph_file_symbols" => index::execute_graph_file_symbols(tool_call, ctx).await,

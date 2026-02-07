@@ -873,6 +873,43 @@ fn create_index_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
+        // Self-improvement tools
+        Tool {
+            name: "list_directory".to_string(),
+            description: "List files in a directory with metadata (name, size, line count, test flag). Useful for exploring codebase structure and finding files of interest.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory path to list (relative to workspace)"
+                    },
+                    "include_hidden": {
+                        "type": "boolean",
+                        "description": "Include hidden files (default: false)"
+                    }
+                },
+                "required": ["path"]
+            }),
+        },
+        Tool {
+            name: "preview_file".to_string(),
+            description: "Preview the first N lines of a file without reading the entire content. Useful for getting a quick overview of a file's purpose and structure.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "File path to preview (relative to workspace)"
+                    },
+                    "num_lines": {
+                        "type": "integer",
+                        "description": "Number of lines to preview (default: 50)"
+                    }
+                },
+                "required": ["path"]
+            }),
+        },
         // Knowledge Graph Tools
         Tool {
             name: "graph_find_symbol".to_string(),
@@ -1608,7 +1645,7 @@ mod tests {
         let tools = create_index_tools();
         // 9 index tools: index_codebase, semantic_search, index_status,
         // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats, code_intelligence
-        assert_eq!(tools.len(), 9);
+        assert_eq!(tools.len(), 11);  // +2 self-improvement tools
     }
 
     #[test]
@@ -1625,13 +1662,15 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 beads + 9 index = 40
-        assert_eq!(tools.len(), 40);
+        // 16 core + 15 beads + 11 index = 42
+        assert_eq!(tools.len(), 42);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
         assert!(tools.iter().any(|t| t.name == "semantic_search"));
         assert!(tools.iter().any(|t| t.name == "index_status"));
+        assert!(tools.iter().any(|t| t.name == "list_directory"));
+        assert!(tools.iter().any(|t| t.name == "preview_file"));
         // Verify graph tools are present
         assert!(tools.iter().any(|t| t.name == "graph_find_symbol"));
         assert!(tools.iter().any(|t| t.name == "graph_file_symbols"));
@@ -1645,8 +1684,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 9 index = 63
-        assert_eq!(tools.len(), 63);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 11 index = 65
+        assert_eq!(tools.len(), 65);
     }
 
     #[test]
@@ -1690,7 +1729,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 9 index + 9 lsp = 72
-        assert_eq!(tools.len(), 72);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 11 index + 9 lsp = 74
+        assert_eq!(tools.len(), 74);
     }
 }

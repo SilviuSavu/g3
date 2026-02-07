@@ -96,6 +96,129 @@ pub async fn execute_index_codebase<W: UiWriter>(
     }
 }
 
+/// Execute the list_directory tool.
+pub async fn execute_list_directory<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let path = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing required parameter: path"))?;
+
+    let include_hidden = args
+        .get("include_hidden")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let work_dir = ctx.working_dir.unwrap_or(".");
+    let work_path = Path::new(work_dir);
+    let dir_path = work_path.join(path);
+
+    if !dir_path.exists() {
+        return Ok(json!({
+            "status": "error",
+            "message": format!("Directory not found: {}", dir_path.display())
+        }).to_string());
+    }
+
+    let mut entries: Vec<serde_json::Value> = Vec::new();
+
+    for entry in dir_path.read_dir()? {
+        if let Ok(entry) = entry {
+            let file_type = entry.file_type()?;
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_string_lossy();
+
+            // Skip hidden files by default
+            if !include_hidden && file_name_str.starts_with('.') {
+                continue;
+            }
+
+            // Get metadata
+            let metadata = entry.metadata()?;
+            let size = metadata.len();
+
+            // Count lines for text files
+            let line_count = if file_type.is_file() {
+                // Try to read the file to count lines
+                match std::fs::read_to_string(entry.path()) {
+                    Ok(content) => content.lines().count(),
+                    Err(_) => 0,
+                }
+            } else {
+                0
+            };
+
+            entries.push(json!({
+                "name": file_name_str,
+                "is_dir": file_type.is_dir(),
+                "is_file": file_type.is_file(),
+                "size": size,
+                "lines": line_count
+            }));
+        }
+    }
+
+    Ok(json!({
+        "status": "success",
+        "path": path,
+        "include_hidden": include_hidden,
+        "entries": entries,
+        "count": entries.len()
+    }).to_string())
+}
+
+/// Execute the preview_file tool.
+pub async fn execute_preview_file<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let path = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing required parameter: path"))?;
+
+    let num_lines = args
+        .get("num_lines")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(50) as usize;
+
+    let work_dir = ctx.working_dir.unwrap_or(".");
+    let work_path = Path::new(work_dir);
+    let file_path = work_path.join(path);
+
+    if !file_path.exists() {
+        return Ok(json!({
+            "status": "error",
+            "message": format!("File not found: {}", file_path.display())
+        }).to_string());
+    }
+
+    match std::fs::read_to_string(&file_path) {
+        Ok(content) => {
+            let lines: Vec<&str> = content.lines().collect();
+            let preview_lines = lines.iter().take(num_lines).cloned().collect::<Vec<&str>>();
+
+            Ok(json!({
+                "status": "success",
+                "path": path,
+                "num_lines": num_lines,
+                "total_lines": lines.len(),
+                "preview": preview_lines.join("\n")
+            }).to_string())
+        }
+        Err(e) => Ok(json!({
+            "status": "error",
+            "message": format!("Failed to read file: {}", e)
+        }).to_string()),
+    }
+}
+
 /// Execute the semantic_search tool.
 pub async fn execute_semantic_search<W: UiWriter>(
     tool_call: &ToolCall,
