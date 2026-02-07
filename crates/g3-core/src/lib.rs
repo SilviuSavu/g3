@@ -3269,3 +3269,70 @@ mod tool_timeout_tests {
         );
     }
 }
+
+// =========================================================================
+// FIBONACCI FUNCTION
+// =========================================================================
+
+/// Calculates the nth Fibonacci number recursively.
+///
+/// # Arguments
+///
+/// * `n` - The index of the Fibonacci number to calculate (must be >= 0)
+///
+/// # Returns
+///
+/// The nth Fibonacci number
+///
+/// # Panics
+///
+/// Panics if n is negative
+///
+/// # Examples
+///
+/// ```
+/// use g3_core::fib;
+/// let result = fib(0);
+/// assert_eq!(result, 0);
+///
+/// let result = fib(1);
+/// assert_eq!(result, 1);
+///
+/// let result = fib(10);
+/// assert_eq!(result, 55);
+/// ```
+pub fn fib(n: u64) -> u64 {
+    match n {
+        0 => 0,
+        1 => 1,
+        _ => fib(n - 1) + fib(n - 2),
+    }
+}
+
+#[cfg(test)]
+mod fibonacci_tests {
+    use super::fib;
+
+    #[test]
+    fn test_fib_zero() {
+        assert_eq!(fib(0), 0);
+    }
+
+    #[test]
+    fn test_fib_one() {
+        assert_eq!(fib(1), 1);
+    }
+
+    #[test]
+    fn test_fib_first_10() {
+        let expected: [u64; 10] = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
+        for (i, &exp) in expected.iter().enumerate() {
+            assert_eq!(fib(i as u64), exp, "fib({}) failed", i);
+        }
+    }
+
+    #[test]
+    fn test_fib_ten() {
+        assert_eq!(fib(10), 55);
+    }
+}

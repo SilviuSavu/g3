@@ -939,6 +939,32 @@ fn create_index_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
+        Tool {
+            name: "code_intelligence".to_string(),
+            description: "Advanced code intelligence tool with subcommands for codebase analysis. Provides find, refs, callers, callees, similar, graph, and query operations. Use to explore code relationships, find usages, and understand dependencies.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "enum": ["find", "refs", "callers", "callees", "similar", "graph", "query"],
+                        "description": "The intelligence operation to perform"
+                    },
+                    "symbol": {
+                        "type": "string",
+                        "description": "Symbol name or query string (depends on command)"
+                    },
+                    "depth": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 2,
+                        "description": "Traversal depth for graph operations (default: 2)"
+                    }
+                },
+                "required": ["command"]
+            }),
+        },
     ]
 }
 
@@ -1580,9 +1606,9 @@ mod tests {
     #[test]
     fn test_index_tools_count() {
         let tools = create_index_tools();
-        // 8 index tools: index_codebase, semantic_search, index_status,
-        // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats
-        assert_eq!(tools.len(), 8);
+        // 9 index tools: index_codebase, semantic_search, index_status,
+        // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats, code_intelligence
+        assert_eq!(tools.len(), 9);
     }
 
     #[test]
@@ -1599,8 +1625,8 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 beads + 8 index = 39
-        assert_eq!(tools.len(), 39);
+        // 16 core + 15 beads + 9 index = 40
+        assert_eq!(tools.len(), 40);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
@@ -1612,14 +1638,15 @@ mod tests {
         assert!(tools.iter().any(|t| t.name == "graph_find_callers"));
         assert!(tools.iter().any(|t| t.name == "graph_find_references"));
         assert!(tools.iter().any(|t| t.name == "graph_stats"));
+        assert!(tools.iter().any(|t| t.name == "code_intelligence"));
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 8 index = 62
-        assert_eq!(tools.len(), 62);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 9 index = 63
+        assert_eq!(tools.len(), 63);
     }
 
     #[test]
@@ -1663,7 +1690,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 8 index + 9 lsp = 71
-        assert_eq!(tools.len(), 71);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 9 index + 9 lsp = 72
+        assert_eq!(tools.len(), 72);
     }
 }

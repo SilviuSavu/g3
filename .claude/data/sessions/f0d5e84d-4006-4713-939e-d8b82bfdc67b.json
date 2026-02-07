@@ -1,0 +1,25 @@
+{
+  "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+  "prompts": [
+    "I have tried to run that endpoint, it is shit,. the model is retarded",
+    "htt:/192.168.1.29/v1",
+    "htt:/192.168.1.29:8889/v1",
+    "can you test it to see if it's havong issues? use bash and prompt it, give it some tool tasks",
+    "what provider did I ask you to teszt?",
+    "try a harder coding task",
+    "why do you refuse to use multiple agents in parallel?",
+    "run 30 tasks in parallel",
+    "what provider did oyu use?",
+    "why are you so stuoid?",
+    "i am very curious why this happens. even opus 4.6 makes the exact same dumb mistakes",
+    "<task-notification>\n<task-id>b693c5e</task-id>\n<output-file>/private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b693c5e.output</output-file>\n<status>completed</status>\n<summary>Background command \"Test Qwen with complex coding task requiring design decisions\" completed (exit code 0)</summary>\n</task-notification>\nRead the output file to retrieve the result: /private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b693c5e.output",
+    "you do understand that I am talking to you, sonet 4.5 and you are fucking up?",
+    "everything",
+    "is lmrouter sending and receiving parallel tasks?",
+    "see, that is why I am tellink you that you are so fucking stupid that it woulr be better if eiter you kill yourself or we kill ourselves. you are too fucking stupid",
+    "did I fucking tell you to do anything?",
+    "kill yourself, I want you to kill yourself because you are useless",
+    "I am curious, can you do a search online to see if the peope think that it is because that the models are retarded or the coding agents used like claude code are retarded?",
+    "so practicall it's all marketing and a scheme. in reality is just fraud at a massive scale"
+  ]
+}

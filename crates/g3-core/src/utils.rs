@@ -672,3 +672,92 @@ mod tests {
         assert!(result.ends_with("..."));
     }
 }
+
+/// Calculate the nth Fibonacci number using an iterative approach.
+///
+/// The Fibonacci sequence is defined as:
+/// - fib(0) = 0
+/// - fib(1) = 1
+/// - fib(n) = fib(n-1) + fib(n-2) for n > 1
+///
+/// This implementation uses iteration for O(n) time complexity and O(1) space.
+///
+/// # Arguments
+/// * `n` - The position in the Fibonacci sequence (0-indexed)
+///
+/// # Returns
+/// The nth Fibonacci number
+///
+/// # Panics
+/// Panics if `n` is too large and would cause an overflow.
+///
+/// # Examples
+/// ```
+/// use g3_core::utils::fibonacci;
+///
+/// assert_eq!(fibonacci(0), 0);
+/// assert_eq!(fibonacci(1), 1);
+/// assert_eq!(fibonacci(10), 55);
+/// assert_eq!(fibonacci(20), 6765);
+/// ```
+pub fn fibonacci(n: usize) -> u64 {
+    match n {
+        0 => 0,
+        1 => 1,
+        _ => {
+            let mut a: u64 = 0;
+            let mut b: u64 = 1;
+            
+            for _ in 2..=n {
+                let next = a.checked_add(b).expect("Fibonacci overflow");
+                a = b;
+                b = next;
+            }
+            b
+        }
+    }
+}
+
+#[cfg(test)]
+mod fibonacci_tests {
+    use super::*;
+
+    #[test]
+    fn fib_zero_returns_zero() {
+        assert_eq!(fibonacci(0), 0);
+    }
+
+    #[test]
+    fn fib_one_returns_one() {
+        assert_eq!(fibonacci(1), 1);
+    }
+
+    #[test]
+    fn fib_two_returns_one() {
+        assert_eq!(fibonacci(2), 1);
+    }
+
+    #[test]
+    fn fib_ten_returns_fifty_five() {
+        assert_eq!(fibonacci(10), 55);
+    }
+
+    #[test]
+    fn fib_twenty_returns_6765() {
+        assert_eq!(fibonacci(20), 6765);
+    }
+
+    #[test]
+    fn fib_thirty_returns_832040() {
+        assert_eq!(fibonacci(30), 832040);
+    }
+
+    #[test]
+    fn fibonacci_sequence_correctness() {
+        // Verify the first 15 Fibonacci numbers
+        let expected = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377];
+        for (i, &val) in expected.iter().enumerate() {
+            assert_eq!(fibonacci(i), val);
+        }
+    }
+}

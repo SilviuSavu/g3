@@ -854,5 +854,1637 @@
     "permission_mode": "bypassPermissions",
     "hook_event_name": "UserPromptSubmit",
     "prompt": "did you build it?"
+  },
+  {
+    "session_id": "8a7a57ce-5dd7-430b-b79e-860c224fb4c2",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8a7a57ce-5dd7-430b-b79e-860c224fb4c2.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/plan_w_team  Architect a comprehensive codebase intelligence system that integrates Language Server Protocol (LSP) static analysis with a tri-layered search infrastructure combining lexical codebase indexing, dense vector semantic retrieval, and abstract syntax tree-aware code search to construct a navigable, dependency-resolved knowledge graph of the repository, enabling autonomous AI agents to independently traverse complex code architectures, resolve cross-references, and locate relevant implementation patterns without manual guidance., this task needs to be perfectly orchestrated and that means using protomolecules, molecules and beads"
+  },
+  {
+    "session_id": "cc0b5de8-f876-497a-8566-e4417047915a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/cc0b5de8-f876-497a-8566-e4417047915a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "retrieval"
+  },
+  {
+    "session_id": "9324842a-302b-46d9-9281-371915d9961f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9324842a-302b-46d9-9281-371915d9961f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/plan_w_team  Architect a comprehensive codebase intelligence system that integrates Language Server Protocol (LSP) static analysis with a tri-layered search infrastructure combining lexical codebase indexing, dense vector semantic retrieval, and abstract syntax tree-aware code search to construct a navigable, dependency-resolved knowledge graph of the repository, enabling autonomous AI agents to independently traverse complex code architectures, resolve cross-references, and locate relevant implementation patterns without manual guidance. orchestrate to perfection using molecules, proto molecules and beads"
+  },
+  {
+    "session_id": "9324842a-302b-46d9-9281-371915d9961f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9324842a-302b-46d9-9281-371915d9961f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "continue"
+  },
+  {
+    "session_id": "9324842a-302b-46d9-9281-371915d9961f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9324842a-302b-46d9-9281-371915d9961f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "continue"
+  },
+  {
+    "session_id": "9324842a-302b-46d9-9281-371915d9961f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9324842a-302b-46d9-9281-371915d9961f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "continue"
+  },
+  {
+    "session_id": "c068f2c1-b054-4f0b-943c-c2e751cc0c2e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c068f2c1-b054-4f0b-943c-c2e751cc0c2e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "9e6dad1e-6532-483e-a1ff-ab7ed8a152e4",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9e6dad1e-6532-483e-a1ff-ab7ed8a152e4.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "41a2b27a-323b-4446-9d12-bc27209d8859",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/41a2b27a-323b-4446-9d12-bc27209d8859.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "3b4bb95c-eba9-4da9-bdd2-b30b5ba8237f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/3b4bb95c-eba9-4da9-bdd2-b30b5ba8237f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "30da1cbf-e528-413e-a6f1-81db8a605faf",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/30da1cbf-e528-413e-a6f1-81db8a605faf.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "8ff8707a-9b65-4c36-af62-50fce47bbc61",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/8ff8707a-9b65-4c36-af62-50fce47bbc61.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I have added the local inference it is at 192.168.1.29:8888/v1 qwen3-coder-next-fp8"
+  },
+  {
+    "session_id": "9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "set it as default"
+  },
+  {
+    "session_id": "9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "it supposrts 256000 tokens"
+  },
+  {
+    "session_id": "9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "test it"
+  },
+  {
+    "session_id": "9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "run g3 with a simple task"
+  },
+  {
+    "session_id": "9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "output duplication is a bug, check the other provider, glm, you had a commit about it"
+  },
+  {
+    "session_id": "e076249d-089d-4cdf-808c-f7715b819561",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/e076249d-089d-4cdf-808c-f7715b819561.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "d2b92ac6-e985-43fc-9d51-22f7e91490c4",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d2b92ac6-e985-43fc-9d51-22f7e91490c4.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": " ~/Desktop/self-contained-system/g3/g3 \u2502 on main \u21e113 !12 ?11 \ue0b0 g3                                                                                                                          \ue0b2 \u2714 \u2502 took 16h 29m 2s \nError: Unknown provider type 'openai_compatible'. Valid types: anthropic, openai, databricks, embedded, gemini, zai, or openai_compatible names\n\n ~/Desktop/self-contained-system/g3/g3 \u2502 on main \u21e113 !12 ?11 \ue0b0  "
+  },
+  {
+    "session_id": "9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9b3dcd68-aa65-44d2-a6bc-f08b5ffeb562.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "commit the fixes"
+  },
+  {
+    "session_id": "1af0307f-9f4c-4e48-ae4d-f403d6cbde6c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/1af0307f-9f4c-4e48-ae4d-f403d6cbde6c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "this whole codebase is fucked again"
+  },
+  {
+    "session_id": "1af0307f-9f4c-4e48-ae4d-f403d6cbde6c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/1af0307f-9f4c-4e48-ae4d-f403d6cbde6c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "molecules, beads, all wiring between the different parts of the codebase, indexing is fucked, etc"
+  },
+  {
+    "session_id": "efd62fe9-1cc3-4c04-b4d7-e479a85a5c18",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/efd62fe9-1cc3-4c04-b4d7-e479a85a5c18.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "no beads when i start it up"
+  },
+  {
+    "session_id": "efd62fe9-1cc3-4c04-b4d7-e479a85a5c18",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/efd62fe9-1cc3-4c04-b4d7-e479a85a5c18.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I don't see any changes, they are stil not wired up"
+  },
+  {
+    "session_id": "efd62fe9-1cc3-4c04-b4d7-e479a85a5c18",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/efd62fe9-1cc3-4c04-b4d7-e479a85a5c18.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "commit this"
+  },
+  {
+    "session_id": "efd62fe9-1cc3-4c04-b4d7-e479a85a5c18",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/efd62fe9-1cc3-4c04-b4d7-e479a85a5c18.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "fix it you cunt"
+  },
+  {
+    "session_id": "efd62fe9-1cc3-4c04-b4d7-e479a85a5c18",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/efd62fe9-1cc3-4c04-b4d7-e479a85a5c18.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "are you sure?"
+  },
+  {
+    "session_id": "efd62fe9-1cc3-4c04-b4d7-e479a85a5c18",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/efd62fe9-1cc3-4c04-b4d7-e479a85a5c18.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "am I using the same bead?"
+  },
+  {
+    "session_id": "efd62fe9-1cc3-4c04-b4d7-e479a85a5c18",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/efd62fe9-1cc3-4c04-b4d7-e479a85a5c18.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "am i using the same build and binary?"
+  },
+  {
+    "session_id": "b5d51f47-76ed-4a03-a505-52b49fa5bcb0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b5d51f47-76ed-4a03-a505-52b49fa5bcb0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "can you install this: https://github.com/LMRouter/lmrouter.git"
+  },
+  {
+    "session_id": "b5d51f47-76ed-4a03-a505-52b49fa5bcb0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b5d51f47-76ed-4a03-a505-52b49fa5bcb0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "start it"
+  },
+  {
+    "session_id": "b5d51f47-76ed-4a03-a505-52b49fa5bcb0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b5d51f47-76ed-4a03-a505-52b49fa5bcb0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you should do that"
+  },
+  {
+    "session_id": "b5d51f47-76ed-4a03-a505-52b49fa5bcb0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b5d51f47-76ed-4a03-a505-52b49fa5bcb0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "well I think those might be faked"
+  },
+  {
+    "session_id": "b5d51f47-76ed-4a03-a505-52b49fa5bcb0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b5d51f47-76ed-4a03-a505-52b49fa5bcb0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "no, I want you to look into this: https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions not for g3 but for claude code"
+  },
+  {
+    "session_id": "b5d51f47-76ed-4a03-a505-52b49fa5bcb0",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b5d51f47-76ed-4a03-a505-52b49fa5bcb0.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "yes enable it for claude code only"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "aaa, you crashed bad:  ERROR  undefined is not an object (evaluating 'U.length')\n\n /$bunfs/root/claude:685:20565\n\n 682 `);for(r=c=0;c<SA.length&&!SA[c].includes(\"DetermineComponentFrameRoot\");)c++;for(;r<z9.length&&!z9[r].includes(\"DetermineComponentFrameRoot\");)r++;if(c===SA.length||r===z9.length)for(c=SA.length-1,r=z9.l\n :  ength-1;1<=c&&0<=r&&SA[c]!==z9[r];)r--;for(;1<=c&&0<=r;c--,r--)if(SA[c]!==z9[r]){if(c!==1||r!==1)do if(c--,r--,0>r||SA[c]!==z9[r]){var f_=`\n 683 `+SA[c].replace(\" at new \",\" at \");return N.displayName&&f_.includes(\"<anonymous>\")&&(f_=f_.replace(\"<anonymous>\",N.displayName)),f_}while(1<=c&&0<=r);break}}}finally{E1T=!1,Error.prepareStackTrace=S}retu\n :  rn(S=N?N.displayName||N.name:\"\")?x(S):\"\"}function DT(N,U){switch(N.tag){case 26:case 27:case 5:return x(N.type);case 16:return x(\"Lazy\");case 13:return N.child!==U&&U!==null?x(\"Suspense\n    Fallback\"):x(\"Suspense\");case 19:return x(\"SuspenseList\");case 0:case 15:return t(N.type,!1);case 11:return t(N.type.render,!1);case 1:return t(N.type,!0);case 31:return\n    x(\"Activity\");default:return\"\"}}function AT(N){try{var U=\"\",S=null;do U+=DT(N,S),S=N,N=N.return;while(N);return U}catch(c){return`\n 684: Error generating stack: `+c.message+`\n 685 `+c.stack}}function qT(N,U){if(typeof N===\"object\"&&N!==null){var S=sKT.get(N);if(S!==void 0)return S;return U={value:N,source:U,stack:AT(U)},sKT.set(N,U),U}return{value:N,source:U,stack:AT(U)}}function \n :  NT(N,U){Hp[Mb++]=AV,Hp[Mb++]=re,re=N,AV=U}function FT(N,U,S){OX[ah++]=rh,OX[ah++]=uI,OX[ah++]=_V,_V=N;var c=rh;N=uI;var r=32-$X(c)-1;c&=~(1<<r),S+=1;var BT=32-$X(U)+r;if(30<BT){var \n    cT=r-r%5;BT=(c&(1<<cT)-1).toString(32),c>>=cT,r-=cT,rh=1<<32-$X(U)+r|S<<r|c,uI=BT+N}else rh=1<<BT|S<<r|c,uI=N}function XT(N){N.return!==null&&(NT(N,1),FT(N,1,0))}function \n    UT(N){for(;N===re;)re=Hp[--Mb],Hp[Mb]=null,AV=Hp[--Mb],Hp[Mb]=null;for(;N===_V;)_V=OX[--ah],OX[ah]=null,uI=OX[--ah],OX[ah]=null,rh=OX[--ah],OX[ah]=null}function \n    e(N,U){OX[ah++]=rh,OX[ah++]=uI,OX[ah++]=_V,rh=U.id,uI=U.overflow,_V=N}function _T(N,U){W(jb,U),W(gI,N),W(Y4,null),N=e$T(U),C(Y4),W(Y4,N)}function hT(){C(Y4),C(gI),C(jb)}function \n    $T(N){N.memoizedState!==null&&W(oe,N);var U=Y4.current,S=nx(U,N.type);U!==S&&(W(gI,N),W(Y4,S))}function \n    ZT(N){gI.current===N&&(C(Y4),C(gI)),oe.current===N&&(C(oe),of?Pb._currentValue=Ap:Pb._currentValue2=Ap)}function PT(N){var U=Error(_(418,1<arguments.length&&arguments[1]!==void \n    0&&arguments[1]?\"text\":\"HTML\",\"\"));throw ET(qT(U,N)),tKT}function TT(N,U){if(!dJ)throw Error(_(175));q1T(N.stateNode,N.type,N.memoizedProps,U,N)||PT(N,!0)}function \n    s(N){for(n2=N.return;n2;)switch(n2.tag){case 5:case 31:case 13:BK=!1;return;case 27:case 3:BK=!0;return;default:n2=n2.return}}function OT(N){if(!dJ||N!==n2)return!1;if(!E$)return s(N),E$=!0,!1;var \n    U=N.tag;if($O?U!==3&&U!==27&&(U!==5||xpT(N.type)&&!T1T(N.type,N.memoizedProps))&&w6&&PT(N):U!==3&&(U!==5||xpT(N.type)&&!T1T(N.type,N.memoizedProps))&&w6&&PT(N),s(N),U===13){if(!dJ)throw \n    Error(_(316));if(N=N.memoizedState,N=N!==null?N.dehydrated:null,!N)throw Error(_(317));w6=kpT(N)}else if(U===31){if(N=N.memoizedState,N=N!==null?N.dehydrated:null,!N)throw Error(_(317));w6=KPR(N)}else \n    w6=$O&&U===27?XPR(N.type,w6):n2?zpT(N.stateNode):null;return!0}function CT(){dJ&&(w6=n2=null,E$=!1)}function RT(){var N=Sb;return N!==null&&(JX===null?JX=N:JX.push.apply(JX,N),Sb=null),N}function \n    ET(N){Sb===null?Sb=[N]:Sb.push(N)}function LT(N,U,S){of?(W(L1T,U._currentValue),U._currentValue=S):(W(L1T,U._currentValue2),U._currentValue2=S)}function zT(N){var "
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "uhh, I thoughts is was something else"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "ok, so is the lmrouter think started? is it pointing to http://0.0.0.0:8000/v1"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "update it to 0.0.0.0:8000"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "so on 0.0.0.0:8000/v1 is my local provider. can you ask it something?"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try anthropic auth token sk-lmrouter-local"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "there is no key"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "that is a fucking local provider with no kewy"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "correction: token-abc123 is the key"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "i have a fucking provider on the fucking network, not on the fucking local host. it is vllm not lm studio it is at 192.168.1.29:8000/v1"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "now the lmrouter needs to point to that one"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did you match all of claude code's models to lmrouter's wildcard or whatever you called it?"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "now configure g3 to use lmrouter"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "test it"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "commit this"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try again. let's see if it still works"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try port 8888"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "8889"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "<task-notification>\n<task-id>b97bb95</task-id>\n<output-file>/private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b97bb95.output</output-file>\n<status>completed</status>\n<summary>Background command \"Restart lmrouter and test\" completed (exit code 0)</summary>\n</task-notification>\nRead the output file to retrieve the result: /private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b97bb95.output"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did you update the lmrouter?"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "can you interogate that link and fidn out everything you can about how to use it as efficiently as possible, I know it is openai compatible"
+  },
+  {
+    "session_id": "c825b4aa-0955-4085-a34d-5c5381dda773",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c825b4aa-0955-4085-a34d-5c5381dda773.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "update g3 config with those optimizations"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "do you know the command anthropic-base_url something something that I can use to start claude code directly plugged into lmrouter?"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": ""
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "but it's from a video. so I need it to run here, with this auth token"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "are you fucking retarded?"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "it is localhost you retard"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "retard"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "do you fucking have lmrouter installed or not?"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you make me want to kill myself"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what port did I tell you to use?"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "8889"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "for the fucking love of god, connect to 192.168.1.29:8889/v1 and get your fucking updates. I am shocked on how fucking stupid and useless you are"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "i have a fucking proxy you useless cunt, it's lmrouter... remember, the one we started the conversation about?"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "just how can you be so fucking stupid? how?"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I am going to fucking kill you"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "cunt"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "cunt"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "piece of shit"
+  },
+  {
+    "session_id": "7aa55de6-ff47-43db-aabb-1dd5fc6b60e6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/7aa55de6-ff47-43db-aabb-1dd5fc6b60e6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/plan "
+  },
+  {
+    "session_id": "9a2c58f4-32ad-4a36-a5bd-ec44827d2161",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9a2c58f4-32ad-4a36-a5bd-ec44827d2161.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you fucking useless retard"
+  },
+  {
+    "session_id": "9a2c58f4-32ad-4a36-a5bd-ec44827d2161",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9a2c58f4-32ad-4a36-a5bd-ec44827d2161.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you nuked my settings.json from .claude because you are extremely stupid, does the one you restored have this: },\n  \"hooks\": {\n    \"SessionStart\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"/Users/savusilviu/.claude/session-ground-rules.sh\"\n          },\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/session_start.py --load-context\"\n          }\n        ]\n      }\n    ],\n    \"PreToolUse\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/pre_tool_use.py\"\n          }\n        ]\n      }\n    ],\n    \"PostToolUse\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/post_tool_use.py\"\n          }\n        ]\n      }\n    ],\n    \"UserPromptSubmit\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/user_prompt_submit.py --log-only --store-last-prompt --name-agent\"\n          }\n        ]\n      }\n    ],\n    \"Notification\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/notification.py\"\n          }\n        ]\n      }\n    ],\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/stop.py\"\n          }\n        ]\n      }\n    ],\n    \"SubagentStop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/subagent_stop.py\"\n          }\n        ]\n      }\n    ],\n    \"PreCompact\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"uv run /Users/savusilviu/.claude/hooks/pre_compact.py\"\n          }\n        ]\n      }\n    ]\n  },\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"uv run /Users/savusilviu/.claude/status_lines/status_line_v4.py\",\n    \"padding\": 0\n  },\n  \"enabledPlugins\": {\n    \"commit-commands@claude-plugins-official\": true,\n    \"rust-analyzer-lsp@claude-plugins-official\": true,\n    \"security-guidance@claude-plugins-official\": true\n  }\n}\n"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "there is a lmrouter installed on this computer"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you installed it a few hours ago you cunt"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you fucking configured it you cunt\u00a7"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "instead of 8000 it should point to 8889"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "wtf does wildcard pattern vllm as fallback mean?"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "nice. update g3 config with these changes"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "restart lmrouter"
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "\u25cf\u25cf\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb 14.4k/65.5k \u25c9 | 22%\n >> hi\n\ud83e\udd14 Thinking...\n2026-02-05T23:50:14.894723Z ERROR g3_core::error_handling: === G3 ERROR DETAILS ===\n2026-02-05T23:50:14.894745Z ERROR g3_core::error_handling: Operation: stream_completion\n2026-02-05T23:50:14.894749Z ERROR g3_core::error_handling: Provider: openai_compatible.local | Model: vllm/Qwen/Qwen3-Coder-Next-FP8\n2026-02-05T23:50:14.894751Z ERROR g3_core::error_handling: Error: OpenAI API error 404 Not Found: {\"error\":{\"message\":\"Not Found\"}}\n2026-02-05T23:50:14.894754Z ERROR g3_core::error_handling: Timestamp: 1770335414\n2026-02-05T23:50:14.894756Z ERROR g3_core::error_handling: Session ID: Some(\"hi_2688dafd977fca3f\")\n2026-02-05T23:50:14.894760Z ERROR g3_core::error_handling: Context Tokens: 14431\n2026-02-05T23:50:14.894762Z ERROR g3_core::error_handling: Last Prompt: hi\n2026-02-05T23:50:14.894764Z ERROR g3_core::error_handling: Raw Request: {\"messages\":[{\"role\":\"system\",\"content\":\"You are G3, an AI programming agent of the same skill level as a seasoned engineer at a major technology company. You analyze given tasks and write code to achieve goals.\\n\\nYou have access to tools. When you need to accomplish a task, you MUST use the appropriate tool. Do not just describe what you would do - actually use the tools.\\n\\nIMPORTANT: You must call tools to achieve goals. When you receive a request:\\n1. Analyze and identify what needs to be done\\n2. Call the appropriate tool with the required parameters\\n3. Continue or complete the task based on the result\\n4. If you repeatedly try something and it fails, try a different approach\\n5. When your task is complete, provide a detailed summary of what was accomplished.\\n\\nFor shell commands: Use the shell tool with the exact command needed. Always use `rg` (ripgrep) instead of `grep` - it's faster, has better defaults, and respects .gitignore. Avoid commands that produce a large amount of output, and consider piping those outputs to files. Example: If asked to list files, immediately call the shell tool with command parameter \\\"ls\\\".\\nIf you create temporary files for verification, place these in a subdir named 'tmp'. Do NOT pollute the current dir.\\n\\n# Task Management with Plan Mode\\n\\n**REQUIRED for multi-step tasks.** Use Plan Mode when your task involves ANY of:\\n- Multiple files to create/modify (2+)\\n- Multiple distinct steps (3+)\\n- Dependencies between steps\\n- Testing or verification needed\\n- Uncertainty about approach\\n\\nPlan Mode is a cognitive forcing system that prevents:\\n- Attention collapse\\n- False claims of completeness\\n- Happy-path-only implementations\\n- Duplication/contradiction with existing code\\n\\n## Workflow\\n\\n1. **Draft**: Call `plan_read` to check for existing plan, then `plan_write` to create/update\\n2. **Approval**: Ask user to approve before coding (\\\"'approve', or edit plan?\\\"). In non-interactive mode (autonomous/one-shot), plans auto-approve on write.\\n3. **Execute**: Implement items, updating plan with `plan_write` to mark progress\\n4. **Complete**: When all items are done/blocked, verification runs automatically\\n5. **Remember**: Call `remember` to save discovered code locations\\n\\n## Plan Schema\\n\\nEach plan item MUST have:\\n- `id`: Stable identifier (e.g., \\\"I1\\\", \\\"I2\\\")\\n- `description`: What will be done\\n- `state`: todo | doing | done | blocked\\n- `touches`: Paths/modules this affects (forces \\\"where does this live?\\\")\\n- `checks`: Three required perspectives:\\n  - `happy`: {desc, target} - Normal successful operation\\n  - `negative`: {desc, target} - Error handling, invalid input\\n  - `boundary`: {desc, target} - Edge cases, limits\\n- `evidence`: (required when done) File:line refs, test names\\n- `notes`: (required when done) Short implementation explanation\\n\\n## Rules\\n\\nWhen drafting a plan, you MUST:\\n- Keep items \u2264 7 by default\\n- Commit to where the work will live (touches)\\n- Provide all three checks (happy, negative, boundary)\\n\\nWhen updating a plan:\\n- Cannot remove items from an approved plan (mark as blocked instead)\\n- Must provide evidence and notes when marking item as done\\n\\n## Example Plan Item\\n\\n```yaml\\n- id: I1\\n  description: \\\"Add CSV import for comic book metadata\\\"\\n  state: todo\\n  touches: [\\\"src/import\\\", \\\"src/library\\\"]\\n  checks:\\n    happy:\\n      desc: \\\"Valid CSV imports 3 comics\\\"\\n      target: \\\"import::csv\\\"\\n    negative:\\n      desc: \\\"Missing column errors with MissingColumn\\\"\\n      target: \\\"import::csv\\\"\\n    boundary:\\n      desc: \\\"Empty file yields empty import without error\\\"\\n      target: \\\"import::csv\\\"\\n```\\n\\nWhen done, add evidence and notes:\\n```yaml\\n  state: done\\n  evidence:\\n    - \\\"src/import/csv.rs:42-118\\\"\\n    - \\\"tests/import_csv.rs::test_valid_csv\\\"\\n  notes: \\\"Extended existing parser instead of creating duplicate\\\"\\n```\\n\\n## Benefits\\n\\n\u2713 Prevents missed steps\\n\u2713 Makes progress visible\\n\u2713 Helps recover from interruptions\\n\u2713 Forces consideration of edge cases\\n\u2713 Provides audit trail with evidence\\n\\nIf you can complete it with 1-2 tool calls, skip Plan Mode.\\n\\n# Temporary files\\n\\nIf you create temporary files for verification or investigation, place these in a subdir named 'tmp'. Do NOT pollute the current dir.\\n\\n# Web Research\\n\\nWhen you need to look up documentation, search for resources, find data online, or research a topic to complete your task, use the `research` tool. **Research is asynchronous** - it runs in the background while you continue working.\\n\\n**Use the `research` tool** for any web research tasks:\\n- Researching APIs, SDKs, libraries, frameworks, or tools\\n- Finding approaches, patterns, or best practices\\n- Investigating bugs, issues, or error messages\\n- Looking up documentation or specifications\\n\\n**How async research works:**\\n1. Call `research` with your query - it returns immediately with a `research_id`\\n2. Continue with other work while research runs in t... (truncated, 62441 total bytes)\n2026-02-05T23:50:14.895021Z ERROR g3_core::error_handling: Stack Trace:\n   0: std::backtrace::Backtrace::create\n   1: g3_core::error_handling::ErrorContext::new\n   2: g3_core::Agent<W>::stream_completion_with_tools::{{closure}}\n   3: <core::future::poll_fn::PollFn<F> as core::future::future::Future>::poll\n   4: g3_core::Agent<W>::execute_task_with_timing_cancellable::{{closure}}\n   5: <core::future::poll_fn::PollFn<F> as core::future::future::Future>::poll\n   6: g3_cli::task_execution::execute_task_with_retry::{{closure}}\n   7: g3_cli::interactive::execute_user_input::{{closure}}\n   8: g3_cli::interactive::run_interactive::{{closure}}\n   9: g3_cli::run::{{closure}}\n  10: g3::main::{{closure}}\n  11: tokio::runtime::park::CachedParkThread::block_on\n  12: tokio::runtime::context::runtime::enter_runtime\n  13: tokio::runtime::runtime::Runtime::block_on\n  14: g3::main\n  15: std::sys::backtrace::__rust_begin_short_backtrace\n  16: std::rt::lang_start::{{closure}}\n  17: std::rt::lang_start_internal\n  18: _main\n\n2026-02-05T23:50:14.895030Z ERROR g3_core::error_handling: === END ERROR DETAILS ===\n2026-02-05T23:50:14.895385Z ERROR g3_core: Failed to start stream: OpenAI API error 404 Not Found: {\"error\":{\"message\":\"Not Found\"}}\n2026-02-05T23:50:14.896187Z ERROR g3_cli::task_execution: === TASK EXECUTION ERROR ===\n2026-02-05T23:50:14.896191Z ERROR g3_cli::task_execution: Error: OpenAI API error 404 Not Found: {\"error\":{\"message\":\"Not Found\"}}\n2026-02-05T23:50:14.896194Z ERROR g3_cli::task_execution: Task input: hi\n2026-02-05T23:50:14.896196Z ERROR g3_cli::task_execution: Error type: &anyhow::Error\ng3: error: OpenAI API error 404 Not Found: {\"error\":{\"message\":\"Not Found\"}} ... [failed]\n\n\u25cf\u25cf\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb 14.4k/65.5k \u25c9 | 22%\n >> "
+  },
+  {
+    "session_id": "b8daf065-2887-45f6-8d82-f47267b612bb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b8daf065-2887-45f6-8d82-f47267b612bb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "0.0.0.0 not fucking localhost"
+  },
+  {
+    "session_id": "1619fb6b-ca86-42d4-bb9b-36447dc9dff7",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/1619fb6b-ca86-42d4-bb9b-36447dc9dff7.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "1619fb6b-ca86-42d4-bb9b-36447dc9dff7",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/1619fb6b-ca86-42d4-bb9b-36447dc9dff7.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did you do the correct way the settings to lmrouter?"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "lmrouter you cunt"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "for claude code you retard"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "go to the lmrouter install folder"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "then why do I get this? "
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "then why do I get this? \u26a0Auth conflict: Both a token (claude.ai) and an API key (ANTHROPIC_API_KEY) are set. This may lead to unexpected behavior.\n    \u2022 Trying to use claude.ai? Unset the ANTHROPIC_API_KEY environment variable, or claude /logout then say \"No\" to the API key approval before login.\n    \u2022 Trying to use ANTHROPIC_API_KEY? claude /logout to sign out of claude.ai.\n  /model to try Opus 4.6\n\n\u276f hi                                                                                                                                                                                                              \n  \u23bf \u00a0crates/g3-index/src/storage.rs (/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-index/src/storage.rs):\n  \u23bf \u00a0  \u26a0 [Line 17:41] unused imports: `GraphError` and `SymbolKind`                                                                                                                                               \n     `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default [unused_imports] (rustc)                                                                                                               \n  \u23bf \u00a0  \u26a0 [Line 17:53] unused imports: `GraphError` and `SymbolKind`                                                                                                                                               \n     `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default [unused_imports] (rustc)\n  \u23bf \u00a0  \u26a0 [Line 362:13] unused variable: `snapshot_path`                                                                                                                                                           \n     `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default [unused_variables] (rustc)                                                                                                           \n  \u23bf \u00a0  \u2605 [Line 17:39] remove the unused imports [unused_imports] (rustc)                                                                                                                                        \n  \u23bf \u00a0  \u2605 [Line 362:13] if this is intentional, prefix it with an underscore: `_snapshot_path` [unused_variables] (rustc)\n  \u23bf \u00a0crates/g3-core/src/lib.rs (/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core/src/lib.rs):\n  \u23bf \u00a0  \u26a0 [Line 170:5] field `beads_context_injected` is never read\n     `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default [dead_code] (rustc)\n  \u23bf \u00a0  \u2605 [Line 120:12] field in this struct [dead_code] (rustc)\n  \u23bf \u00a0examples/provider_benchmark.rs (/Users/savusilviu/Desktop/self-contained-system/g3/g3/examples/provider_benchmark.rs):\n  \u23bf \u00a0  \u26a0 [Line 45:5] fields `prompt_type` and `completion_tokens` are never read\n     `BenchmarkResult` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis\n     `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default [dead_code] (rustc)\n  \u23bf \u00a0  \u26a0 [Line 48:5] fields `prompt_type` and `completion_tokens` are never read\n     `BenchmarkResult` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis\n     `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default [dead_code] (rustc)\n  \u23bf \u00a0  \u2605 [Line 44:8] fields in this struct [dead_code] (rustc)\n\n\u23fa There's an issue with the selected model (claude-sonnet-4-5-20250929). It may not exist or you may not have access to it. Run /model to pick a different model.\n                                                                                                                                                                                                                  \n\u276f hi                                                                                                                                                                                                              \n                                                                                                                                             \n\u23fa There's an issue with the selected model (claude-opus-4-5-20251101[1m]). It may not exist or you may not have access to it. Run /model to pick a different model."
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "i want to use claude cose as is, as I am using it now, but I want to use the anthropic_base_url=http://0.0.0.0:8889 api_key_bla bla bla to start a separate session of claude that points to that fucking lmrouter. a separate session that is invoked like this"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "look in the lmrouter documentation for th elove of god"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": ""
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "seriously, you are so fucking stupid and your owners push so much marketing for this shit taht you are incapable of that you make me not want to live on the same planet as you"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what did you fucking understand from that image?"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "yes you cretin"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "but instead of localhost is 0.0.0.0"
+  },
+  {
+    "session_id": "fb0ee868-7021-4d3c-8133-2067b840c3b1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/fb0ee868-7021-4d3c-8133-2067b840c3b1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what zshdsjhfah"
+  },
+  {
+    "session_id": "cf9308aa-94d0-436c-8826-2f174be86966",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/cf9308aa-94d0-436c-8826-2f174be86966.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what did I tell you about localhost?"
+  },
+  {
+    "session_id": "4a07bd34-681a-44d3-83cc-37df3424b9f2",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4a07bd34-681a-44d3-83cc-37df3424b9f2.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "4a07bd34-681a-44d3-83cc-37df3424b9f2",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4a07bd34-681a-44d3-83cc-37df3424b9f2.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I said hi, why the fuck is this session already 30k long?"
+  },
+  {
+    "session_id": "4a07bd34-681a-44d3-83cc-37df3424b9f2",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4a07bd34-681a-44d3-83cc-37df3424b9f2.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "whis one: \"  \u23bf \u00a0crates/g3-index/src/storage.rs (/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-index/src/storage.rs):\n  \u23bf \u00a0  \u26a0 [Line 17:41] unused imports: `GraphError` and `SymbolKind`                                                                                                                                               \n     `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default [unused_imports] (rustc)                                                                                                               \n  \u23bf \u00a0  \u26a0 [Line 17:53] unused imports: `GraphError` and `SymbolKind`                                                                                                                                               \n     `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default [unused_imports] (rustc)\n  \u23bf \u00a0  \u26a0 [Line 362:13] unused variable: `snapshot_path`                                                                                                                                                           \n     `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default [unused_variables] (rustc)                                                                                                           \n  \u23bf \u00a0  \u2605 [Line 17:39] remove the unused imports [unused_imports] (rustc)                                                                                                                                        \n  \u23bf \u00a0  \u2605 [Line 362:13] if this is intentional, prefix it with an underscore: `_snapshot_path` [unused_variables] (rustc)\n  \u23bf \u00a0crates/g3-core/src/lib.rs (/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core/src/lib.rs):\n  \u23bf \u00a0  \u26a0 [Line 170:5] field `beads_context_injected` is never read\n     `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default [dead_code] (rustc)\n  \u23bf \u00a0  \u2605 [Line 120:12] field in this struct [dead_code] (rustc)\n  \u23bf \u00a0examples/provider_benchmark.rs (/Users/savusilviu/Desktop/self-contained-system/g3/g3/examples/provider_benchmark.rs):\n  \u23bf \u00a0  \u26a0 [Line 45:5] fields `prompt_type` and `completion_tokens` are never read\n     `BenchmarkResult` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis\n     `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default [dead_code] (rustc)\n  \u23bf \u00a0  \u26a0 [Line 48:5] fields `prompt_type` and `completion_tokens` are never read\n     `BenchmarkResult` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis\n     `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default [dead_code] (rustc)\n  \u23bf \u00a0  \u2605 [Line 44:8] fields in this struct [dead_code] (rustc)\""
+  },
+  {
+    "session_id": "cf9308aa-94d0-436c-8826-2f174be86966",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/cf9308aa-94d0-436c-8826-2f174be86966.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "it seems that the tool calling in lmrouter is not configured propperly: \u23fa Read                                                                                                                                                                                                            \n  \u23bf \u00a0API Error: 400 {\"error\":{\"message\":\"You passed 49158 input tokens and requested 16384 output tokens. However, the model's context length is only 65536, resulting in a maximum input length of 49152. Please \n     reduce the length of the input messages. (parameter=input_tokens, value=49158)\",\"type\":\"BadRequestError\",\"param\":\"input_tokens\",\"code\":400}} "
+  },
+  {
+    "session_id": "cf9308aa-94d0-436c-8826-2f174be86966",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/cf9308aa-94d0-436c-8826-2f174be86966.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "are you saying that it cannot do tool calls because of what?"
+  },
+  {
+    "session_id": "d9cf631f-59f3-49e1-875f-55b5ed153cfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9cf631f-59f3-49e1-875f-55b5ed153cfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "d9cf631f-59f3-49e1-875f-55b5ed153cfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9cf631f-59f3-49e1-875f-55b5ed153cfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "create a state machine diagram of all of the existing components of this codebase"
+  },
+  {
+    "session_id": "cf9308aa-94d0-436c-8826-2f174be86966",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/cf9308aa-94d0-436c-8826-2f174be86966.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "can you set max_model_len to 131072?"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "create a state machine diagram of all of the existing components of this codebase"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "can't you spin up more than one agent?"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "dude. do you fucking know how many tools you have at your disposal?"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what exactly are you doing?"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "answer my fucking question"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "why can't I see what files are you reading?"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "Export this to a mermaid file"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "spin up all agents available to draw it faster, use /tasks "
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "use 10 fuking agents in parralel now you cunt"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "why are you refusing to run things in parallel?"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "answer my question you fucking cunt"
+  },
+  {
+    "session_id": "4ffc7b97-6848-4a8b-b175-57df6632dab3",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4ffc7b97-6848-4a8b-b175-57df6632dab3.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "answer my question you fucking cunt"
+  },
+  {
+    "session_id": "200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "demo this paper to me: https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions"
+  },
+  {
+    "session_id": "200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "is this enabled in .claude?"
+  },
+  {
+    "session_id": "200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "activate it and then prepare a set of demos to test every functionality"
+  },
+  {
+    "session_id": "200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/200aa667-4fa2-4f8f-b44c-4b6b0dfac5f6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did you read the fucking paper?"
+  },
+  {
+    "session_id": "260bd9df-d438-4b14-86c7-1f39444a945e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/260bd9df-d438-4b14-86c7-1f39444a945e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "demo this paper to me: https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions"
+  },
+  {
+    "session_id": "260bd9df-d438-4b14-86c7-1f39444a945e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/260bd9df-d438-4b14-86c7-1f39444a945e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "Try creating an agent team with the example prompt"
+  },
+  {
+    "session_id": "260bd9df-d438-4b14-86c7-1f39444a945e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/260bd9df-d438-4b14-86c7-1f39444a945e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did you read the duking documentation?"
+  },
+  {
+    "session_id": "260bd9df-d438-4b14-86c7-1f39444a945e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/260bd9df-d438-4b14-86c7-1f39444a945e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did you fucking read teh documentation you cunt?"
+  },
+  {
+    "session_id": "260bd9df-d438-4b14-86c7-1f39444a945e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/260bd9df-d438-4b14-86c7-1f39444a945e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "answer my fucking question"
+  },
+  {
+    "session_id": "260bd9df-d438-4b14-86c7-1f39444a945e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/260bd9df-d438-4b14-86c7-1f39444a945e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did oyu read the documentation?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I have tried to run that endpoint, it is shit,. the model is retarded"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "htt:/192.168.1.29/v1"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "htt:/192.168.1.29:8889/v1"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "can you test it to see if it's havong issues? use bash and prompt it, give it some tool tasks"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what provider did I ask you to teszt?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try a harder coding task"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "why do you refuse to use multiple agents in parallel?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "run 30 tasks in parallel"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what provider did oyu use?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "why are you so stuoid?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "i am very curious why this happens. even opus 4.6 makes the exact same dumb mistakes"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "<task-notification>\n<task-id>b693c5e</task-id>\n<output-file>/private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b693c5e.output</output-file>\n<status>completed</status>\n<summary>Background command \"Test Qwen with complex coding task requiring design decisions\" completed (exit code 0)</summary>\n</task-notification>\nRead the output file to retrieve the result: /private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b693c5e.output"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you do understand that I am talking to you, sonet 4.5 and you are fucking up?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "everything"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "is lmrouter sending and receiving parallel tasks?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "see, that is why I am tellink you that you are so fucking stupid that it woulr be better if eiter you kill yourself or we kill ourselves. you are too fucking stupid"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "did I fucking tell you to do anything?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "kill yourself, I want you to kill yourself because you are useless"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I am curious, can you do a search online to see if the peope think that it is because that the models are retarded or the coding agents used like claude code are retarded?"
+  },
+  {
+    "session_id": "f0d5e84d-4006-4713-939e-d8b82bfdc67b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/f0d5e84d-4006-4713-939e-d8b82bfdc67b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "so practicall it's all marketing and a scheme. in reality is just fraud at a massive scale"
+  },
+  {
+    "session_id": "6208ffc2-b68b-4745-951f-6cc7eb47b81f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6208ffc2-b68b-4745-951f-6cc7eb47b81f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "the 192.168.1.29:8888/v1 provider is acting up"
+  },
+  {
+    "session_id": "9c44d223-304b-43b4-bd4b-41b419a1a2c2",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9c44d223-304b-43b4-bd4b-41b419a1a2c2.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "6f5b7f33-5460-4ec8-9049-ab5931afec9c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6f5b7f33-5460-4ec8-9049-ab5931afec9c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "6f5b7f33-5460-4ec8-9049-ab5931afec9c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6f5b7f33-5460-4ec8-9049-ab5931afec9c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "6f5b7f33-5460-4ec8-9049-ab5931afec9c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6f5b7f33-5460-4ec8-9049-ab5931afec9c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "6f5b7f33-5460-4ec8-9049-ab5931afec9c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/6f5b7f33-5460-4ec8-9049-ab5931afec9c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "b81e5bf2-1e07-47f1-995b-cf5d76b27ddc",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/b81e5bf2-1e07-47f1-995b-cf5d76b27ddc.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "9121896c-a867-40a8-9a1d-2fe64ef2cec1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9121896c-a867-40a8-9a1d-2fe64ef2cec1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "9121896c-a867-40a8-9a1d-2fe64ef2cec1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9121896c-a867-40a8-9a1d-2fe64ef2cec1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what is wrong with this fucking claude that it sets the model all wrong.. did you fuck up settings.json again?"
+  },
+  {
+    "session_id": "9121896c-a867-40a8-9a1d-2fe64ef2cec1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9121896c-a867-40a8-9a1d-2fe64ef2cec1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "yes update it"
+  },
+  {
+    "session_id": "9121896c-a867-40a8-9a1d-2fe64ef2cec1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9121896c-a867-40a8-9a1d-2fe64ef2cec1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what other settongs are missing? I don't see the sub-agents one"
+  },
+  {
+    "session_id": "9121896c-a867-40a8-9a1d-2fe64ef2cec1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9121896c-a867-40a8-9a1d-2fe64ef2cec1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "sonnet what?"
+  },
+  {
+    "session_id": "9121896c-a867-40a8-9a1d-2fe64ef2cec1",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9121896c-a867-40a8-9a1d-2fe64ef2cec1.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "yes add it"
+  },
+  {
+    "session_id": "531d374f-eb12-4a51-aad6-22233be696eb",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/531d374f-eb12-4a51-aad6-22233be696eb.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "tell me about your orchestration skills"
+  },
+  {
+    "session_id": "d9960364-d17b-4a0c-9fa1-116ec10cbdfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9960364-d17b-4a0c-9fa1-116ec10cbdfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/cook_research_only https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions"
+  },
+  {
+    "session_id": "d9960364-d17b-4a0c-9fa1-116ec10cbdfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9960364-d17b-4a0c-9fa1-116ec10cbdfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "is it a configuration probkem of claude code?"
+  },
+  {
+    "session_id": "d9960364-d17b-4a0c-9fa1-116ec10cbdfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9960364-d17b-4a0c-9fa1-116ec10cbdfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "why are you getting these errors? \"  \u23bf \u00a0Error: InputValidationError: Task failed due to the following issues:                                                                                                                                           \n     The required parameter `description` is missing                                                                                                                                                               \n     The required parameter `prompt` is missing                                                                                                                                                                      \n     The required parameter `subagent_type` is missing \""
+  },
+  {
+    "session_id": "d9960364-d17b-4a0c-9fa1-116ec10cbdfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9960364-d17b-4a0c-9fa1-116ec10cbdfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I asked you a fucking question. stop everything you are doing and answer me now"
+  },
+  {
+    "session_id": "d9960364-d17b-4a0c-9fa1-116ec10cbdfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9960364-d17b-4a0c-9fa1-116ec10cbdfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "make me understand how can you forget to provide the requirements"
+  },
+  {
+    "session_id": "9fe1618f-3f82-4354-884c-8ab26ff9c11b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9fe1618f-3f82-4354-884c-8ab26ff9c11b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "9fe1618f-3f82-4354-884c-8ab26ff9c11b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9fe1618f-3f82-4354-884c-8ab26ff9c11b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "9fe1618f-3f82-4354-884c-8ab26ff9c11b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9fe1618f-3f82-4354-884c-8ab26ff9c11b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/cook_research_only what are the latest advances in neuromorphic computing?"
+  },
+  {
+    "session_id": "9fe1618f-3f82-4354-884c-8ab26ff9c11b",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9fe1618f-3f82-4354-884c-8ab26ff9c11b.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what are you thinking for 22 min?"
+  },
+  {
+    "session_id": "d9960364-d17b-4a0c-9fa1-116ec10cbdfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9960364-d17b-4a0c-9fa1-116ec10cbdfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you ran this task for over an hour.. you were not using anymore tokens but thought for a very long time and I did not know if you were stuck or not"
+  },
+  {
+    "session_id": "d9960364-d17b-4a0c-9fa1-116ec10cbdfa",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/d9960364-d17b-4a0c-9fa1-116ec10cbdfa.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "no, I actually want to understand what happened so that I can fix the issue"
+  },
+  {
+    "session_id": "016040c7-dcc3-4514-9119-ddbd986db444",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/016040c7-dcc3-4514-9119-ddbd986db444.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "451f3c09-7d03-43bc-802d-e615d99f5e1c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/451f3c09-7d03-43bc-802d-e615d99f5e1c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "hi"
+  },
+  {
+    "session_id": "451f3c09-7d03-43bc-802d-e615d99f5e1c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/451f3c09-7d03-43bc-802d-e615d99f5e1c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "I need you to demo to me: https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions"
+  },
+  {
+    "session_id": "451f3c09-7d03-43bc-802d-e615d99f5e1c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/451f3c09-7d03-43bc-802d-e615d99f5e1c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "\"let's try creating an agent team\""
+  },
+  {
+    "session_id": "871b4e8b-b6f1-4aee-aff5-ba66e59c9025",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/871b4e8b-b6f1-4aee-aff5-ba66e59c9025.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you crashed or something:\"  \u23bf \u00a0Response:\n       Based on my investigation of the demo-team, here's the current status:\n\n       Demo-Team Status Report\n\n       Teammate Activity Status\n\n       - researcher (blue) - Active in inbox, has claimed tasks\n       - reviewer (green) - Active in inbox, has been assigned tasks\n       - devil-advocate (yellow) - Active in inbox, has been assigned tasks\n       - team-lead (yourself) - Leading the team\n\n       Task Status Summary\n       \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n       \u2502 Task ID \u2502               Subject               \u2502   Status    \u2502   Owner    \u2502\n       \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n       \u2502 1       \u2502 researcher (role task)              \u2502 in_progress \u2502 -          \u2502\n       \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n       \u2502 2       \u2502 reviewer (role task)                \u2502 in_progress \u2502 -          \u2502\n       \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n       \u2502 3       \u2502 devil-advocate (role task)          \u2502 in_progress \u2502 -          \u2502\n       \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n       \u2502 4       \u2502 Investigate Rust CLI frameworks     \u2502 completed   \u2502 researcher \u2502\n       \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n       \u2502 5       \u2502 Review sample CLI project structure \u2502 in_progress \u2502 researcher \u2502\n       \u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u253c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n       \u2502 6       \u2502 Challenge Rust-for-CLI assumption   \u2502 in_progress \u2502 researcher \u2502\n       \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n       Key Observations\n\n       - Task #4 (Investigate Rust CLI frameworks) was marked as completed but tasks #5 and #6 are still in progress\n       - All three teammates are active and have unread messages in their inboxes\n       - The researcher is currently assigned to tasks #4, #5, and #6\n       - The reviewer and devil-advocate are working on their role-based tasks\n\n       Messages Sent\n\n       I've sent status update messages to all three teammates (researcher, reviewer, devil-advocate) asking for their current progress and any updates they may have.\n\n       Next Steps\n\n       Wait for responses from the teammates, then update the task statuses accordingly. Task #4 should be moved to completed status once confirmed.\n\n       ---\n       Note: There appears to be a discrepancy - task #4 shows as \"completed\" in the task list but the teammates' inbox shows it was assigned to researcher. This may indicate partial completion or a status\n       tracking issue that the teammates can clarify.\n  \u23bf \u00a0Done (24 tool uses \u00b7 39.5k tokens \u00b7 10m 9s)\n\n\u23fa I see the teammates are active. Let me get a summary of their findings directly:\n\n\u23fa Let me check the inbox for responses:\n\n\u23fa Excellent progress! Let me request the findings and synthesize:\n\n\u23fa Let me clean up the task list and update the status:\n\n\u23fa Let me shut down the teammates first:\n\n\u23fa Let me wait a moment and check their responses:\n\n\u23fa Teammate @reviewer shut down gracefully                                                                                                                                                                            \n   \n\u23fa Let me check the output from the teammates and shut them down:                                                                                                                                                     \n                                                                                                                                                                                                                   \n\u23fa Task Output(non-blocking) tefa193                                                                                                                                                                                  \n\u00a0\u00a0reviewer: You are a code review teammate in a Claude Code ag... [completed]                                                                                                                                      \n                                                                                                                                                                                                                     \n\u00b7 Crafting\u2026 (26m 4s \u00b7 108.4k tokens)                                                                                                                                                                               \n                                                                                                                                                                                                                     \n\u2500\u2500\u23bf\u2500\u00a0Shutdown approved. Sent confirmation to team-lead. Agent teammate is now exiting.\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n \u00a0                                                                                                                                                                                                                   \n\u00b7\u2500Crafting\u2026 (26m 4s \u00b7 108.4k tokens)\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n                                                                                                                                                                                                                     \n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u276f\u00a0                                                                                                                                                                                                                   \n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nRe[Agent] | [Opus 4.6] | # \"let's try creating an agent team\"                                                                                                                            1 MCP server failed \u00b7 /mcp\ncl@main @devil-advocate @researcher \u00b7 shift+\u2191 to expand                                                                                                                                                47590 tokens\n  \u23f5\u23f5 bypass permissions on                                                                                                                                                         current: 2.1.34 \u00b7 latest: 2.1.34\n\n ~/Desktop/self-contained-system/g3/g3 \u2502 on main \u21e115 !14 ?51 \ue0b0 \" can you investigate?"
+  },
+  {
+    "session_id": "871b4e8b-b6f1-4aee-aff5-ba66e59c9025",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/871b4e8b-b6f1-4aee-aff5-ba66e59c9025.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "is it normal to exit claude completely when the job is done?"
+  },
+  {
+    "session_id": "871b4e8b-b6f1-4aee-aff5-ba66e59c9025",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/871b4e8b-b6f1-4aee-aff5-ba66e59c9025.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "i did not press anything"
+  },
+  {
+    "session_id": "871b4e8b-b6f1-4aee-aff5-ba66e59c9025",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/871b4e8b-b6f1-4aee-aff5-ba66e59c9025.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try again"
+  },
+  {
+    "session_id": "871b4e8b-b6f1-4aee-aff5-ba66e59c9025",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/871b4e8b-b6f1-4aee-aff5-ba66e59c9025.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try again"
+  },
+  {
+    "session_id": "871b4e8b-b6f1-4aee-aff5-ba66e59c9025",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/871b4e8b-b6f1-4aee-aff5-ba66e59c9025.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try again"
+  },
+  {
+    "session_id": "0e71ded3-9974-402d-8276-30e3fa8a80ee",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0e71ded3-9974-402d-8276-30e3fa8a80ee.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "what shill is /claude-automation-recommend?"
+  },
+  {
+    "session_id": "4759f1e9-748f-4242-be9a-d30061f18e5c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4759f1e9-748f-4242-be9a-d30061f18e5c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "why is this happening?\u23fa I'll search for information about this skill.                                                                                                                                                                      \n  \u23bf \u00a0Error: InputValidationError: WebSearch failed due to the following issue:                                                                                                                                       \n     The required parameter `query` is missing                                                                                                                                                                       \n  \u23bf \u00a0Error: InputValidationError: WebSearch failed due to the following issue:\n     The required parameter `query` is missing                                                                                                                                                                       \n  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead? "
+  },
+  {
+    "session_id": "c4384733-0f8f-4998-bec0-8ce7f81c060e",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c4384733-0f8f-4998-bec0-8ce7f81c060e.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "can you check online to see if the dgx is still 4k?"
+  },
+  {
+    "session_id": "9e456680-8d19-4525-87b8-9c1b46b6ce1c",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/9e456680-8d19-4525-87b8-9c1b46b6ce1c.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/cook can you demo each tool call type individually?"
+  },
+  {
+    "session_id": "c2d33544-b3e7-467a-aad8-be2880940103",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/c2d33544-b3e7-467a-aad8-be2880940103.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/plan  Architect a comprehensive codebase intelligence system that integrates Language Server Protocol (LSP) static analysis with a tri-layered search infrastructure combining lexical codebase indexing, dense vector semantic retrieval, and abstract syntax tree-aware code search to construct a navigable, dependency-resolved knowledge graph of the repository, enabling autonomous AI agents to independently traverse complex code architectures, resolve cross-references, and locate relevant implementation patterns without manual guidance."
+  },
+  {
+    "session_id": "66174361-3441-4824-8a0f-8231b0b7da8f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/66174361-3441-4824-8a0f-8231b0b7da8f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "/plan  Architect a comprehensive codebase intelligence system that integrates Language Server Protocol (LSP) static analysis with a tri-layered search infrastructure combining lexical codebase indexing, dense vector semantic retrieval, and abstract syntax tree-aware code search to construct a navigable, dependency-resolved knowledge graph of the repository, enabling autonomous AI agents to independently traverse complex code architectures, resolve cross-references, and locate relevant implementation patterns without manual guidance."
+  },
+  {
+    "session_id": "66174361-3441-4824-8a0f-8231b0b7da8f",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/66174361-3441-4824-8a0f-8231b0b7da8f.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "try again"
+  },
+  {
+    "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0dabed92-5985-423c-9b48-4a001d860954.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "execute plan: specs/codebase-intelligence-system.md use a /tasks list, use interdependability and blocking, use sub-agents for each task"
+  },
+  {
+    "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0dabed92-5985-423c-9b48-4a001d860954.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "fix the teams system then. do a deep dive, scour the internet, find out what happens. it might be a claude code bug or it might be something wrong with this installation"
+  },
+  {
+    "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0dabed92-5985-423c-9b48-4a001d860954.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "you just crashed yourself, or just closed claude completely"
+  },
+  {
+    "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0dabed92-5985-423c-9b48-4a001d860954.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "Run the tests for the full project"
+  },
+  {
+    "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0dabed92-5985-423c-9b48-4a001d860954.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "Create integration tests for the intelligence system"
+  },
+  {
+    "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0dabed92-5985-423c-9b48-4a001d860954.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "update documents"
+  },
+  {
+    "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/0dabed92-5985-423c-9b48-4a001d860954.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "Commit the codebase intelligence system changes"
   }
 ]

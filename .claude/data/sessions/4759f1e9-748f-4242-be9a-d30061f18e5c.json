@@ -1,0 +1,6 @@
+{
+  "session_id": "4759f1e9-748f-4242-be9a-d30061f18e5c",
+  "prompts": [
+    "why is this happening?\u23fa I'll search for information about this skill.                                                                                                                                                                      \n  \u23bf \u00a0Error: InputValidationError: WebSearch failed due to the following issue:                                                                                                                                       \n     The required parameter `query` is missing                                                                                                                                                                       \n  \u23bf \u00a0Error: InputValidationError: WebSearch failed due to the following issue:\n     The required parameter `query` is missing                                                                                                                                                                       \n  \u23bf \u00a0Interrupted \u00b7 What should Claude do instead? "
+  ]
+}

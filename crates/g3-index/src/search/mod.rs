@@ -111,14 +111,14 @@ pub fn reciprocal_rank_fusion(
 }
 
 /// Hybrid searcher combining vector and BM25 search.
-pub struct HybridSearcher<E: EmbeddingProvider> {
+pub struct HybridSearcher<E: EmbeddingProvider + ?Sized> {
     config: SearchConfig,
     embeddings: Arc<E>,
     qdrant: QdrantClient,
     bm25_index: Arc<RwLock<BM25Index>>,
 }
 
-impl<E: EmbeddingProvider> HybridSearcher<E> {
+impl<E: EmbeddingProvider + ?Sized> HybridSearcher<E> {
     /// Create a new hybrid searcher.
     pub fn new(
         config: SearchConfig,

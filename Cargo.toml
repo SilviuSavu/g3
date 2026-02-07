@@ -2,6 +2,7 @@
 members = [
     "crates/g3-cli",
     "crates/g3-core",
+    "crates/playground",
     "crates/g3-planner",
     "crates/g3-providers",
     "crates/g3-config",
@@ -9,7 +10,7 @@ members = [
     "crates/g3-computer-control",
     "crates/g3-index",
     "crates/g3-lsp",
-    "crates/studio"
+    "crates/studio",
 ]
 resolver = "2"
 
@@ -28,7 +29,7 @@ anyhow = "1.0"
 thiserror = "1.0"
 # Logging
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Configuration
 config = "0.14"
 # Utilities

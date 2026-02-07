@@ -1,0 +1,55 @@
+<svg width="500" height="180" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+  <rect width="100%" height="100%" fill="white"/>
+
+  <!-- Initial state marker -->
+  <circle cx="20" cy="90" r="6" fill="#1565c0"/>
+  <path d="M26 90 L60 90" stroke="black" stroke-width="1.5"/>
+
+  <!-- State 1: Prose -->
+  <rect x="60" y="70" width="80" height="40" rx="8" ry="8" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>
+  <text x="100" y="95" font-size="12" text-anchor="middle" fill="#333">Prose</text>
+
+  <!-- State 2: SawOpenBrace -->
+  <rect x="200" y="70" width="140" height="40" rx="8" ry="8" fill="#fff9c4" stroke="#f9a825" stroke-width="2"/>
+  <text x="270" y="95" font-size="12" text-anchor="middle" fill="#333">SawOpenBrace</text>
+
+  <!-- State 3: ToolCall -->
+  <rect x="380" y="70" width="90" height="40" rx="8" ry="8" fill="#c8e6c9" stroke="#388e3c" stroke-width="2"/>
+  <text x="425" y="95" font-size="12" text-anchor="middle" fill="#333">ToolCall</text>
+
+  <!-- Transitions -->
+  <g stroke="black" stroke-width="1.5" fill="none" marker-end="url(#arrow)">
+    <!-- Initial to Prose -->
+    <path d="M26 90 L60 90"/>
+
+    <!-- Prose to Prose -->
+    <path d="M140 60 C180 20 220 20 260 60" stroke="black"/>
+    <text x="200" y="20" font-size="10" text-anchor="middle" fill="#666">Normal content</text>
+
+    <!-- Prose to SawOpenBrace -->
+    <path d="M140 90 L200 90"/>
+    <text x="170" y="80" font-size="10" text-anchor="middle" fill="#666">Saw '{'</text>
+
+    <!-- SawOpenBrace to Prose -->
+    <path d="M240 120 C200 150 160 150 120 120" stroke="black"/>
+    <text x="200" y="160" font-size="10" text-anchor="middle" fill="#666">Not a tool call</text>
+
+    <!-- SawOpenBrace to ToolCall -->
+    <path d="M270 110 L270 130 L330 130 L330 110"/>
+    <text x="300" y="145" font-size="10" text-anchor="middle" fill="#666">Confirmed tool call pattern</text>
+
+    <!-- ToolCall to ToolCall -->
+    <path d="M470 60 C510 20 530 20 470 60" stroke="black"/>
+    <text x="500" y="20" font-size="10" text-anchor="middle" fill="#666">Inside JSON</text>
+
+    <!-- ToolCall to Prose -->
+    <path d="M425 110 L340 110"/>
+    <text x="382" y="100" font-size="10" text-anchor="middle" fill="#666">JSON complete</text>
+  </g>
+
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="black"/>
+    </marker>
+  </defs>
+</svg>

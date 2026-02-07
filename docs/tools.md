@@ -14,7 +14,7 @@ This document describes all tools available to the g3 agent. Tools are the prima
 | **Core** | shell, read_file, write_file, str_replace, background_process | Always |
 | **Images** | read_image, take_screenshot | Always |
 | **Task Management** | todo_read, todo_write | Always |
-| **Code Intelligence** | code_search, code_coverage | Always |
+| **Code Intelligence** | code_search, code_coverage, code_intelligence | Always |
 | **Research & Memory** | research, remember, rehydrate | Always (rehydrate requires `--acd`) |
 | **WebDriver** | webdriver_* (12 tools) | `--webdriver` or `--chrome-headless` |
 | **Computer Control** | mouse_click, type_text, find_element, list_windows | `computer_control.enabled = true` |
@@ -266,6 +266,53 @@ Generate code coverage report using cargo llvm-cov.
 - Runs all tests with coverage instrumentation
 - Auto-installs llvm-tools-preview and cargo-llvm-cov if missing
 - Returns coverage statistics summary
+
+---
+
+## Code Intelligence Tools
+
+### code_intelligence
+
+Advanced code intelligence tool with subcommands for codebase analysis.
+
+**Parameters**:
+- `command` (string, required): The intelligence operation:
+  - `find` - Find symbol definitions
+  - `refs` - Find all references to a symbol
+  - `callers` - Find functions that call the symbol
+  - `callees` - Find functions called by the symbol
+  - `similar` - Find similar code patterns (semantic search)
+  - `graph` - Explore the dependency graph
+  - `query` - Query callers and references
+- `symbol` (string, optional): Symbol name or query string
+- `depth` (integer, optional): Traversal depth for graph operations (default: 2)
+
+**Example - Find definitions**:
+```json
+{"tool": "code_intelligence", "args": {"command": "find", "symbol": "process_request"}}
+```
+
+**Example - Find references**:
+```json
+{"tool": "code_intelligence", "args": {"command": "refs", "symbol": "DatabaseConnection"}}
+```
+
+**Example - Find callers with depth**:
+```json
+{"tool": "code_intelligence", "args": {"command": "callers", "symbol": "main", "depth": 5}}
+```
+
+**Example - Semantic search**:
+```json
+{"tool": "code_intelligence", "args": {"command": "similar", "symbol": "error handling in API responses"}}
+```
+
+**Notes**:
+- Uses hybrid search (vector + BM25) for semantic operations
+- Graph operations traverse the knowledge graph
+- Falls back to indexed search if LSP unavailable
+
+See [Code Intelligence Guide](INTELLIGENCE.md) for detailed usage.
 
 ---
 

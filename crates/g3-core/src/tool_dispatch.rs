@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, beads, file_ops, index, lsp, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
+use crate::tools::{acd, beads, file_ops, index, intelligence, lsp, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -111,6 +111,9 @@ pub async fn dispatch_tool<W: UiWriter>(
         "graph_find_callers" => index::execute_graph_find_callers(tool_call, ctx).await,
         "graph_find_references" => index::execute_graph_find_references(tool_call, ctx).await,
         "graph_stats" => index::execute_graph_stats(tool_call, ctx).await,
+
+        // Code Intelligence tool
+        "code_intelligence" => intelligence::execute_code_intelligence(tool_call, ctx).await,
 
         // LSP tools (code intelligence)
         "lsp_goto_definition" => lsp::execute_goto_definition(tool_call, ctx).await,

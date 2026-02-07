@@ -1,0 +1,6 @@
+{
+  "session_id": "d2b92ac6-e985-43fc-9d51-22f7e91490c4",
+  "prompts": [
+    " ~/Desktop/self-contained-system/g3/g3 \u2502 on main \u21e113 !12 ?11 \ue0b0 g3                                                                                                                          \ue0b2 \u2714 \u2502 took 16h 29m 2s \nError: Unknown provider type 'openai_compatible'. Valid types: anthropic, openai, databricks, embedded, gemini, zai, or openai_compatible names\n\n ~/Desktop/self-contained-system/g3/g3 \u2502 on main \u21e113 !12 ?11 \ue0b0  "
+  ]
+}
