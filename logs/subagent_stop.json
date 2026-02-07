@@ -3254,5 +3254,38 @@
     "agent_id": "a151903",
     "agent_transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4dd60b07-9d73-49df-8685-c91f5b10bec7/subagents/agent-a151903.jsonl",
     "agent_type": "Explore"
+  },
+  {
+    "session_id": "4dd60b07-9d73-49df-8685-c91f5b10bec7",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4dd60b07-9d73-49df-8685-c91f5b10bec7.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "plan",
+    "hook_event_name": "SubagentStop",
+    "stop_hook_active": false,
+    "agent_id": "ae781cb",
+    "agent_transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/4dd60b07-9d73-49df-8685-c91f5b10bec7/subagents/agent-ae781cb.jsonl",
+    "agent_type": "Explore"
+  },
+  {
+    "session_id": "33d36e1f-7845-4f39-aafc-84216f0732d6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/33d36e1f-7845-4f39-aafc-84216f0732d6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "SubagentStop",
+    "stop_hook_active": false,
+    "agent_id": "af82439",
+    "agent_transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/33d36e1f-7845-4f39-aafc-84216f0732d6/subagents/agent-af82439.jsonl",
+    "agent_type": "Explore"
+  },
+  {
+    "session_id": "33d36e1f-7845-4f39-aafc-84216f0732d6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/33d36e1f-7845-4f39-aafc-84216f0732d6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "SubagentStop",
+    "stop_hook_active": false,
+    "agent_id": "adc3971",
+    "agent_transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/33d36e1f-7845-4f39-aafc-84216f0732d6/subagents/agent-adc3971.jsonl",
+    "agent_type": ""
   }
 ]
