@@ -1,0 +1,12 @@
+{
+  "session_id": "0dabed92-5985-423c-9b48-4a001d860954",
+  "prompts": [
+    "execute plan: specs/codebase-intelligence-system.md use a /tasks list, use interdependability and blocking, use sub-agents for each task",
+    "fix the teams system then. do a deep dive, scour the internet, find out what happens. it might be a claude code bug or it might be something wrong with this installation",
+    "you just crashed yourself, or just closed claude completely",
+    "Run the tests for the full project",
+    "Create integration tests for the intelligence system",
+    "update documents",
+    "Commit the codebase intelligence system changes"
+  ]
+}

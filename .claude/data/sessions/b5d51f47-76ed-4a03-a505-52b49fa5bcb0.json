@@ -1,0 +1,11 @@
+{
+  "session_id": "b5d51f47-76ed-4a03-a505-52b49fa5bcb0",
+  "prompts": [
+    "can you install this: https://github.com/LMRouter/lmrouter.git",
+    "start it",
+    "you should do that",
+    "well I think those might be faked",
+    "no, I want you to look into this: https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions not for g3 but for claude code",
+    "yes enable it for claude code only"
+  ]
+}

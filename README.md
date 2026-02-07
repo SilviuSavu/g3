@@ -107,6 +107,7 @@ These commands give you fine-grained control over context management, allowing y
   - Screenshot capture and window management
   - Window listing and identification
 - **Code Search**: Embedded tree-sitter for syntax-aware code search (Rust, Python, JavaScript, TypeScript, Go, Java, C, C++) - see [Code Search Guide](docs/CODE_SEARCH.md)
+- **Code Intelligence**: Comprehensive codebase analysis with semantic search, knowledge graph traversal, and dependency analysis - see [Code Intelligence Guide](docs/INTELLIGENCE.md)
 - **Final Output**: Formatted result presentation
 
 ### Provider Flexibility

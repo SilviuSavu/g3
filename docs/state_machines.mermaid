@@ -1,0 +1,341 @@
+# g3 Codebase State Machines
+
+This document contains state machine diagrams for all major components of the g3 AI coding agent.
+
+## 1. Planner State Machine
+
+Location: `crates/g3-planner/src/state.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Startup
+    Startup --> PromptForRequirements: User provides requirements
+    PromptForRequirements --> RefineRequirements: LLM refines requirements
+    RefineRequirements --> PromptForRequirements: User rejects (Refine)
+    RefineRequirements --> ImplementRequirements: User approves (Approve)
+    RefineRequirements --> Quit: User quits
+    ImplementRequirements --> ImplementationComplete: Coach/player loop done
+    ImplementationComplete --> PromptForRequirements: User commits (Complete)
+    ImplementationComplete --> ImplementRequirements: User continues (Continue)
+    ImplementationComplete --> Quit: User quits
+    Quit --> [*]
+
+    state Recovery {
+        state Recovery [*] --> Recovery
+        Recovery --> Resume: Resume previous run
+        Recovery --> MarkComplete: Mark complete & proceed
+        Recovery --> Quit: Quit
+    }
+```
+
+## 2. Streaming Tool Parser State Machine
+
+Location: `crates/g3-core/src/streaming_parser.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Prose
+    Prose --> Prose: Normal content
+    Prose --> SawOpenBrace: Saw '{'
+    SawOpenBrace --> Prose: Not a tool call
+    SawOpenBrace --> ToolCall: Confirmed tool call pattern
+    ToolCall --> ToolCall: Inside JSON
+    ToolCall --> Prose: JSON complete
+```
+
+## 3. Filter JSON State Machine
+
+Location: `crates/g3-cli/src/filter_json.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Streaming
+    Streaming --> Buffering: Saw newline + whitespace + {
+    Streaming --> Streaming: Normal content
+    Buffering --> Streaming: Not a tool call
+    Buffering --> Suppressing: Confirmed tool call
+    Suppressing --> Suppressing: Inside braces
+    Suppressing --> Streaming: Braces balanced
+```
+
+## 4. GLM Tool Adapter State Machine
+
+Location: `crates/g3-providers/src/embedded/adapters/glm.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Prose
+    Prose --> MaybePattern: Saw '<'
+    MaybePattern --> Prose: Pattern not matched
+    MaybePattern --> InToolName: Saw '<|assistant|>'
+    InToolName --> AwaitingJson: Saw tool name + newline
+    AwaitingJson --> InToolJson: Saw '{'
+    AwaitingJson --> Prose: Timeout/limit reached
+    InToolJson --> InToolJson: Inside JSON
+    InToolJson --> Prose: JSON complete (balanced braces)
+
+    state JsonState {
+        [*] --> Normal
+        Normal --> InString: Saw '"'
+        Normal --> Normal: Count braces
+        InString --> InStringEscape: Saw '\'
+        InStringEscape --> InString: Escaped char
+        InString --> Normal: End quote
+    }
+```
+
+## 5. Plan Item State Machine
+
+Location: `crates/g3-core/src/tools/plan.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Todo: Initial
+    Todo --> Doing: plan_start
+    Doing --> Done: plan_complete
+    Doing --> Blocked: plan_flag_as_blocked
+    Done --> Todo: plan_reset
+    Blocked --> Doing: plan_unblock
+    Blocked --> Todo: plan_reset
+```
+
+## 6. Stream State
+
+Location: `crates/g3-core/src/lib.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Generating
+    Generating --> ToolDetected: LLM emits tool call
+    ToolDetected --> Executing: Tool dispatch
+    Executing --> Resuming: Tool returns
+    Resuming --> Generating: Continue chatting
+```
+
+## 7. Interactive Mode Command Result States
+
+Location: `crates/g3-cli/src/commands.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Handled: Normal command
+    Handled --> Handled: Continue loop
+    Handled --> EnterPlanMode: /plan command
+    EnterPlanMode --> [*]
+```
+
+## 8. Accumulative Mode Command Result States
+
+Location: `crates/g3-cli/src/accumulative.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Continue: Normal command
+    Continue --> Continue: Loop
+    Continue --> Exit: /exit command
+    Exit --> [*]
+```
+
+## 9. Session Continuation States
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: New session
+    Active --> Deactivated: Manual /clear
+    Deactivated --> [*]
+
+    [*] --> Resuming: Load from session log
+    Resuming --> Active: Session restored
+```
+
+## 10. Research Task States
+
+Location: `crates/g3-core/src/pending_research.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: Task created
+    Pending --> Running: Task started
+    Running --> Complete: Task finished
+    Running --> Failed: Task error
+    Complete --> [*]
+    Failed --> [*]
+```
+
+## 11. Agent Execution Flow (High-Level)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Initializing: Agent::new*
+    Initializing --> Idle: Agent ready
+
+    state Idle {
+        [*] --> Waiting: Input received
+        Waiting --> Processing: Execute task
+    }
+
+    state Processing {
+        [*] --> LLMCall: Send to provider
+        LLMCall --> Streaming: Response begins
+        Streaming --> ToolDetected: Tool call parsed
+        ToolDetected --> ToolExecution: Execute tool
+        ToolExecution --> Streaming: Next iteration
+        Streaming --> Done: No more tools
+        Done --> Idle: Response complete
+    }
+```
+
+## 12. Provider State Machine
+
+Location: `crates/g3-providers/src/lib.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Uninitialized
+    Uninitialized --> Ready: Config loaded
+    Ready --> CallPending: Request submitted
+    CallPending --> Streaming: Response started
+    Streaming --> ToolDetected: Tool call detected
+    Streaming --> Complete: Response complete
+    ToolDetected --> Streaming: Tool result uploaded
+    Complete --> Ready: New request
+```
+
+## 13. Context Window States
+
+Location: `crates/g3-core/src/context_window.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Normal: Below 80% usage
+    Normal --> Warning: 80-90% usage
+    Warning --> Critical: 90-95% usage
+    Critical --> CompactTriggered: Auto-compaction triggered
+    Critical --> ManualCompact: User /compact command
+    CompactTriggered --> Normal: After compaction
+    ManualCompact --> Normal: After compaction
+    Normal --> Thinned: Large results thinned
+    Thinned --> Normal: After compaction
+```
+
+## 14. File Operations Tool States
+
+Location: `crates/g3-core/src/tools/file_ops.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Readable: File exists
+    Readable --> Writable: Has write permission
+    Writable --> Modified: File modified
+    Modified --> Saved: Changes committed
+    Saved --> Readable: Ready for next operation
+    Writable --> Error: Permission denied
+    Error --> [*]
+```
+
+## 15. Computer Control States
+
+Location: `crates/g3-computer-control/src/lib.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Available: System permission granted
+    Available --> Initialized: Controller created
+    Initialized --> Capturing: Screenshot taken
+    Capturing --> Analyzed: OCR performed
+    Analyzed --> Actionable: Decision made
+    Actionable --> Executed: Action performed
+    Executed --> Capturing: Next cycle
+    Available --> Denied: Permission denied
+    Denied --> [*]
+```
+
+## 16. LSP Manager States
+
+Location: `crates/g3-lsp/src/lib.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Starting: Initializing server
+    Starting --> Ready: Server started
+    Ready --> HoverRequest: Hover request received
+    Ready --> DefinitionRequest: Definition request received
+    Ready --> ReferencesRequest: References request received
+    HoverRequest --> Ready: Response sent
+    DefinitionRequest --> Ready: Response sent
+    ReferencesRequest --> Ready: Response sent
+    Starting --> Failed: Server failed to start
+    Failed --> [*]
+```
+
+## 17. MCP Client States
+
+Location: `crates/g3-core/src/mcp_client.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: Created
+    Idle --> Requesting: Request sent
+    Requesting --> ResponseReceived: Response received
+    ResponseReceived --> Idle: Processed
+    Requesting --> Timeout: Request timed out
+    Timeout --> Idle: Retry or abort
+```
+
+## 18. Background Process States
+
+Location: `crates/g3-core/src/background_process.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Spawning: process::Command launched
+    Spawning --> Running: Process started
+    Running --> Streaming: Output being read
+    Streaming --> Completed: Process exited
+    Streaming --> Killed: Interruption signal
+    Completed --> [*]
+    Killed --> [*]
+```
+
+## 19. WebDriver Session States
+
+Location: `crates/g3-core/src/webdriver_session.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Uninitialized
+    Uninitialized --> Starting: Browser launch started
+    Starting --> Ready: Browser ready
+    Ready --> Navigating: Page navigation
+    Navigating --> Interactable: Page loaded
+    Interactable --> Screenshot: Capture screenshot
+    Interactable --> Extract: Extract content
+    Interactable --> ExecuteScript: Run JavaScript
+    Screenshot --> Interactable
+    Extract --> Interactable
+    ExecuteScript --> Interactable
+    Navigating --> Failed: Navigation error
+    Failed --> [*]
+    Ready --> Stopped: Session closed
+    Stopped --> [*]
+```
+
+## 20. Z.ai Tools States
+
+Location: `crates/g3-providers/src/zai_tools.rs`
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle: Client created
+    Idle --> Searching: Web search request
+    Idle --> Reading: Web reader request
+    Idle --> Zreading: Zread request
+    Searching --> Complete: Search results
+    Reading --> Complete: Page content
+    Zreading --> Complete: Doc info
+    Complete --> Idle
+    Searching --> Failed: API error
+    Reading --> Failed: API error
+    Zreading --> Failed: API error
+    Failed --> Idle
+```

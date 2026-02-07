@@ -14,10 +14,13 @@ pub mod embeddings;
 pub mod graph;
 pub mod graph_builder;
 pub mod indexer;
+pub mod integration;
 pub mod manifest;
 pub mod qdrant;
 pub mod search;
 pub mod storage;
+pub mod traverser;
+pub mod unified_index;
 pub mod watcher;
 
 // Re-exports
@@ -32,6 +35,9 @@ pub use storage::{
     DEFAULT_GRAPH_DIR, FileIndex, FileIndexEntry, GraphStorage, ScannedFile, SnapshotMetadata,
     UpdateStats,
 };
+pub use unified_index::{UnifiedIndex, UnifiedSearchResult, UnifiedSearchSource, QueryPlanner, QueryPlan};
+pub use traverser::{GraphTraverser, TraversalConfig, TraversalResult};
+pub use integration::{CrossIndexQuery, CrossIndexStrategy, IndexConnector, EnrichmentConfig};
 
 /// Default Qdrant collection name
 pub const DEFAULT_COLLECTION: &str = "g3-codebase";

@@ -14,7 +14,7 @@ use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use crate::graph::{CodeGraph, FileNode, GraphError, SymbolKind, SymbolNode};
+use crate::graph::{CodeGraph, FileNode, SymbolNode};
 
 /// Default graph storage directory.
 pub const DEFAULT_GRAPH_DIR: &str = ".g3-index/graph";

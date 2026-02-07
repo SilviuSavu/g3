@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-02T03:53:06Z | Size: 16.9k chars
+> Updated: 2026-02-04T17:37:19Z | Size: 18.2k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -315,3 +315,20 @@ Verifies evidence in completed plan items deterministically.
 - Test reference: `tests/foo.rs::test_bar`
 
 **Integration:** Called from `execute_plan_write()` when plan is complete and approved (line 828-833)
+
+### Knowledge Graph Data Model (g3-index::graph)
+Unified codebase intelligence data model for representing symbols, files, and relationships.
+
+- `crates/g3-index/src/graph.rs` [1..805]
+  - `SymbolNode` [84..235] - functions, types, modules with metadata (signature, docs, generics, visibility)
+  - `FileNode` [237..295] - files with language, LOC, symbol count, test flag
+  - `Edge` [297..327] - 12 relationship types (defines, references, calls, inherits, implements, contains, etc.)
+  - `CodeGraph` [329..670] - directed graph with bidirectional reverse_edges index, symbol_name_index, file_language_index
+  - `CodeGraph::add_symbol()` [378..424] - adds symbol to graph, updates name index, creates defines/belongs-to edges
+  - `CodeGraph::add_reference()` [458..478] - adds reference edge from file to symbol by name lookup
+  - `CodeGraph::find_callers()` [580..595] - incoming "calls" edges
+  - `CodeGraph::find_callees()` [597..612] - outgoing "calls" edges
+  - `CodeGraph::find_references()` [614..624] - incoming "references" edges
+
+**Pattern**: Builder pattern for SymbolNode/FileNode with fluent methods (.with_signature(), .with_documentation(), etc.)
+**Pattern**: Bidirectional edge indexing via reverse_edges HashMap enables efficient reverse lookups without graph traversal
