@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-04T17:37:19Z | Size: 18.2k chars
+> Updated: 2026-02-07T21:00:36Z | Size: 19.5k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -332,3 +332,22 @@ Unified codebase intelligence data model for representing symbols, files, and re
 
 **Pattern**: Builder pattern for SymbolNode/FileNode with fluent methods (.with_signature(), .with_documentation(), etc.)
 **Pattern**: Bidirectional edge indexing via reverse_edges HashMap enables efficient reverse lookups without graph traversal
+
+### Pattern Search Tool
+Find specific code patterns (error handling, async, builder, etc.) across the codebase.
+
+- `crates/g3-core/src/tools/index.rs`
+  - `execute_pattern_search()` [100-1100] - main tool entry point, supports 9 pattern types
+  - `search_error_handling()` [1100-1120] - finds `?`, `unwrap()`, `expect()`
+  - `search_trait_impl()` [1120-1140] - finds `impl Trait for Type`
+  - `search_async_pattern()` [1140-1160] - finds `async fn`, `await`
+  - `search_struct_initialization()` [1160-1180] - finds `.with_()`, `Self { }`
+  - `search_builder_pattern()` [1180-1200] - finds `fn with_()`, `self.` fluent calls
+  - `search_lifecycle_patterns()` [1200-1220] - finds `fn new()`, `fn init()`, `fn drop()`
+  - `search_concurrency_patterns()` [1220-1240] - finds `Mutex<`, `Arc<`, `RwLock<`
+  - `search_config_patterns()` [1240-1260] - finds `struct Config`, `fn load_config()`
+  - `search_logging_patterns()` [1260-1280] - finds `info!()`, `debug!()`, `error!()`
+- `crates/g3-core/src/tool_definitions.rs` [950-970] - `pattern_search` tool definition
+- `crates/g3-core/src/tool_dispatch.rs` [112] - dispatch case: `"pattern_search" => index::execute_pattern_search`
+
+**Pattern types**: error_handling, trait_impl, async_pattern, struct_init, builder_pattern, lifecycle, concurrency, config, logging

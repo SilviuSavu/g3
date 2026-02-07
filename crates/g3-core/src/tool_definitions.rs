@@ -272,13 +272,17 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
                                 "query": { "type": "string", "description": "tree-sitter query in S-expression format (e.g., \"(function_item name: (identifier) @name)\")" },
                                 "language": { "type": "string", "enum": ["rust", "python", "javascript", "typescript", "go", "java", "c", "cpp", "racket"], "description": "Programming language to search." },
                                 "paths": { "type": "array", "items": { "type": "string" }, "description": "Paths/dirs to search. Defaults to current dir if empty." },
-                                "context_lines": { "type": "integer", "minimum": 0, "maximum": 20, "default": 0, "description": "Lines of context to include around each match." }
+                                "context_lines": { "type": "integer", "minimum": 0, "maximum": 3, "default": 0, "description": "Lines of context to include around each match. Maximum 3 to prevent token bloat." },
+                                "max_capture_size": { "type": "integer", "minimum": 10, "maximum": 1000, "default": 100, "description": "Maximum characters of captured text to include per capture (default: 100)." },
+                                "max_file_size_bytes": { "type": "integer", "minimum": 1024, "maximum": 1048576, "default": 102400, "description": "Maximum file size in bytes to search (default: 100KB)." },
+                                "ignore_paths": { "type": "array", "items": { "type": "string" }, "default": [".git", "logs", "target", ".next", "node_modules", ".cache"], "description": "Path patterns to skip during search." },
+                                "max_context_lines": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3, "description": "Maximum context lines to enforce (default: 3, actual limit applied in searcher)." }
                             },
                             "required": ["name", "query", "language"]
                         }
                     },
                     "max_concurrency": { "type": "integer", "minimum": 1, "default": 4 },
-                    "max_matches_per_search": { "type": "integer", "minimum": 1, "default": 500 }
+                    "max_matches_per_search": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
                 },
                 "required": ["searches"]
             }),
@@ -1054,6 +1058,28 @@ fn create_index_tools() -> Vec<Tool> {
                 "required": ["command"]
             }),
         },
+        Tool {
+            name: "pattern_search".to_string(),
+            description: "Find code patterns across the codebase. Searches for common implementation patterns like error handling, trait implementations, async patterns, builder patterns, lifecycle patterns, concurrency patterns, config patterns, and logging patterns. Useful for 'how X is implemented' queries.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "pattern_type": {
+                        "type": "string",
+                        "description": "Pattern type to search for: error_handling, trait_impl, async_pattern, struct_init, builder_pattern, lifecycle, concurrency, config, logging"
+                    },
+                    "pattern_name": {
+                        "type": "string",
+                        "description": "Optional specific pattern name (e.g., trait name for trait_impl)"
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Directory or file path to search (default: current directory)"
+                    }
+                },
+                "required": ["pattern_type"]
+            }),
+        },
     ]
 }
 
@@ -1697,7 +1723,7 @@ mod tests {
         let tools = create_index_tools();
         // 9 index tools: index_codebase, semantic_search, index_status,
         // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats, code_intelligence
-        assert_eq!(tools.len(), 13);  // +4 self-improvement tools
+        assert_eq!(tools.len(), 14);  // +5 self-improvement tools: list_directory, preview_file, complexity_metrics, list_files, pattern_search
     }
 
     #[test]
@@ -1714,8 +1740,8 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 beads + 13 index = 44
-        assert_eq!(tools.len(), 44);
+        // 16 core + 15 beads + 14 index = 45
+        assert_eq!(tools.len(), 45);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
@@ -1736,8 +1762,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 13 index = 67
-        assert_eq!(tools.len(), 67);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index = 68
+        assert_eq!(tools.len(), 68);
     }
 
     #[test]
@@ -1781,7 +1807,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 13 index + 9 lsp = 76
-        assert_eq!(tools.len(), 76);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index + 9 lsp = 77
+        assert_eq!(tools.len(), 77);
     }
 }

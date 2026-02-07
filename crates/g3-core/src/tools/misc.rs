@@ -156,3 +156,38 @@ pub async fn execute_code_search<W: UiWriter>(
         Err(e) => Ok(format!("❌ Code search failed: {}", e)),
     }
 }
+
+/// Execute the `switch_mode` tool.
+/// Allows the agent to recommend switching to a different execution mode.
+pub async fn execute_switch_mode<W: UiWriter>(
+    tool_call: &ToolCall,
+    _ctx: &ToolContext<'_, W>,
+) -> Result<String> {
+    debug!("Processing switch_mode tool call");
+
+    let new_mode = tool_call
+        .args
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing mode argument. Available modes: interactive, autonomous, accumulative, studio"))?;
+
+    match new_mode {
+        "interactive" | "autonomous" | "accumulative" | "studio" => {
+            Ok(format!(
+                "✅ Mode switch recommended: `{}`\n\n\
+                To switch modes, please run g3 with the appropriate flag:\n\
+                - interactive: `g3` or `g3 --chat`\n\
+                - autonomous: `g3 --autonomous [--max-turns N]`\n\
+                - accumulative: `g3 --auto`\n\
+                - studio: `studio run [--agent <name>]`\n\n\
+                Note: Mode switching requires restarting g3 with the new flag.",
+                new_mode
+            ))
+        }
+        _ => Ok(format!(
+            "❌ Unknown mode: `{}`. Available modes: interactive, autonomous, accumulative, studio",
+            new_mode
+        )),
+    }
+}
+
