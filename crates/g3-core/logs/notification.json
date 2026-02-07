@@ -1,0 +1,10 @@
+[
+  {
+    "session_id": "62a11b63-3ce0-46d1-8d52-4725c101f9fc",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/62a11b63-3ce0-46d1-8d52-4725c101f9fc.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core",
+    "hook_event_name": "Notification",
+    "message": "Claude is waiting for your input",
+    "notification_type": "idle_prompt"
+  }
+]

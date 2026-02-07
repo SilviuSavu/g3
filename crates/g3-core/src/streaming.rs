@@ -510,7 +510,8 @@ pub fn format_code_search_summary(result: &str) -> String {
         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&result[json_start..]) {
             let matches = parsed.get("total_matches").and_then(|v| v.as_u64()).unwrap_or(0);
             let files = parsed.get("total_files_searched").and_then(|v| v.as_u64()).unwrap_or(0);
-            return format!("🔍 {} matches in {} files", matches, files);
+            let searches = parsed.get("searches").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+            return format!("🔍 {} matches in {} files ({} searches)", matches, files, searches);
         }
         "🔍 search complete".to_string()
     } else {

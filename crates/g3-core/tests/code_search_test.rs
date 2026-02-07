@@ -37,6 +37,7 @@ pub async fn another_async(x: i32) -> Result<(), ()> {
             language: "rust".to_string(),
             paths: vec![test_dir.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 100,
@@ -100,6 +101,7 @@ pub async fn another_async(x: i32) -> Result<(), ()> {
             language: "rust".to_string(),
             paths: vec![test_dir.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 100,
@@ -162,6 +164,7 @@ enum MyEnum {
             language: "rust".to_string(),
             paths: vec![test_dir.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 100,
@@ -219,6 +222,7 @@ pub fn target_function() {
             language: "rust".to_string(),
             paths: vec![test_dir.to_string_lossy().to_string()],
             context_lines: 2,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 100,
@@ -276,6 +280,7 @@ pub struct MyStruct;
                 language: "rust".to_string(),
                 paths: vec![test_dir.to_string_lossy().to_string()],
                 context_lines: 0,
+            ..Default::default()
             },
             SearchSpec {
                 name: "structs".to_string(),
@@ -283,6 +288,7 @@ pub struct MyStruct;
                 language: "rust".to_string(),
                 paths: vec![test_dir.to_string_lossy().to_string()],
                 context_lines: 0,
+            ..Default::default()
             },
         ],
         max_concurrency: 4,
@@ -341,6 +347,7 @@ class MyClass:
             language: "python".to_string(),
             paths: vec![test_dir.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 100,
@@ -402,6 +409,7 @@ class MyClass {
             language: "javascript".to_string(),
             paths: vec![test_dir.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 100,
@@ -446,6 +454,7 @@ async fn test_go_search() {
             language: "go".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,
@@ -489,6 +498,7 @@ async fn test_java_search() {
             language: "java".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,
@@ -524,6 +534,7 @@ async fn test_c_search() {
             language: "c".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,
@@ -561,6 +572,7 @@ async fn test_cpp_search() {
             language: "cpp".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,
@@ -596,6 +608,7 @@ async fn test_racket_search() {
             language: "racket".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,
@@ -636,6 +649,7 @@ async fn test_racket_structs() {
             language: "racket".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,
@@ -672,6 +686,7 @@ async fn test_racket_macros() {
             language: "racket".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,
@@ -708,6 +723,7 @@ async fn test_racket_contracts() {
             language: "racket".to_string(),
             paths: vec![test_code_path.to_string_lossy().to_string()],
             context_lines: 0,
+            ..Default::default()
         }],
         max_concurrency: 4,
         max_matches_per_search: 500,

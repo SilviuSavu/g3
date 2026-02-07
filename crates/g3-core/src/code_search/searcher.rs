@@ -246,9 +246,21 @@ impl TreeSitterSearcher {
                     continue;
                 }
 
+                // Check if path should be ignored
+                if Self::should_ignore_path(path, &spec.ignore_paths) {
+                    continue;
+                }
+
                 // Check file extension matches language
                 if !Self::is_language_file(path, &spec.language) {
                     continue;
+                }
+
+                // Skip files larger than max_file_size_bytes
+                if let Ok(metadata) = fs::metadata(path) {
+                    if metadata.len() > spec.max_file_size_bytes as u64 {
+                        continue;
+                    }
                 }
 
                 files_searched += 1;
@@ -277,7 +289,13 @@ impl TreeSitterSearcher {
                                 let node = capture.node;
                                 let text = &source_code[node.byte_range()];
 
-                                captures_map.insert(capture_name.to_string(), text.to_string());
+                                // Truncate capture text if it exceeds max_capture_size
+                                let truncated_text = if text.len() > spec.max_capture_size {
+                                    text.chars().take(spec.max_capture_size).collect::<String>()
+                                } else {
+                                    text.to_string()
+                                };
+                                captures_map.insert(capture_name.to_string(), truncated_text);
 
                                 // Use first capture for position
                                 if match_text.is_empty() {
@@ -289,21 +307,31 @@ impl TreeSitterSearcher {
                             }
 
                             // Get context if requested
+                            // Limit context_lines to 3 to prevent excessive token usage
+                            let max_context_lines = 3;
+                            let context_lines_used = spec.context_lines.min(max_context_lines);
                             let context = if spec.context_lines > 0 {
                                 Some(Self::get_context(
                                     &source_code,
                                     match_line,
-                                    spec.context_lines,
+                                    context_lines_used,
                                 ))
                             } else {
                                 None
+                            };
+
+                            // Truncate match text if it exceeds max_capture_size
+                            let truncated_text = if match_text.len() > spec.max_capture_size {
+                                match_text.chars().take(spec.max_capture_size).collect::<String>()
+                            } else {
+                                match_text
                             };
 
                             matches.push(Match {
                                 file: path.display().to_string(),
                                 line: match_line,
                                 column: match_column,
-                                text: match_text,
+                                text: truncated_text,
                                 captures: captures_map,
                                 context,
                             });
@@ -351,5 +379,15 @@ impl TreeSitterSearcher {
         let start = line_idx.saturating_sub(context_lines);
         let end = (line_idx + context_lines + 1).min(lines.len());
         lines[start..end].join("\n")
+    }
+
+    fn should_ignore_path(path: &Path, ignore_patterns: &[String]) -> bool {
+        let path_str = path.to_string_lossy();
+        for pattern in ignore_patterns {
+            if path_str.contains(pattern) {
+                return true;
+            }
+        }
+        false
     }
 }

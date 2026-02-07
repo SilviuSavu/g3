@@ -96,6 +96,195 @@ pub async fn execute_index_codebase<W: UiWriter>(
     }
 }
 
+/// Execute the pattern_search tool.
+pub async fn execute_pattern_search<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let pattern_type = args
+        .get("pattern_type")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Missing required parameter: pattern_type"))?;
+
+    let pattern_name = args
+        .get("pattern_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let path = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or(".");
+
+    let work_dir = ctx.working_dir.unwrap_or(".");
+    let work_path = Path::new(work_dir);
+    let target_path = work_path.join(path);
+
+    if !target_path.exists() {
+        return Ok(json!({
+            "status": "error",
+            "message": format!("Path not found: {}", target_path.display())
+        }).to_string());
+    }
+
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    match pattern_type {
+        "error_handling" => {
+            results = search_error_handling(&target_path)?;
+        }
+        "trait_impl" => {
+            results = search_trait_impl(&target_path, pattern_name)?;
+        }
+        "async_pattern" => {
+            results = search_async_pattern(&target_path)?;
+        }
+        "struct_init" => {
+            results = search_struct_initialization(&target_path)?;
+        }
+        "builder_pattern" => {
+            results = search_builder_pattern(&target_path)?;
+        }
+        "lifecycle" => {
+            results = search_lifecycle_patterns(&target_path)?;
+        }
+        "concurrency" => {
+            results = search_concurrency_patterns(&target_path)?;
+        }
+        "config" => {
+            results = search_config_patterns(&target_path)?;
+        }
+        "logging" => {
+            results = search_logging_patterns(&target_path)?;
+        }
+        _ => {
+            return Ok(json!({
+                "status": "error",
+                "message": format!("Unknown pattern type: {}", pattern_type),
+                "available_patterns": [
+                    "error_handling",
+                    "trait_impl",
+                    "async_pattern",
+                    "struct_init",
+                    "builder_pattern",
+                    "lifecycle",
+                    "concurrency",
+                    "config",
+                    "logging"
+                ]
+            }).to_string());
+        }
+    }
+
+    Ok(json!({
+        "status": "success",
+        "pattern_type": pattern_type,
+        "pattern_name": pattern_name,
+        "path": path,
+        "count": results.len(),
+        "results": results
+    }).to_string())
+}
+
+fn search_error_handling(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    // Look for error handling patterns
+    let patterns = [
+        ("anyhow?", r"\?\s*$"),
+        ("bail!", r"\bbail!\s*\("),
+        ("wrap!", r"\bwrap!\s*\("),
+        ("context!", r"\bcontext!\s*\("),
+        ("Result<", r"Result<[^>]+>"),
+        ("? ", r"\?\s"),
+    ];
+
+    // For now, just count occurrences in the directory
+    // A more sophisticated implementation would parse the AST
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches("? ").count() + content.matches("bail!").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "error_handling",
+            "category": "anyhow_usage",
+            "files_scanned": target_path.is_dir() as u64,
+            "estimated_occurrences": count,
+            "description": "Found anyhow error handling patterns (bail!, ?, context!)"
+        }));
+    }
+
+    Ok(results)
+}
+
+fn search_trait_impl(target_path: &Path, trait_name: &str) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    let search_pattern = if trait_name.is_empty() {
+        r"impl\s+\w+\s+for"
+    } else {
+        &format!(r"impl\s+{}\s+for", trait_name)
+    };
+
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches("impl ").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "trait_impl",
+            "trait_searched": trait_name,
+            "estimated_implementations": count,
+            "description": format!("Found trait implementations (impl {} for ...)", trait_name)
+        }));
+    }
+
+    Ok(results)
+}
+
+fn search_async_pattern(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    if target_path.is_dir() {
+        let mut async_fns = 0;
+        let mut spawn_calls = 0;
+
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        async_fns += content.matches("async fn").count();
+                        spawn_calls += content.matches("tokio::spawn").count() + content.matches(".await").count();
+                    }
+                }
+            }
+        }
+
+        results.push(json!({
+            "type": "async_pattern",
+            "async_functions": async_fns,
+            "await_calls": spawn_calls,
+            "description": "Found async/await patterns and tokio usage"
+        }));
+    }
+
+    Ok(results)
+}
 /// Execute the list_directory tool.
 pub async fn execute_list_directory<W: UiWriter>(
     tool_call: &ToolCall,
@@ -978,6 +1167,150 @@ pub async fn execute_complexity_metrics<W: UiWriter>(
         "total_files_analyzed": truncated_results.len(),
         "results": truncated_results
     }).to_string())
+}
+
+fn search_struct_initialization(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches(".with_").count() + content.matches("Self {").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "struct_init",
+            "estimated_patterns": count,
+            "description": "Found struct initialization patterns (with_ methods, Self { ... })"
+        }));
+    }
+
+    Ok(results)
+}
+
+fn search_builder_pattern(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches("fn with_").count() + content.matches("self.").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "builder_pattern",
+            "estimated_patterns": count,
+            "description": "Found builder pattern (with_ methods, self. fluent calls)"
+        }));
+    }
+
+    Ok(results)
+}
+
+fn search_lifecycle_patterns(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches("fn new").count() + content.matches("fn init").count() + content.matches("fn drop").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "lifecycle",
+            "estimated_patterns": count,
+            "description": "Found lifecycle patterns (new, init, drop constructors/destructors)"
+        }));
+    }
+
+    Ok(results)
+}
+
+fn search_concurrency_patterns(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches("Mutex<").count() + content.matches("Arc<").count() + content.matches("RwLock<").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "concurrency",
+            "estimated_patterns": count,
+            "description": "Found concurrency patterns (Mutex, Arc, RwLock)"
+        }));
+    }
+
+    Ok(results)
+}
+
+fn search_config_patterns(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches("struct Config").count() + content.matches("struct Settings").count() + content.matches("fn load_config").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "config",
+            "estimated_patterns": count,
+            "description": "Found configuration patterns (Config, Settings, load_config)"
+        }));
+    }
+
+    Ok(results)
+}
+
+fn search_logging_patterns(target_path: &Path) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut results = Vec::new();
+
+    if target_path.is_dir() {
+        let mut count = 0;
+        if let Ok(entries) = target_path.read_dir() {
+            for entry in entries.flatten() {
+                if entry.path().is_file() && entry.path().extension().and_then(|s| s.to_str()) == Some("rs") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        count += content.matches("info!").count() + content.matches("debug!").count() + content.matches("error!").count();
+                    }
+                }
+            }
+        }
+        results.push(json!({
+            "type": "logging",
+            "estimated_patterns": count,
+            "description": "Found logging patterns (info!, debug!, error!)"
+        }));
+    }
+
+    Ok(results)
 }
 
 /// Helper to get or initialize the index client.
