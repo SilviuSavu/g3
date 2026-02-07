@@ -3275,5 +3275,89 @@
       }
     },
     "tool_use_id": "call_4a4523c1759e411fa1c6d79e"
+  },
+  {
+    "session_id": "62a11b63-3ce0-46d1-8d52-4725c101f9fc",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/62a11b63-3ce0-46d1-8d52-4725c101f9fc.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "cargo test --test code_search_test 2>&1 | tail -20",
+      "description": "Verify code search tests still pass"
+    },
+    "tool_response": {
+      "stdout": "running 15 tests\ntest test_go_search ... ok\ntest test_python_search ... ok\ntest test_java_search ... ok\ntest test_racket_contracts ... ok\ntest test_racket_macros ... ok\ntest test_javascript_search ... ok\ntest test_racket_search ... ok\ntest test_c_search ... ok\ntest test_find_structs ... ok\ntest test_racket_structs ... ok\ntest test_find_all_functions ... ok\ntest test_context_lines ... ok\ntest test_find_async_functions ... ok\ntest test_multiple_searches ... ok\ntest test_cpp_search ... ok\n\ntest result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false
+    },
+    "tool_use_id": "call_7000c1e63fce4a458b24515e"
+  },
+  {
+    "session_id": "62a11b63-3ce0-46d1-8d52-4725c101f9fc",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/62a11b63-3ce0-46d1-8d52-4725c101f9fc.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "cargo build 2>&1 | tail -10",
+      "description": "Build project"
+    },
+    "tool_response": {
+      "stdout": "120 | pub struct Agent<W: UiWriter> {\n    |            ----- field in this struct\n...\n170 |     beads_context_injected: bool,\n    |     ^^^^^^^^^^^^^^^^^^^^^^\n    |\n    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: `g3-core` (lib) generated 4 warnings (run `cargo fix --lib -p g3-core` to apply 2 suggestions)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s",
+      "stderr": "",
+      "interrupted": false,
+      "isImage": false
+    },
+    "tool_use_id": "call_40611fec66664022bbad8591"
+  },
+  {
+    "session_id": "62a11b63-3ce0-46d1-8d52-4725c101f9fc",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/62a11b63-3ce0-46d1-8d52-4725c101f9fc.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core/src/code_search/mod.rs"
+    },
+    "tool_response": {
+      "type": "text",
+      "file": {
+        "filePath": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core/src/code_search/mod.rs",
+        "content": "//! Code search functionality using tree-sitter for syntax-aware searches\n\nuse anyhow::Result;\nuse serde::{Deserialize, Serialize};\nuse std::collections::HashMap;\n\nmod searcher;\npub use searcher::TreeSitterSearcher;\n\n/// Request for batch code searches\n#[derive(Debug, Clone, Serialize, Deserialize)]\npub struct CodeSearchRequest {\n    pub searches: Vec<SearchSpec>,\n    #[serde(default = \"default_concurrency\")]\n    pub max_concurrency: usize,\n    #[serde(default = \"default_max_matches\")]\n    pub max_matches_per_search: usize,\n}\n\nfn default_concurrency() -> usize {\n    4\n}\n\nfn default_max_matches() -> usize {\n    20\n}\n\n/// Individual search specification\n#[derive(Debug, Clone, Serialize, Deserialize)]\npub struct SearchSpec {\n    /// Name/label for this search\n    pub name: String,\n    /// tree-sitter query (S-expression format)\n    pub query: String,\n    /// Language: \"rust\", \"python\", \"javascript\", \"typescript\"\n    pub language: String,\n    /// Paths to search (default: current directory)\n    #[serde(default)]\n    pub paths: Vec<String>,\n    /// Lines of context around each match (max 3 enforced in searcher)\n    #[serde(default)]\n    pub context_lines: usize,\n    /// Maximum capture text size (default: 100 chars)\n    #[serde(default = \"default_max_capture_size\")]\n    pub max_capture_size: usize,\n    /// Maximum file size in bytes (default: 100KB)\n    #[serde(default = \"default_max_file_size\")]\n    pub max_file_size_bytes: usize,\n    /// Paths to ignore (default: common large directories)\n    #[serde(default = \"default_ignore_paths\")]\n    pub ignore_paths: Vec<String>,\n    /// Maximum context lines to enforce (default: 3, to prevent token bloat)\n    #[serde(default = \"default_max_context_lines\")]\n    pub max_context_lines: usize,\n}\n\nfn default_max_context_lines() -> usize {\n    3\n}\n\nfn default_max_capture_size() -> usize {\n    100\n}\n\nfn default_max_file_size() -> usize {\n    100 * 1024 // 100KB\n}\n\nfn default_ignore_paths() -> Vec<String> {\n    vec![\n        \".git\".to_string(),\n        \"logs\".to_string(),\n        \"target\".to_string(),\n        \".next\".to_string(),\n        \"node_modules\".to_string(),\n        \".cache\".to_string(),\n    ]\n}\n\n/// Response containing all search results\n#[derive(Debug, Serialize, Deserialize)]\npub struct CodeSearchResponse {\n    pub searches: Vec<SearchResult>,\n    pub total_matches: usize,\n    pub total_files_searched: usize,\n}\n\n/// Result for a single search\n#[derive(Debug, Serialize, Deserialize)]\npub struct SearchResult {\n    pub name: String,\n    pub matches: Vec<Match>,\n    pub match_count: usize,\n    pub files_searched: usize,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub error: Option<String>,\n}\n\n/// A single match\n#[derive(Debug, Serialize, Deserialize)]\npub struct Match {\n    pub file: String,\n    pub line: usize,\n    pub column: usize,\n    pub text: String,\n    #[serde(skip_serializing_if = \"HashMap::is_empty\")]\n    pub captures: HashMap<String, String>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub context: Option<String>,\n}\n\n/// Main entry point for code search\npub async fn execute_code_search(request: CodeSearchRequest) -> Result<CodeSearchResponse> {\n    let mut searcher = TreeSitterSearcher::new()?;\n    searcher.execute_search(request).await\n}\n\nimpl Default for SearchSpec {\n    fn default() -> Self {\n        Self {\n            name: String::new(),\n            query: String::new(),\n            language: String::new(),\n            paths: Vec::new(),\n            context_lines: 0,\n            max_capture_size: default_max_capture_size(),\n            max_file_size_bytes: default_max_file_size(),\n            ignore_paths: default_ignore_paths(),\n            max_context_lines: default_max_context_lines(),\n        }\n    }\n}\n",
+        "numLines": 133,
+        "startLine": 1,
+        "totalLines": 133
+      }
+    },
+    "tool_use_id": "call_be5b94911cb640f2a23ad3fb"
+  },
+  {
+    "session_id": "62a11b63-3ce0-46d1-8d52-4725c101f9fc",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/62a11b63-3ce0-46d1-8d52-4725c101f9fc.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core",
+    "permission_mode": "bypassPermissions",
+    "hook_event_name": "PostToolUse",
+    "tool_name": "Read",
+    "tool_input": {
+      "file_path": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core/src/code_search/searcher.rs",
+      "offset": 230,
+      "limit": 90
+    },
+    "tool_response": {
+      "type": "text",
+      "file": {
+        "filePath": "/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-core/src/code_search/searcher.rs",
+        "content": "            spec.paths.clone()\n        };\n\n        // Walk directories and search files\n        for search_path in search_paths {\n            for entry in WalkDir::new(&search_path)\n                .follow_links(true)\n                .into_iter()\n                .filter_map(|e| e.ok())\n            {\n                if matches.len() >= max_matches {\n                    break;\n                }\n\n                let path = entry.path();\n                if !path.is_file() {\n                    continue;\n                }\n\n                // Check if path should be ignored\n                if Self::should_ignore_path(path, &spec.ignore_paths) {\n                    continue;\n                }\n\n                // Check file extension matches language\n                if !Self::is_language_file(path, &spec.language) {\n                    continue;\n                }\n\n                // Skip files larger than max_file_size_bytes\n                if let Ok(metadata) = fs::metadata(path) {\n                    if metadata.len() > spec.max_file_size_bytes as u64 {\n                        continue;\n                    }\n                }\n\n                files_searched += 1;\n\n                // Read and parse file\n                if let Ok(source_code) = fs::read_to_string(path) {\n                    if let Some(tree) = parser.parse(&source_code, None) {\n                        let mut cursor = QueryCursor::new();\n                        let mut query_matches =\n                            cursor.matches(&query, tree.root_node(), source_code.as_bytes());\n\n                        query_matches.advance();\n                        while let Some(query_match) = query_matches.get() {\n                            if matches.len() >= max_matches {\n                                break;\n                            }\n\n                            // Extract captures\n                            let mut captures_map = HashMap::new();\n                            let mut match_text = String::new();\n                            let mut match_line = 0;\n                            let mut match_column = 0;\n\n                            for capture in query_match.captures {\n                                let capture_name = query.capture_names()[capture.index as usize];\n                                let node = capture.node;\n                                let text = &source_code[node.byte_range()];\n\n                                // Truncate capture text if it exceeds max_capture_size\n                                let truncated_text = if text.len() > spec.max_capture_size {\n                                    text.chars().take(spec.max_capture_size).collect::<String>()\n                                } else {\n                                    text.to_string()\n                                };\n                                captures_map.insert(capture_name.to_string(), truncated_text);\n\n                                // Use first capture for position\n                                if match_text.is_empty() {\n                                    match_text = text.to_string();\n                                    let start = node.start_position();\n                                    match_line = start.row + 1;\n                                    match_column = start.column + 1;\n                                }\n                            }\n\n                            // Get context if requested\n                            // Limit context_lines to 3 to prevent excessive token usage\n                            let max_context_lines = 3;\n                            let context_lines_used = spec.context_lines.min(max_context_lines);\n                            let context = if spec.context_lines > 0 {\n                                Some(Self::get_context(\n                                    &source_code,\n                                    match_line,\n                                    context_lines_used,\n                                ))\n                            } else {",
+        "numLines": 90,
+        "startLine": 230,
+        "totalLines": 394
+      }
+    },
+    "tool_use_id": "call_2a83d7bea60543b9a8627fc3"
   }
 ]
