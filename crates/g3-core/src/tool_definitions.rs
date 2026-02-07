@@ -910,6 +910,32 @@ fn create_index_tools() -> Vec<Tool> {
                 "required": ["path"]
             }),
         },
+        Tool {
+            name: "list_files".to_string(),
+            description: "List all files in a directory matching a pattern. Useful for finding files of interest across the codebase (e.g., all Rust files, all test files).".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory path to search (default: current directory)"
+                    },
+                    "pattern": {
+                        "type": "string",
+                        "description": "Glob pattern to match (default: '*', matches all files)"
+                    },
+                    "include_hidden": {
+                        "type": "boolean",
+                        "description": "Include hidden files (default: false)"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 1000)"
+                    }
+                },
+                "required": []
+            }),
+        },
         // Knowledge Graph Tools
         Tool {
             name: "graph_find_symbol".to_string(),
@@ -1645,7 +1671,7 @@ mod tests {
         let tools = create_index_tools();
         // 9 index tools: index_codebase, semantic_search, index_status,
         // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats, code_intelligence
-        assert_eq!(tools.len(), 11);  // +2 self-improvement tools
+        assert_eq!(tools.len(), 12);  // +3 self-improvement tools
     }
 
     #[test]
@@ -1662,8 +1688,8 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 16 core + 15 beads + 11 index = 42
-        assert_eq!(tools.len(), 42);
+        // 16 core + 15 beads + 12 index = 43
+        assert_eq!(tools.len(), 43);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
@@ -1684,8 +1710,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 11 index = 65
-        assert_eq!(tools.len(), 65);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 12 index = 66
+        assert_eq!(tools.len(), 66);
     }
 
     #[test]
@@ -1729,7 +1755,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 11 index + 9 lsp = 74
-        assert_eq!(tools.len(), 74);
+        // 16 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 12 index + 9 lsp = 75
+        assert_eq!(tools.len(), 75);
     }
 }
