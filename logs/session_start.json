@@ -731,5 +731,19 @@
     "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
     "hook_event_name": "SessionStart",
     "source": "clear"
+  },
+  {
+    "session_id": "500c2aa3-2c3f-4a9f-af43-0a5a8258b7e4",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/500c2aa3-2c3f-4a9f-af43-0a5a8258b7e4.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
+  },
+  {
+    "session_id": "33d36e1f-7845-4f39-aafc-84216f0732d6",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3-g3/33d36e1f-7845-4f39-aafc-84216f0732d6.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3/g3",
+    "hook_event_name": "SessionStart",
+    "source": "clear"
   }
 ]
