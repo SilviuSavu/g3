@@ -22,7 +22,7 @@ use super::{AdapterOutput, ToolFormatAdapter};
 /// Safety limits to prevent unbounded buffering
 const MAX_PATTERN_BUFFER: usize = 20; // `<|assistant|>` is 13 chars
 const MAX_TOOL_NAME: usize = 64;
-const MAX_JSON_BUFFER: usize = 65536; // 64KB
+const MAX_JSON_BUFFER: usize = 262144; // 256KB
 const MAX_NEWLINES_BEFORE_JSON: usize = 2;
 
 /// The pattern that indicates a tool call in GLM format

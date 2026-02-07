@@ -19,53 +19,66 @@ const OUTPUT_TRUNCATE_THRESHOLD: usize = 8 * 1024;
 const TRUNCATED_HEAD_SIZE: usize = 500;
 
 /// Truncate output if it exceeds the threshold, saving full content to a file.
-/// 
+///
 /// If the output is larger than OUTPUT_TRUNCATE_THRESHOLD:
 /// 1. Saves the full output to `.g3/sessions/<session_id>/tools/<tool>_<id>_<stream>.txt`
 /// 2. Returns the first TRUNCATED_HEAD_SIZE chars with a message pointing to the file
 ///
-/// If session_id is None, returns the original output unchanged.
+/// If session_id is None, returns truncated output with a note (no file saved).
 fn truncate_large_output(
     output: &str,
     session_id: Option<&str>,
     tool_name: &str,
     stream_name: &str, // "stdout" or "stderr"
 ) -> String {
-    // If output is small enough or no session, return as-is
-    if output.len() <= OUTPUT_TRUNCATE_THRESHOLD || session_id.is_none() {
+    // If output is small enough, return as-is
+    if output.len() <= OUTPUT_TRUNCATE_THRESHOLD {
         return output.to_string();
     }
 
+    // Check if we have a session for file saving
+    let save_to_file = session_id.is_some();
     let session_id = session_id.unwrap();
+
     let output_id = generate_short_id();
     let tools_dir = get_tools_output_dir(session_id);
-    
+
     // Create tools directory if needed
     if let Err(e) = fs::create_dir_all(&tools_dir) {
         debug!("Failed to create tools output dir: {}", e);
-        return output.to_string();
-    }
-
-    let filename = format!("{}_{}.txt", tool_name, output_id);
-    let file_path = tools_dir.join(&filename);
-
-    // Save full output to file
-    if let Err(e) = fs::write(&file_path, output) {
-        debug!("Failed to save large output to file: {}", e);
-        return output.to_string();
+        // Still truncate and return even if we can't save to file
     }
 
     // Truncate to first TRUNCATED_HEAD_SIZE chars (UTF-8 safe)
     let head: String = output.chars().take(TRUNCATED_HEAD_SIZE).collect();
     let total_chars = output.chars().count();
-    
-    format!(
-        "{}\n\n[[ {} TRUNCATED ({} total chars) ]]\nFull output saved to: {}\nUse read_file to see more.",
-        head,
-        stream_name.to_uppercase(),
-        total_chars,
-        file_path.display()
-    )
+
+    // If we have a session, try to save the full output to a file
+    if save_to_file {
+        let filename = format!("{}_{}.txt", tool_name, output_id);
+        let file_path = tools_dir.join(&filename);
+
+        if let Err(e) = fs::write(&file_path, output) {
+            debug!("Failed to save large output to file: {}", e);
+            // Continue with truncated output even if file save failed
+        }
+
+        format!(
+            "{}\n\n[[ {} TRUNCATED ({} total chars) ]]\nFull output saved to: {}\nUse read_file to see more.",
+            head,
+            stream_name.to_uppercase(),
+            total_chars,
+            file_path.display()
+        )
+    } else {
+        // No session - just return truncated output with a note
+        format!(
+            "{}\n\n[[ {} TRUNCATED ({} total chars) - no session available ]]\n",
+            head,
+            stream_name.to_uppercase(),
+            total_chars
+        )
+    }
 }
 
 /// Execute the `shell` tool.

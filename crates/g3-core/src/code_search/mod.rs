@@ -22,7 +22,7 @@ fn default_concurrency() -> usize {
 }
 
 fn default_max_matches() -> usize {
-    500
+    50
 }
 
 /// Individual search specification
