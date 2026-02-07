@@ -682,6 +682,117 @@ pub async fn execute_graph_stats<W: UiWriter>(
     }
 }
 
+/// Execute the list_files tool.
+pub async fn execute_list_files<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &mut ToolContext<'_, W>,
+) -> Result<String> {
+    let args = &tool_call.args;
+
+    let path = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or(".");
+
+    let pattern = args
+        .get("pattern")
+        .and_then(|v| v.as_str())
+        .unwrap_or("*");
+
+    let include_hidden = args
+        .get("include_hidden")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let max_results = args
+        .get("max_results")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1000) as usize;
+
+    let work_dir = ctx.working_dir.unwrap_or(".");
+    let work_path = Path::new(work_dir);
+    let dir_path = work_path.join(path);
+
+    if !dir_path.exists() {
+        return Ok(json!({
+            "status": "error",
+            "message": format!("Directory not found: {}", dir_path.display())
+        }).to_string());
+    }
+
+    let mut entries: Vec<serde_json::Value> = Vec::new();
+
+    // Walk the directory tree
+    for entry in dir_path.read_dir()? {
+        if entries.len() >= max_results {
+            break;
+        }
+
+        if let Ok(entry) = entry {
+            let file_type = entry.file_type()?;
+            let file_name = entry.file_name();
+            let file_name_str = file_name.to_string_lossy();
+
+            // Skip hidden files by default
+            if !include_hidden && file_name_str.starts_with('.') {
+                continue;
+            }
+
+            // Check if file matches the pattern
+            let matches = if file_type.is_file() {
+                // Simple glob matching
+                match pattern {
+                    "*" => true,
+                    ext if ext.starts_with("*") => {
+                        // Extension pattern like "*.rs"
+                        let ext_pattern = ext.strip_prefix("*").unwrap_or(ext);
+                        file_name_str.ends_with(ext_pattern)
+                    }
+                    _ => {
+                        // For now, only support * and *.ext patterns
+                        file_name_str == pattern
+                    }
+                }
+            } else {
+                false // Only list files, not directories
+            };
+
+            if matches {
+                // Get metadata
+                let metadata = entry.metadata()?;
+                let size = metadata.len();
+
+                // Count lines for text files
+                let line_count = if file_type.is_file() {
+                    match std::fs::read_to_string(entry.path()) {
+                        Ok(content) => content.lines().count(),
+                        Err(_) => 0,
+                    }
+                } else {
+                    0
+                };
+
+                entries.push(json!({
+                    "name": file_name_str,
+                    "path": file_name_str,
+                    "size": size,
+                    "lines": line_count
+                }));
+            }
+        }
+    }
+
+    Ok(json!({
+        "status": "success",
+        "path": path,
+        "pattern": pattern,
+        "include_hidden": include_hidden,
+        "max_results": max_results,
+        "entries": entries,
+        "count": entries.len()
+    }).to_string())
+}
+
 /// Helper to get or initialize the index client.
 async fn get_or_init_client<W: UiWriter>(
     ctx: &mut ToolContext<'_, W>,
