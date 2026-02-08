@@ -1,4 +1,7 @@
-//! G3 CLI - Command-line interface for the G3 AI coding agent.
+use std::io::Write;/// G3 CLI - Command-line interface for the G3 AI coding agent.
+
+
+/// G3 CLI - Command-line interface for the G3 AI coding agent.
 
 pub mod filter_json;
 pub mod metrics;
@@ -7,6 +10,7 @@ pub mod streaming_markdown;
 pub mod embedded_agents;
 pub mod language_prompts;
 
+pub mod tui;
 mod accumulative;
 mod agent_mode;
 mod autonomous;
@@ -129,6 +133,15 @@ pub async fn run() -> Result<()> {
                     }
                     ModeSelection::Planning => {
                         cli.planning = true;
+                        // Return to let the planning mode check at the top handle it
+                        let codepath = cli.codepath.clone();
+                        return g3_planner::run_planning_mode(
+                            codepath,
+                            cli.workspace.clone(),
+                            cli.no_git,
+                            cli.config.as_deref(),
+                        )
+                        .await;
                     }
                     ModeSelection::Studio => {
                         eprintln!("Studio mode requires running 'studio' command directly");
@@ -140,6 +153,8 @@ pub async fn run() -> Result<()> {
                 return Ok(()); // User cancelled
             }
         }
+        // Re-check planning mode after mode selection
+        // (already handled above, so continue)
     }
     
     let workspace_dir = determine_workspace_dir(&cli)?;
@@ -241,10 +256,7 @@ async fn run_console_mode(
         println!("   specialized agent with custom prompt");
         println!();
     } else if cli.planning {
-        println!();
-        println!("📋 Starting planning mode");
-        println!("   requirements-driven development with git integration");
-        println!();
+        // Planning mode banner is printed by g3-planner::run_planning_mode
     } else if let Some(_) = &cli.task {
         println!();
         println!("🎯 Starting single-shot mode");
@@ -329,5 +341,47 @@ async fn run_console_mode(
             initial_project,
         )
         .await
+    }
+}
+
+/// Run the TUI (Text User Interface) application.
+/// This requires the `tui` feature to be enabled.
+#[cfg(feature = "tui")]
+pub async fn run_tui() -> anyhow::Result<()> {
+    crate::tui::run_tui()
+}
+
+/// Check if TUI can run in the current environment.
+#[cfg(feature = "tui")]
+pub fn can_run_tui() -> bool {
+    crate::tui::can_run_tui()
+}
+
+/// TUI mode selection helper for interactive mode.
+/// Returns Some(true) to run TUI, Some(false) to run CLI, None to cancel.
+#[cfg(feature = "tui")]
+pub async fn run_tui_mode_selection() -> Option<bool> {
+    use crate::tui;
+    
+    println!("\nTUI Mode Selection");
+    println!("=================");
+    println!("1. Run TUI (Text User Interface)");
+    println!("2. Run CLI (Command Line Interface - default)");
+    println!("3. Cancel");
+    println!();
+    print!("Select mode (1-3): ");
+    std::io::stdout().flush().ok();
+    
+    let mut input = String::new();
+    match std::io::stdin().read_line(&mut input) {
+        Ok(_) => {
+            match input.trim() {
+                "1" => Some(true),
+                "2" => Some(false),
+                "3" => None,
+                _ => None,
+            }
+        }
+        Err(_) => None,
     }
 }
