@@ -1,5 +1,12 @@
-# Workspace Memory
-> Updated: 2026-02-08T01:56:30Z | Size: 24.2k chars
+### Final Output Test
+Test for the final_output tool with TEST_SUCCESS success indicator.
+
+- `crates/g3-core/tests/final_output_test.rs` - Complete test implementation
+  - `call_final_output()` - Simulates calling final_output tool with summary
+  - `test_test_success_constant()` - Verifies TEST_SUCCESS constant
+  - `test_final_output_with_test_success()` - Tests final_output call with TEST_SUCCESS
+  - All tests pass (4/4)# Workspace Memory
+> Updated: 2026-02-08T02:45:22Z | Size: 24.4k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -477,3 +484,6 @@ Fixed planning mode selection from mode selection menu.
 2. User selects "5" or "planning" → ModeSelection::Planning returned
 3. Mode selection logic sets cli.planning = true and returns early to call g3_planner::run_planning_mode()
 4. Planning mode starts with codepath prompt, requirements refinement, and coach/player loop
+
+### Session Management
+The g3 workspace stores session logs in `.g3/sessions/<session_id>/` with session state in `session.json`. The `.g3/session` symlink points to the current/active session. Session cleanup can be performed by removing old session directories.
