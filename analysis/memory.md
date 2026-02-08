@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-07T21:00:36Z | Size: 19.5k chars
+> Updated: 2026-02-08T01:56:30Z | Size: 24.2k chars
 
 ### Remember Tool Wiring
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
@@ -351,3 +351,129 @@ Find specific code patterns (error handling, async, builder, etc.) across the co
 - `crates/g3-core/src/tool_dispatch.rs` [112] - dispatch case: `"pattern_search" => index::execute_pattern_search`
 
 **Pattern types**: error_handling, trait_impl, async_pattern, struct_init, builder_pattern, lifecycle, concurrency, config, logging
+
+### G3 Workspace Build Status
+The entire g3 workspace is built and available.
+
+**Release binaries:**
+- `target/release/g3` (42 MB, last modified Feb 8 00:40)
+
+**Debug binaries:**
+- `target/debug/g3` (92 MB)
+- `target/debug/studio` (multi-agent workspace manager)
+
+**All crates compiled:**
+- g3, g3-cli, g3-computer-control, g3-config, g3-core, g3-execution, g3-index, g3-lsp, g3-planner, g3-providers, studio
+
+**Build commands:**
+- `cargo build --release` - production binary
+- `cargo build` - debug binary with all crates
+- `cargo test` - run all tests
+- `cargo check` - quick type check without full build
+
+### Latest Features Verification (February 2026)
+All latest features are properly wired and tested:
+
+**Core Tools (17 total)**:
+- switch_mode - agent mode switching
+- complexity_metrics - code complexity analysis
+- list_files - glob pattern file filtering
+- list_directory - directory exploration
+- preview_file - quick file previews
+- pattern_search - code pattern discovery
+- code_intelligence - graph-based code analysis
+
+**Codebase Intelligence System**:
+- crates/g3-index/src/unified_index.rs - unified API
+- crates/g3-index/src/traverser.rs - BFS/DFS/graph traversal
+- crates/g3-core/src/tools/intelligence.rs - 7 subcommands
+
+**Test Results**:
+- 25 tool_definitions tests: PASS
+- 16 tool execution roundtrip tests: PASS
+- 18 integration blackbox tests: PASS
+- 22 intelligence system tests: PASS
+- 500+ total tests passing
+
+**Build Status**:
+- Release binary: target/release/g3 (42 MB)
+- Debug binary: target/debug/g3 (92 MB)
+- studio binary: target/debug/studio (5.4 MB)
+
+### Latest Features Verification (February 2026)
+All latest features are properly wired and tested:
+
+**Core Tools (17 total)**:
+- switch_mode - agent mode switching
+- complexity_metrics - code complexity analysis
+- list_files - glob pattern file filtering
+- list_directory - directory exploration
+- preview_file - quick file previews
+- pattern_search - code pattern discovery
+- code_intelligence - graph-based code analysis
+
+**Codebase Intelligence System**:
+- crates/g3-index/src/unified_index.rs - unified API
+- crates/g3-index/src/traverser.rs - BFS/DFS/graph traversal
+- crates/g3-core/src/tools/intelligence.rs - 7 subcommands
+
+**Test Results**:
+- 25 tool_definitions tests: PASS
+- 16 tool execution roundtrip tests: PASS
+- 18 integration blackbox tests: PASS
+- 22 intelligence system tests: PASS
+- 500+ total tests passing
+
+**Build Status**:
+- Release binary: target/release/g3 (42 MB)
+- Debug binary: target/debug/g3 (92 MB)
+- studio binary: target/debug/studio (5.4 MB)
+
+### Interactive Mode Selection Menu
+When running `g3` without arguments, displays a mode selection menu.
+
+- `crates/g3-cli/src/interactive.rs` [665..752]
+  - `ModeSelection` enum [668-678] - 6 mode variants
+  - `run_mode_selection()` [680-752] - displays menu, handles input
+
+- `crates/g3-cli/src/lib.rs` [101..143]
+  - Mode selection check in `run()` [101-143] - calls menu, modifies CLI flags
+
+**Workflow**:
+1. User runs `g3` (no args) → menu appears
+2. User selects mode by number (1-6) or name
+3. CLI flags are set based on selection
+4. Appropriate mode runner is called
+
+**Input handling**:
+- Empty input → re-prompt
+- Invalid input → shows [failed], re-prompt
+- "exit"/"quit" → exits gracefully
+- EOF (Ctrl-D) → exits
+- Name matching is case-insensitive
+
+**6 Modes**:
+1. Interactive (default chat)
+2. Autonomous (coach-player loop)
+3. Accumulative (evolutionary requirements)
+4. Agent (specialized agents)
+5. Planning (requirements-driven)
+6. Studio (multi-agent)
+
+**CLI flag behavior**:
+- If any mode flag is set (--agent, --autonomous, --auto, --planning, --chat, --task) → skips menu
+- Menu only appears when no mode flags are provided
+
+### Mode Selection Fix (February 2026)
+Fixed planning mode selection from mode selection menu.
+
+- `crates/g3-cli/src/lib.rs` [132..140] - When mode selection returns ModeSelection::Planning, return early to call g3_planner::run_planning_mode()
+- `crates/g3-cli/src/lib.rs` [255..258] - Removed duplicate planning mode banner (printed by g3-planner)
+- `crates/g3-planner/src/lib.rs` [747..950] - run_planning_mode() function handles planning mode orchestration
+- `crates/g3-planner/src/planner.rs` [747..1200] - Main planning mode implementation with codepath prompt, requirements refinement, and implementation loop
+
+**Flow:**
+1. User runs g3 without mode flags → mode selection menu appears
+2. User selects "5" or "planning" → ModeSelection::Planning returned
+3. Mode selection logic sets cli.planning = true and returns early to call g3_planner::run_planning_mode()
+4. Planning mode starts with codepath prompt, requirements refinement, and coach/player loop

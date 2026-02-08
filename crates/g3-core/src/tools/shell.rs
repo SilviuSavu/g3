@@ -36,25 +36,21 @@ fn truncate_large_output(
         return output.to_string();
     }
 
-    // Check if we have a session for file saving
-    let save_to_file = session_id.is_some();
-    let session_id = session_id.unwrap();
-
-    let output_id = generate_short_id();
-    let tools_dir = get_tools_output_dir(session_id);
-
-    // Create tools directory if needed
-    if let Err(e) = fs::create_dir_all(&tools_dir) {
-        debug!("Failed to create tools output dir: {}", e);
-        // Still truncate and return even if we can't save to file
-    }
-
     // Truncate to first TRUNCATED_HEAD_SIZE chars (UTF-8 safe)
     let head: String = output.chars().take(TRUNCATED_HEAD_SIZE).collect();
     let total_chars = output.chars().count();
 
-    // If we have a session, try to save the full output to a file
-    if save_to_file {
+    // Check if we have a session for file saving
+    if let Some(session_id) = session_id {
+        let output_id = generate_short_id();
+        let tools_dir = get_tools_output_dir(session_id);
+
+        // Create tools directory if needed
+        if let Err(e) = fs::create_dir_all(&tools_dir) {
+            debug!("Failed to create tools output dir: {}", e);
+            // Still truncate and return even if we can't save to file
+        }
+
         let filename = format!("{}_{}.txt", tool_name, output_id);
         let file_path = tools_dir.join(&filename);
 
@@ -234,7 +230,10 @@ mod tests {
     fn test_truncate_no_session() {
         let output = "x".repeat(10000);
         let result = truncate_large_output(&output, None, "shell", "stdout");
-        assert_eq!(result, output);
+        // Should truncate output even without session, with appropriate note
+        assert!(result.contains("STDOUT TRUNCATED"));
+        assert!(result.contains("no session available"));
+        assert!(!result.contains("Full output saved to"));
     }
 
     #[test]
