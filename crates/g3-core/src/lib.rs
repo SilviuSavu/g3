@@ -26,6 +26,9 @@ pub mod index_client;
 pub mod ui_writer;
 pub mod utils;
 pub mod webdriver_session;
+// TODO: fs_cache and fs_service are WIP - commented out until compilation issues are resolved
+// pub mod fs_cache;
+// pub mod fs_service;
 
 pub use feedback_extraction::{
     extract_coach_feedback, ExtractedFeedback, FeedbackExtractionConfig, FeedbackSource,

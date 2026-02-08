@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, beads, file_ops, index, intelligence, lsp, mcp_tools, memory, misc, plan, research, shell, webdriver, zai_tools};
+use crate::tools::{acd, beads, file_ops, index, intelligence, lsp, mcp_tools, memory, misc, plan, research, shell, todo, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -170,6 +170,10 @@ pub async fn dispatch_tool<W: UiWriter>(
         "lsp_call_hierarchy" => lsp::execute_call_hierarchy(tool_call, ctx).await,
         "lsp_diagnostics" => lsp::execute_diagnostics(tool_call, ctx).await,
         "lsp_status" => lsp::execute_status(tool_call, ctx).await,
+
+        // TODO tools
+        "todo_read" => todo::execute_todo_read(tool_call, ctx).await,
+        "todo_write" => todo::execute_todo_write(tool_call, ctx).await,
 
         // rg tool - wrapper for ripgrep
         "rg" => shell::execute_rg(tool_call, ctx).await,

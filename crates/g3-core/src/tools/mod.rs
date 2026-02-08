@@ -28,6 +28,7 @@ pub mod misc;
 pub mod plan;
 pub mod research;
 pub mod shell;
+pub mod todo;
 pub mod webdriver;
 pub mod zai_tools;
 
