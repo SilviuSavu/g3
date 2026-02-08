@@ -662,3 +662,91 @@ mod tests {
     }
 }
 
+
+/// Mode selection result
+#[derive(Debug, Clone, PartialEq)]
+pub enum ModeSelection {
+    Interactive,
+    Autonomous,
+    Accumulative,
+    Agent,
+    Planning,
+    Studio,
+}
+
+/// Display the mode selection menu and return the selected mode.
+/// Returns None if user wants to exit (Ctrl-C or invalid).
+pub async fn run_mode_selection() -> Result<Option<ModeSelection>> {
+    use crossterm::style::{Color, SetForegroundColor, ResetColor};
+    use crate::simple_output::SimpleOutput;
+    use crate::g3_status::G3Status;
+    use std::io::{Write, stdin};
+    
+    let output = SimpleOutput::new();
+    
+    println!();
+    println!("{}{}{}", SetForegroundColor(Color::Cyan), "🤖 Select a mode to begin:", ResetColor);
+    println!();
+    
+    let modes = [
+        ("1", "Interactive", "Default chat mode - conversational development"),
+        ("2", "Autonomous", "Coach-player feedback loop - autonomous iteration"),
+        ("3", "Accumulative", "Evolutionary requirements - incremental development"),
+        ("4", "Agent", "Specialized agents - carmack, torvalds, and more"),
+        ("5", "Planning", "Requirements-driven development - git integration"),
+        ("6", "Studio", "Multi-agent workspace manager - parallel agents"),
+    ];
+    
+    for (num, name, desc) in &modes {
+        println!("  {}[{}]{} {} - {}", SetForegroundColor(Color::Yellow), num, ResetColor, name, desc);
+    }
+    
+    println!();
+    println!("  Enter number or mode name (or 'exit' to quit):");
+    
+    loop {
+        print!("  > ");
+        let _ = std::io::stdout().flush();
+        
+        let mut input = String::new();
+        match stdin().read_line(&mut input) {
+            Ok(0) => {
+                // EOF - treat as Ctrl-D
+                output.print("CTRL-D");
+                return Ok(None);
+            }
+            Ok(_) => {
+                let trimmed = input.trim().to_lowercase();
+                if trimmed == "exit" || trimmed == "quit" {
+                    output.print("👋 Goodbye!");
+                    return Ok(None);
+                }
+                if trimmed.is_empty() {
+                    continue; // Empty input, show menu again
+                }
+                
+                // Parse the selection
+                let selected_mode = match trimmed.as_str() {
+                    "1" | "interactive" => Some(ModeSelection::Interactive),
+                    "2" | "autonomous" => Some(ModeSelection::Autonomous),
+                    "3" | "accumulative" => Some(ModeSelection::Accumulative),
+                    "4" | "agent" => Some(ModeSelection::Agent),
+                    "5" | "planning" => Some(ModeSelection::Planning),
+                    "6" | "studio" => Some(ModeSelection::Studio),
+                    _ => {
+                        // Invalid selection
+                        G3Status::failed();
+                        println!();
+                        continue; // Try again
+                    }
+                };
+                
+                return Ok(selected_mode);
+            }
+            Err(_) => {
+                output.print("Error reading input");
+                return Ok(None);
+            }
+        }
+    }
+}

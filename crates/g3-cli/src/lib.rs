@@ -41,7 +41,9 @@ use agent_mode::run_agent_mode;
 use autonomous::run_autonomous;
 use interactive::run_interactive;
 use project_files::{combine_project_content, read_agents_config, read_include_prompt, read_workspace_memory};
+use interactive::run_mode_selection;
 use simple_output::SimpleOutput;
+use interactive::ModeSelection;
 use ui_writer_impl::ConsoleUiWriter;
 use g3_core::ui_writer::UiWriter;
 use utils::{initialize_logging, load_config_with_cli_overrides, setup_workspace_directory};
@@ -49,7 +51,7 @@ use template::process_template;
 use project::load_and_validate_project;
 
 pub async fn run() -> Result<()> {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
 
     // Initialize logging FIRST (before any mode checks)
     initialize_logging(cli.verbose);
@@ -97,8 +99,49 @@ pub async fn run() -> Result<()> {
         )
         .await;
     }
-
-    // Set up workspace directory
+    
+    // Check if mode selection is needed (no CLI mode flags set)
+    let needs_mode_selection = !cli.autonomous 
+        && !cli.auto 
+        && !cli.chat 
+        && !cli.planning 
+        && cli.agent.is_none() 
+        && cli.task.is_none();
+    
+    if needs_mode_selection {
+        match run_mode_selection().await? {
+            Some(selected_mode) => {
+                match selected_mode {
+                    ModeSelection::Interactive => {
+                        // Default - no flags needed
+                    }
+                    ModeSelection::Autonomous => {
+                        cli.autonomous = true;
+                    }
+                    ModeSelection::Accumulative => {
+                        cli.auto = true;
+                    }
+                    ModeSelection::Agent => {
+                        // Prompt for agent name or use a default
+                        eprintln!("Select agent mode requires --agent <name> flag");
+                        eprintln!("Use: g3 --agent carmack [task]");
+                        return Ok(());
+                    }
+                    ModeSelection::Planning => {
+                        cli.planning = true;
+                    }
+                    ModeSelection::Studio => {
+                        eprintln!("Studio mode requires running 'studio' command directly");
+                        return Ok(());
+                    }
+                }
+            }
+            None => {
+                return Ok(()); // User cancelled
+            }
+        }
+    }
+    
     let workspace_dir = determine_workspace_dir(&cli)?;
 
     // Load project context files
