@@ -2,11 +2,16 @@
 
 pub mod app;
 pub mod events;
+pub mod markdown;
+pub mod subagent_monitor;
+pub mod subagent_panel;
+pub mod tool_display;
 pub mod tui_ui_writer;
 pub mod ui;
 
 pub use ui::Colors;
 
+use subagent_monitor::SubagentMonitor;
 use tui_ui_writer::TuiUiWriter;
 
 /// Run the TUI application.
@@ -17,19 +22,36 @@ pub fn run_tui() -> anyhow::Result<()> {
     // Channel: agent thread -> TUI (events for rendering)
     let (tui_event_tx, tui_event_rx) =
         tokio::sync::mpsc::unbounded_channel::<tui_ui_writer::TuiEvent>();
+    // Channel: subagent monitor -> TUI (subagent state updates)
+    let (subagent_tx, subagent_rx) =
+        tokio::sync::mpsc::unbounded_channel::<Vec<subagent_monitor::SubagentEntry>>();
 
     // Spawn the agent thread with its own tokio runtime
     let agent_handle = std::thread::spawn(move || {
         run_agent_thread(agent_input_rx, tui_event_tx);
     });
 
+    // Spawn the subagent monitor thread
+    let log_dir = std::env::current_dir()
+        .unwrap_or_default()
+        .join("logs");
+    let monitor = SubagentMonitor::new(log_dir);
+    let monitor_handle = std::thread::spawn(move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(_) => return,
+        };
+        rt.block_on(monitor.run(subagent_tx));
+    });
+
     // Run the TUI on the main thread
-    let mut app = app::App::new(agent_input_tx, tui_event_rx)?;
+    let mut app = app::App::new(agent_input_tx, tui_event_rx, subagent_rx)?;
     let result = app.run();
 
-    // TUI exited - the agent thread will terminate when its channels close
+    // TUI exited - the agent and monitor threads will terminate when their channels close
     drop(app);
     let _ = agent_handle.join();
+    let _ = monitor_handle.join();
 
     result
 }

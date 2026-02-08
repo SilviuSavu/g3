@@ -8,7 +8,11 @@ use ratatui::{
     Frame,
 };
 
-use crate::tui::app::{ChatMessage, MessageRole, PendingPrompt};
+use crate::tui::app::{ChatContent, ChatMessage, MessageRole, Pane, PendingPrompt};
+use crate::tui::markdown;
+use crate::tui::subagent_monitor::SubagentEntry;
+use crate::tui::subagent_panel;
+use crate::tui::tool_display;
 
 /// Color palette for the TUI.
 #[derive(Clone)]
@@ -51,13 +55,50 @@ pub struct AppView<'a> {
     pub current_tool: &'a Option<String>,
     pub scroll_offset: u16,
     pub pending_prompt: &'a Option<PendingPrompt>,
+    pub active_pane: &'a Pane,
+    pub split_ratio: f32,
+    pub subagent_entries: &'a [SubagentEntry],
+    pub subagent_scroll: usize,
+    pub model_name: &'a str,
+    pub cost_dollars: f64,
+    pub is_thinking: bool,
 }
 
 /// Render the entire TUI frame.
 pub fn render(frame: &mut Frame, app: &AppView) {
     let size = frame.area();
-    let colors = app.colors;
 
+    // Responsive: split layout if wide enough and subagents exist
+    if size.width >= 120 && !app.subagent_entries.is_empty() {
+        let left_pct = (app.split_ratio * 100.0) as u16;
+        let right_pct = 100 - left_pct;
+        let horizontal = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(left_pct),
+                Constraint::Percentage(right_pct),
+            ])
+            .split(size);
+
+        render_main_pane(frame, horizontal[0], app);
+        subagent_panel::render_subagent_panel(
+            frame,
+            horizontal[1],
+            app.subagent_entries,
+            *app.active_pane == Pane::Subagent,
+            app.subagent_scroll,
+        );
+    } else {
+        render_main_pane(frame, size, app);
+    }
+
+    if app.pending_prompt.is_some() {
+        render_prompt_overlay(frame, frame.area(), app, app.colors);
+    }
+}
+
+/// Render the main pane (chat + status bar + input).
+fn render_main_pane(frame: &mut Frame, area: Rect, app: &AppView) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -65,19 +106,11 @@ pub fn render(frame: &mut Frame, app: &AppView) {
             Constraint::Length(1),
             Constraint::Length(3),
         ])
-        .split(size);
+        .split(area);
 
-    render_chat(frame, chunks[0], app, colors);
-    render_context_bar(frame, chunks[1], app, colors);
-    render_input_box(frame, chunks[2], app, colors);
-
-    if app.current_tool.is_some() {
-        render_tool_status(frame, chunks[0], app, colors);
-    }
-
-    if app.pending_prompt.is_some() {
-        render_prompt_overlay(frame, size, app, colors);
-    }
+    render_chat(frame, chunks[0], app, app.colors);
+    render_context_bar(frame, chunks[1], app, app.colors);
+    render_input_box(frame, chunks[2], app, app.colors);
 }
 
 fn render_chat(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
@@ -110,6 +143,7 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
     for msg in app.messages {
         match msg.role {
             MessageRole::User => {
+                let text = msg.content.as_text();
                 lines.push(Line::from(vec![
                     Span::styled(
                         "You: ",
@@ -117,11 +151,12 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
                             .fg(colors.user)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled(&msg.content, Style::default().fg(colors.text)),
+                    Span::styled(text.to_string(), Style::default().fg(colors.text)),
                 ]));
             }
             MessageRole::Assistant => {
-                if msg.content.is_empty() {
+                let text = msg.content.as_text();
+                if text.is_empty() {
                     lines.push(Line::from(vec![
                         Span::styled(
                             "g3: ",
@@ -132,41 +167,95 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
                         Span::styled("...", Style::default().fg(colors.secondary)),
                     ]));
                 } else {
-                    let content_lines: Vec<&str> = msg.content.lines().collect();
-                    for (i, line) in content_lines.iter().enumerate() {
+                    // Parse markdown for assistant messages
+                    let md_lines = markdown::parse_markdown(text);
+                    for (i, md_line) in md_lines.into_iter().enumerate() {
                         if i == 0 {
-                            lines.push(Line::from(vec![
-                                Span::styled(
-                                    "g3: ",
-                                    Style::default()
-                                        .fg(colors.assistant)
-                                        .add_modifier(Modifier::BOLD),
-                                ),
-                                Span::styled(*line, Style::default().fg(colors.text)),
-                            ]));
+                            // Prepend "g3: " to first line
+                            let mut spans = vec![Span::styled(
+                                "g3: ",
+                                Style::default()
+                                    .fg(colors.assistant)
+                                    .add_modifier(Modifier::BOLD),
+                            )];
+                            spans.extend(md_line.spans);
+                            lines.push(Line::from(spans));
                         } else {
-                            lines.push(Line::from(Span::styled(
-                                format!("    {}", line),
-                                Style::default().fg(colors.text),
-                            )));
+                            // Indent continuation lines
+                            let mut spans = vec![Span::raw("    ")];
+                            spans.extend(md_line.spans);
+                            lines.push(Line::from(spans));
                         }
                     }
                 }
             }
             MessageRole::Tool => {
-                lines.push(Line::from(Span::styled(
-                    format!("  [{}]", msg.content),
-                    Style::default().fg(colors.tool),
-                )));
+                match &msg.content {
+                    ChatContent::ToolCompact {
+                        name,
+                        path,
+                        summary,
+                        tokens,
+                        duration_secs,
+                        ..
+                    } => {
+                        let tool_lines = tool_display::render_tool_compact(
+                            name,
+                            path,
+                            summary,
+                            *tokens,
+                            *duration_secs,
+                        );
+                        lines.extend(tool_lines);
+                    }
+                    ChatContent::ToolVerbose {
+                        name,
+                        path,
+                        lines: tool_lines,
+                        tokens,
+                        duration_secs,
+                        context_pct,
+                    } => {
+                        lines.push(tool_display::render_tool_verbose_header(name, path));
+                        for line in tool_lines {
+                            lines.push(tool_display::render_tool_verbose_line(line));
+                        }
+                        lines.push(tool_display::render_tool_verbose_footer(
+                            *tokens,
+                            *duration_secs,
+                            *context_pct,
+                        ));
+                    }
+                    ChatContent::Text(text) => {
+                        lines.push(Line::from(Span::styled(
+                            format!("  [{}]", text),
+                            Style::default().fg(colors.tool),
+                        )));
+                    }
+                }
             }
             MessageRole::Error => {
+                let text = msg.content.as_text();
                 lines.push(Line::from(Span::styled(
-                    format!("  Error: {}", msg.content),
+                    format!("  Error: {}", text),
                     Style::default().fg(colors.error),
                 )));
             }
         }
         lines.push(Line::from(""));
+    }
+
+    // Show thinking indicator
+    if app.is_thinking {
+        lines.push(Line::from(vec![
+            Span::styled(
+                "g3: ",
+                Style::default()
+                    .fg(colors.assistant)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("thinking...", Style::default().fg(colors.secondary)),
+        ]));
     }
 
     let text = Text::from(lines);
@@ -196,29 +285,84 @@ fn render_context_bar(frame: &mut Frame, area: Rect, app: &AppView, colors: &Col
         colors.error
     };
 
-    let status_text = if let Some(ref tool) = app.current_tool {
-        format!(" Context: {:.0}% | Running: {} ", pct, tool)
-    } else {
-        format!(" Context: {:.0}% | Ready ", pct)
-    };
+    // Build context gauge
+    let filled = ((pct / 100.0) * 10.0).round() as usize;
+    let filled = filled.min(10);
+    let empty = 10 - filled;
+    let gauge = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
 
-    let bar = Paragraph::new(Line::from(Span::styled(
-        status_text,
-        Style::default().fg(color),
-    )))
-    .style(Style::default().bg(Color::Black));
+    // Build status text parts
+    let mut spans: Vec<Span> = vec![
+        Span::styled(" Context: ", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{:.0}% ", pct), Style::default().fg(color)),
+        Span::styled(gauge, Style::default().fg(color)),
+    ];
 
+    // Add model name if available
+    if !app.model_name.is_empty() {
+        spans.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            app.model_name.to_string(),
+            Style::default().fg(Color::Cyan),
+        ));
+    }
+
+    // Add cost
+    if app.cost_dollars > 0.0 {
+        spans.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            format!("${:.2}", app.cost_dollars),
+            Style::default().fg(Color::White),
+        ));
+    }
+
+    // Add current tool if running
+    if let Some(ref tool) = app.current_tool {
+        spans.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            format!("● {}", tool),
+            Style::default().fg(colors.tool),
+        ));
+    }
+
+    // Add subagent count in narrow mode
+    if area.width < 120 && !app.subagent_entries.is_empty() {
+        let active = app
+            .subagent_entries
+            .iter()
+            .filter(|e| e.status == crate::tui::subagent_monitor::AgentStatus::Running)
+            .count();
+        spans.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            format!("{} agents", active),
+            Style::default().fg(Color::Magenta),
+        ));
+    }
+
+    // Keyboard hints on the right
+    spans.push(Span::styled(
+        " | Tab:switch  Ctrl+C:quit  PgUp/Dn:scroll",
+        Style::default().fg(Color::DarkGray),
+    ));
+
+    let bar = Paragraph::new(Line::from(spans)).style(Style::default().bg(Color::Black));
     frame.render_widget(bar, area);
 }
 
 fn render_input_box(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
+    let border_color = if *app.active_pane == Pane::Main {
+        colors.primary
+    } else {
+        Color::DarkGray
+    };
+
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(colors.primary))
+        .border_style(Style::default().fg(border_color))
         .title(Span::styled(
             " Input ",
             Style::default()
-                .fg(colors.primary)
+                .fg(border_color)
                 .add_modifier(Modifier::BOLD),
         ));
 
@@ -234,30 +378,10 @@ fn render_input_box(frame: &mut Frame, area: Rect, app: &AppView, colors: &Color
     let input = Paragraph::new(Line::from(input_text)).block(block);
     frame.render_widget(input, area);
 
-    if app.pending_prompt.is_none() {
+    if app.pending_prompt.is_none() && *app.active_pane == Pane::Main {
         let cursor_x = area.x + 1 + app.cursor_position as u16;
         let cursor_y = area.y + 1;
         frame.set_cursor_position((cursor_x, cursor_y));
-    }
-}
-
-fn render_tool_status(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
-    if let Some(ref tool) = app.current_tool {
-        let text = format!(" {} running... ", tool);
-        let width = text.len() as u16;
-        if area.width > width + 2 && area.height > 2 {
-            let tool_area = Rect::new(
-                area.x + area.width - width - 1,
-                area.y + area.height - 1,
-                width,
-                1,
-            );
-            let widget = Paragraph::new(Span::styled(
-                text,
-                Style::default().fg(Color::Black).bg(colors.tool),
-            ));
-            frame.render_widget(widget, tool_area);
-        }
     }
 }
 

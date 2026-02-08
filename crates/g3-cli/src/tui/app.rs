@@ -1,6 +1,7 @@
 //! TUI application state and main loop.
 
 use crate::tui::events::has_minimum_size;
+use crate::tui::subagent_monitor::SubagentEntry;
 use crate::tui::tui_ui_writer::TuiEvent;
 use crate::tui::ui::{self, Colors};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
@@ -8,6 +9,13 @@ use ratatui::{prelude::CrosstermBackend, Terminal};
 use std::io::Stdout;
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
+
+/// Which pane has focus.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pane {
+    Main,
+    Subagent,
+}
 
 /// Role of a chat message.
 #[derive(Debug, Clone, PartialEq)]
@@ -18,11 +26,52 @@ pub enum MessageRole {
     Error,
 }
 
+/// Structured content for a chat message.
+#[derive(Debug, Clone)]
+pub enum ChatContent {
+    Text(String),
+    ToolCompact {
+        name: String,
+        path: String,
+        summary: String,
+        tokens: u32,
+        duration_secs: f64,
+        context_pct: f32,
+    },
+    ToolVerbose {
+        name: String,
+        path: String,
+        lines: Vec<String>,
+        tokens: u32,
+        duration_secs: f64,
+        context_pct: f32,
+    },
+}
+
+impl ChatContent {
+    pub fn as_text(&self) -> &str {
+        match self {
+            ChatContent::Text(s) => s,
+            _ => "",
+        }
+    }
+
+    pub fn push_str(&mut self, text: &str) {
+        if let ChatContent::Text(s) = self {
+            s.push_str(text);
+        }
+    }
+
+    pub fn is_text(&self) -> bool {
+        matches!(self, ChatContent::Text(_))
+    }
+}
+
 /// A single chat message for display.
 #[derive(Debug, Clone)]
 pub struct ChatMessage {
     pub role: MessageRole,
-    pub content: String,
+    pub content: ChatContent,
 }
 
 /// A pending prompt from the agent that needs user input.
@@ -60,14 +109,27 @@ pub struct App {
     pub pending_prompt: Option<PendingPrompt>,
     pub scroll_offset: u16,
     pub colors: Colors,
+    pub active_pane: Pane,
+    pub split_ratio: f32,
+    pub subagent_entries: Vec<SubagentEntry>,
+    pub subagent_scroll: usize,
+    pub model_name: String,
+    pub cost_dollars: f64,
+    pub is_thinking: bool,
     agent_input_tx: mpsc::UnboundedSender<String>,
     tui_event_rx: mpsc::UnboundedReceiver<TuiEvent>,
+    subagent_rx: mpsc::UnboundedReceiver<Vec<SubagentEntry>>,
+    /// Accumulator for verbose tool output lines
+    verbose_tool_lines: Vec<String>,
+    verbose_tool_name: String,
+    verbose_tool_path: String,
 }
 
 impl App {
     pub fn new(
         agent_input_tx: mpsc::UnboundedSender<String>,
         tui_event_rx: mpsc::UnboundedReceiver<TuiEvent>,
+        subagent_rx: mpsc::UnboundedReceiver<Vec<SubagentEntry>>,
     ) -> anyhow::Result<Self> {
         if !has_minimum_size(80, 24) {
             anyhow::bail!("Terminal too small. Minimum required: 80x24");
@@ -87,8 +149,19 @@ impl App {
             pending_prompt: None,
             scroll_offset: 0,
             colors: Colors::default(),
+            active_pane: Pane::Main,
+            split_ratio: 0.7,
+            subagent_entries: Vec::new(),
+            subagent_scroll: 0,
+            model_name: String::new(),
+            cost_dollars: 0.0,
+            is_thinking: false,
             agent_input_tx,
             tui_event_rx,
+            subagent_rx,
+            verbose_tool_lines: Vec::new(),
+            verbose_tool_name: String::new(),
+            verbose_tool_path: String::new(),
         })
     }
 
@@ -118,6 +191,7 @@ impl App {
         while self.running {
             self.draw()?;
             self.process_tui_events();
+            self.process_subagent_events();
 
             if event::poll(Duration::from_millis(16))? {
                 if let Event::Key(key) = event::read()? {
@@ -136,6 +210,13 @@ impl App {
         let context_percentage = self.context_percentage;
         let current_tool = self.current_tool.clone();
         let scroll_offset = self.scroll_offset;
+        let active_pane = self.active_pane.clone();
+        let split_ratio = self.split_ratio;
+        let subagent_entries = self.subagent_entries.clone();
+        let subagent_scroll = self.subagent_scroll;
+        let model_name = self.model_name.clone();
+        let cost_dollars = self.cost_dollars;
+        let is_thinking = self.is_thinking;
 
         self.terminal.draw(|frame| {
             let app_view = ui::AppView {
@@ -147,6 +228,13 @@ impl App {
                 current_tool: &current_tool,
                 scroll_offset,
                 pending_prompt: &None,
+                active_pane: &active_pane,
+                split_ratio,
+                subagent_entries: &subagent_entries,
+                subagent_scroll,
+                model_name: &model_name,
+                cost_dollars,
+                is_thinking,
             };
             ui::render(frame, &app_view);
         })?;
@@ -158,44 +246,94 @@ impl App {
             match evt {
                 TuiEvent::ResponseChunk(text) => {
                     if let Some(last) = self.messages.last_mut() {
-                        if last.role == MessageRole::Assistant {
+                        if last.role == MessageRole::Assistant && last.content.is_text() {
                             last.content.push_str(&text);
                         } else {
                             self.messages.push(ChatMessage {
                                 role: MessageRole::Assistant,
-                                content: text,
+                                content: ChatContent::Text(text),
                             });
                         }
                     } else {
                         self.messages.push(ChatMessage {
                             role: MessageRole::Assistant,
-                            content: text,
+                            content: ChatContent::Text(text),
                         });
                     }
                     self.scroll_offset = 0;
                 }
                 TuiEvent::ResponseDone => {
                     self.current_tool = None;
+                    self.is_thinking = false;
                 }
                 TuiEvent::ToolStart(name) => {
-                    self.current_tool = Some(name.clone());
-                    self.messages.push(ChatMessage {
-                        role: MessageRole::Tool,
-                        content: format!("{} ...", name),
-                    });
+                    self.current_tool = Some(name);
                 }
                 TuiEvent::ToolComplete(name, summary, ctx_pct) => {
                     self.current_tool = None;
                     self.context_percentage = ctx_pct;
-                    if let Some(last) = self.messages.last_mut() {
-                        if last.role == MessageRole::Tool && last.content.starts_with(&name) {
-                            if summary.is_empty() {
-                                last.content = format!("{} done", name);
-                            } else {
-                                last.content = format!("{}: {}", name, summary);
-                            }
-                        }
-                    }
+                    // Legacy: simple text tool display
+                    let text = if summary.is_empty() {
+                        format!("{} done", name)
+                    } else {
+                        format!("{}: {}", name, summary)
+                    };
+                    self.messages.push(ChatMessage {
+                        role: MessageRole::Tool,
+                        content: ChatContent::Text(text),
+                    });
+                }
+                TuiEvent::ToolCompact {
+                    name,
+                    path,
+                    summary,
+                    tokens,
+                    duration_secs,
+                    context_pct,
+                } => {
+                    self.current_tool = None;
+                    self.context_percentage = context_pct;
+                    self.messages.push(ChatMessage {
+                        role: MessageRole::Tool,
+                        content: ChatContent::ToolCompact {
+                            name,
+                            path,
+                            summary,
+                            tokens,
+                            duration_secs,
+                            context_pct,
+                        },
+                    });
+                }
+                TuiEvent::ToolVerboseStart { name, path } => {
+                    self.verbose_tool_lines.clear();
+                    self.verbose_tool_name = name;
+                    self.verbose_tool_path = path;
+                }
+                TuiEvent::ToolVerboseLine(line) => {
+                    self.verbose_tool_lines.push(line);
+                }
+                TuiEvent::ToolVerboseEnd {
+                    tokens,
+                    duration_secs,
+                    context_pct,
+                } => {
+                    self.current_tool = None;
+                    self.context_percentage = context_pct;
+                    let lines = std::mem::take(&mut self.verbose_tool_lines);
+                    let name = std::mem::take(&mut self.verbose_tool_name);
+                    let path = std::mem::take(&mut self.verbose_tool_path);
+                    self.messages.push(ChatMessage {
+                        role: MessageRole::Tool,
+                        content: ChatContent::ToolVerbose {
+                            name,
+                            path,
+                            lines,
+                            tokens,
+                            duration_secs,
+                            context_pct,
+                        },
+                    });
                 }
                 TuiEvent::ContextUpdate(pct) => {
                     self.context_percentage = pct;
@@ -204,9 +342,22 @@ impl App {
                     if !msg.trim().is_empty() {
                         self.messages.push(ChatMessage {
                             role: MessageRole::Tool,
-                            content: msg,
+                            content: ChatContent::Text(msg),
                         });
                     }
+                }
+                TuiEvent::SessionInfo {
+                    model,
+                    cost_dollars,
+                } => {
+                    self.model_name = model;
+                    self.cost_dollars = cost_dollars;
+                }
+                TuiEvent::ThinkingStart => {
+                    self.is_thinking = true;
+                }
+                TuiEvent::ThinkingStop => {
+                    self.is_thinking = false;
                 }
                 TuiEvent::PromptYesNo(message, responder) => {
                     self.pending_prompt = Some(PendingPrompt::YesNo { message, responder });
@@ -218,10 +369,16 @@ impl App {
                 TuiEvent::Error(msg) => {
                     self.messages.push(ChatMessage {
                         role: MessageRole::Error,
-                        content: msg,
+                        content: ChatContent::Text(msg),
                     });
                 }
             }
+        }
+    }
+
+    fn process_subagent_events(&mut self) {
+        while let Ok(entries) = self.subagent_rx.try_recv() {
+            self.subagent_entries = entries;
         }
     }
 
@@ -231,9 +388,51 @@ impl App {
             return;
         }
 
+        // Pane-specific keys when subagent panel is focused
+        if self.active_pane == Pane::Subagent {
+            match key.code {
+                KeyCode::Char('j') => {
+                    if self.subagent_scroll < self.subagent_entries.len().saturating_sub(1) {
+                        self.subagent_scroll += 1;
+                    }
+                    return;
+                }
+                KeyCode::Char('k') => {
+                    self.subagent_scroll = self.subagent_scroll.saturating_sub(1);
+                    return;
+                }
+                KeyCode::Tab => {
+                    self.active_pane = Pane::Main;
+                    return;
+                }
+                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.running = false;
+                    return;
+                }
+                KeyCode::Esc => {
+                    self.active_pane = Pane::Main;
+                    return;
+                }
+                _ => return,
+            }
+        }
+
         match key.code {
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.running = false;
+            }
+            KeyCode::Tab => {
+                if !self.subagent_entries.is_empty() {
+                    self.active_pane = Pane::Subagent;
+                }
+            }
+            // Ctrl+H: decrease split ratio
+            KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.split_ratio = (self.split_ratio - 0.05).max(0.5);
+            }
+            // Ctrl+L: increase split ratio
+            KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.split_ratio = (self.split_ratio + 0.05).min(0.85);
             }
             KeyCode::Enter => {
                 self.submit_input();
@@ -336,7 +535,7 @@ impl App {
 
         self.messages.push(ChatMessage {
             role: MessageRole::User,
-            content: text.clone(),
+            content: ChatContent::Text(text.clone()),
         });
 
         let _ = self.agent_input_tx.send(text);

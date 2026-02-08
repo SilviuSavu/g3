@@ -29,6 +29,37 @@ pub enum TuiEvent {
     PromptChoice(String, Vec<String>, oneshot::Sender<usize>),
     /// Agent encountered an error
     Error(String),
+    /// Rich tool compact display (replaces ToolComplete for new rendering)
+    ToolCompact {
+        name: String,
+        path: String,
+        summary: String,
+        tokens: u32,
+        duration_secs: f64,
+        context_pct: f32,
+    },
+    /// Start of verbose tool output block
+    ToolVerboseStart {
+        name: String,
+        path: String,
+    },
+    /// A line of verbose tool output
+    ToolVerboseLine(String),
+    /// End of verbose tool output block
+    ToolVerboseEnd {
+        tokens: u32,
+        duration_secs: f64,
+        context_pct: f32,
+    },
+    /// Session info update (model, cost)
+    SessionInfo {
+        model: String,
+        cost_dollars: f64,
+    },
+    /// Agent started thinking (waiting for response)
+    ThinkingStart,
+    /// Agent stopped thinking (response started)
+    ThinkingStop,
 }
 
 /// UiWriter implementation that sends events to the TUI via a channel.
@@ -36,6 +67,10 @@ pub struct TuiUiWriter {
     tx: mpsc::UnboundedSender<TuiEvent>,
     /// Tracks the current tool name for compact display
     current_tool: Mutex<Option<String>>,
+    /// Tracks the current tool path for compact display
+    current_tool_path: Mutex<Option<String>>,
+    /// Tracks whether agent is thinking (waiting for response)
+    thinking: Mutex<bool>,
 }
 
 impl TuiUiWriter {
@@ -43,6 +78,8 @@ impl TuiUiWriter {
         Self {
             tx,
             current_tool: Mutex::new(None),
+            current_tool_path: Mutex::new(None),
+            thinking: Mutex::new(false),
         }
     }
 
@@ -87,30 +124,70 @@ impl UiWriter for TuiUiWriter {
         }
     }
 
-    fn print_tool_header(&self, tool_name: &str, _tool_args: Option<&serde_json::Value>) {
+    fn print_tool_header(&self, tool_name: &str, tool_args: Option<&serde_json::Value>) {
         *self.current_tool.lock().unwrap() = Some(tool_name.to_string());
+        // Extract path from tool args (common field names: "path", "file_path", "command")
+        let path = tool_args.and_then(|args| {
+            args.get("file_path")
+                .or_else(|| args.get("path"))
+                .or_else(|| args.get("command"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        });
+        *self.current_tool_path.lock().unwrap() = path;
         self.send(TuiEvent::ToolStart(tool_name.to_string()));
     }
 
     fn print_tool_arg(&self, _key: &str, _value: &str) {}
-    fn print_tool_output_header(&self) {}
+
+    fn print_tool_output_header(&self) {
+        let name = self
+            .current_tool
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap_or_default();
+        let path = self
+            .current_tool_path
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap_or_default();
+        self.send(TuiEvent::ToolVerboseStart { name, path });
+    }
+
     fn update_tool_output_line(&self, _line: &str) {}
-    fn print_tool_output_line(&self, _line: &str) {}
+
+    fn print_tool_output_line(&self, line: &str) {
+        self.send(TuiEvent::ToolVerboseLine(line.to_string()));
+    }
+
     fn print_tool_output_summary(&self, _hidden_count: usize) {}
 
     fn print_tool_compact(
         &self,
         tool_name: &str,
         summary: &str,
-        _duration_str: &str,
-        _tokens_delta: u32,
+        duration_str: &str,
+        tokens_delta: u32,
         context_percentage: f32,
     ) -> bool {
-        self.send(TuiEvent::ToolComplete(
-            tool_name.to_string(),
-            summary.to_string(),
-            context_percentage,
-        ));
+        let path = self
+            .current_tool_path
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap_or_default();
+        // Parse duration from string like "1.2s" or "1m 23s"
+        let duration_secs = parse_duration_str(duration_str);
+        self.send(TuiEvent::ToolCompact {
+            name: tool_name.to_string(),
+            path,
+            summary: summary.to_string(),
+            tokens: tokens_delta,
+            duration_secs,
+            context_pct: context_percentage,
+        });
         self.send(TuiEvent::ContextUpdate(context_percentage));
         true
     }
@@ -130,27 +207,30 @@ impl UiWriter for TuiUiWriter {
 
     fn print_tool_timing(
         &self,
-        _duration_str: &str,
-        _tokens_delta: u32,
+        duration_str: &str,
+        tokens_delta: u32,
         context_percentage: f32,
     ) {
-        let tool_name = self
-            .current_tool
-            .lock()
-            .unwrap()
-            .take()
-            .unwrap_or_default();
-        self.send(TuiEvent::ToolComplete(
-            tool_name,
-            String::new(),
-            context_percentage,
-        ));
+        let duration_secs = parse_duration_str(duration_str);
+        self.send(TuiEvent::ToolVerboseEnd {
+            tokens: tokens_delta,
+            duration_secs,
+            context_pct: context_percentage,
+        });
         self.send(TuiEvent::ContextUpdate(context_percentage));
     }
 
-    fn print_agent_prompt(&self) {}
+    fn print_agent_prompt(&self) {
+        *self.thinking.lock().unwrap() = true;
+        self.send(TuiEvent::ThinkingStart);
+    }
 
     fn print_agent_response(&self, content: &str) {
+        let mut thinking = self.thinking.lock().unwrap();
+        if *thinking {
+            self.send(TuiEvent::ThinkingStop);
+            *thinking = false;
+        }
         self.send(TuiEvent::ResponseChunk(content.to_string()));
     }
 
@@ -173,11 +253,46 @@ impl UiWriter for TuiUiWriter {
     fn prompt_user_choice(&self, message: &str, options: &[&str]) -> usize {
         let (tx, rx) = oneshot::channel();
         let options_owned: Vec<String> = options.iter().map(|s| s.to_string()).collect();
-        self.send(TuiEvent::PromptChoice(message.to_string(), options_owned, tx));
+        self.send(TuiEvent::PromptChoice(
+            message.to_string(),
+            options_owned,
+            tx,
+        ));
         rx.blocking_recv().unwrap_or(0)
     }
 
     fn finish_streaming_markdown(&self) {
         self.send(TuiEvent::ResponseDone);
     }
+}
+
+/// Parse a duration string like "1.2s", "1m 23s", "1h 5m" into seconds
+fn parse_duration_str(s: &str) -> f64 {
+    let s = s.trim();
+    // Try "Xh Ym"
+    if let Some(h_pos) = s.find('h') {
+        let hours: f64 = s[..h_pos].trim().parse().unwrap_or(0.0);
+        let rest = &s[h_pos + 1..];
+        let minutes: f64 = rest
+            .trim()
+            .trim_end_matches('m')
+            .trim()
+            .parse()
+            .unwrap_or(0.0);
+        return hours * 3600.0 + minutes * 60.0;
+    }
+    // Try "Xm Ys"
+    if let Some(m_pos) = s.find('m') {
+        let minutes: f64 = s[..m_pos].trim().parse().unwrap_or(0.0);
+        let rest = &s[m_pos + 1..];
+        let seconds: f64 = rest
+            .trim()
+            .trim_end_matches('s')
+            .trim()
+            .parse()
+            .unwrap_or(0.0);
+        return minutes * 60.0 + seconds;
+    }
+    // Try "Xs"
+    s.trim_end_matches('s').trim().parse().unwrap_or(0.0)
 }
