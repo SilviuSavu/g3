@@ -1,0 +1,9 @@
+{
+  "session_id": "5d2dc60b-ad3c-4149-8204-c5f650febf02",
+  "prompts": [
+    "Let me search for the studio handling code:\n\n{\"tool=rg}\", \"args\": {\"pattern\":\"Studio mode requires\",\"path\":\"/Users/savusilviu/Desktop/self-contained-system/g3/g3/crates/g3-cli\"}}\n\u25cf\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb 37.9k/262k \u25c9 | 14%\n >>  it has a tool rg that it does not recognize",
+    "great but I asked you about the fucking rg tool call",
+    "1.yes, in tab completion, 2. yes, it triggers the model to stop working",
+    "did you build it?"
+  ]
+}

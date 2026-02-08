@@ -137,6 +137,9 @@ pub async fn dispatch_tool<W: UiWriter>(
         "lsp_diagnostics" => lsp::execute_diagnostics(tool_call, ctx).await,
         "lsp_status" => lsp::execute_status(tool_call, ctx).await,
 
+        // rg tool - wrapper for ripgrep
+        "rg" => shell::execute_rg(tool_call, ctx).await,
+
         // Unknown tool
         _ => {
             warn!("Unknown tool: {}", tool_call.tool);
