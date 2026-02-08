@@ -61,6 +61,11 @@ pub async fn run() -> Result<()> {
         std::process::exit(1);
     }
 
+    // Check if TUI mode was requested
+    if cli.tui {
+        return run_tui();
+    }
+
     // Check if --list-agents was requested
     if cli.list_agents {
         let workspace_dir = cli.workspace.clone().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());

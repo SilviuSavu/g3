@@ -172,6 +172,10 @@ pub struct Cli {
     /// Load a project from the given path at startup (like /project but without auto-prompt)
     #[arg(long, value_name = "PATH")]
     pub project: Option<PathBuf>,
+
+    /// Launch the TUI (Text User Interface) instead of the CLI
+    #[arg(long)]
+    pub tui: bool,
 }
 
 impl Cli {
