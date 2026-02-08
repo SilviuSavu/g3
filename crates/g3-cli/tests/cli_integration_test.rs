@@ -19,12 +19,17 @@ use std::process::Command;
 /// Get the path to the g3 binary.
 /// In test mode, this will be in the target/debug directory.
 fn get_g3_binary() -> String {
-    // When running tests, the binary is in target/debug/
-    let mut path = std::env::current_exe().unwrap();
-    path.pop(); // Remove test binary name
-    path.pop(); // Remove deps
-    path.push("g3");
-    path.to_string_lossy().to_string()
+    // Use CARGO_BIN_EXE_g3 environment variable set by Cargo when building binaries
+    std::env::var("CARGO_BIN_EXE_g3")
+        .ok()
+        .unwrap_or_else(|| {
+            // Fallback: try to find binary relative to test binary
+            let mut path = std::env::current_exe().unwrap();
+            path.pop(); // Remove test binary name
+            path.pop(); // Remove deps
+            path.push("g3");
+            path.to_string_lossy().to_string()
+        })
 }
 
 // =============================================================================

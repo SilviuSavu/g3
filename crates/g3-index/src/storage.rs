@@ -359,7 +359,7 @@ impl GraphStorage {
             .ok_or_else(|| anyhow!("Snapshot v{} not found", version))?;
 
         let snapshot_dir = self.storage_dir.join(SNAPSHOT_DIR);
-        let snapshot_path = snapshot_dir.join(&snapshot.filename);
+        let _snapshot_path = snapshot_dir.join(&snapshot.filename);
 
         // For now, we only store metadata. In a real implementation,
         // we'd store the full graph in snapshots.

@@ -129,7 +129,7 @@ pub async fn execute_pattern_search<W: UiWriter>(
         }).to_string());
     }
 
-    let mut results: Vec<serde_json::Value> = Vec::new();
+    let results: Vec<serde_json::Value>;
 
     match pattern_type {
         "error_handling" => {
@@ -192,7 +192,7 @@ fn search_error_handling(target_path: &Path) -> Result<Vec<serde_json::Value>, a
     let mut results = Vec::new();
 
     // Look for error handling patterns
-    let patterns = [
+    let _patterns = [
         ("anyhow?", r"\?\s*$"),
         ("bail!", r"\bbail!\s*\("),
         ("wrap!", r"\bwrap!\s*\("),
@@ -229,7 +229,7 @@ fn search_error_handling(target_path: &Path) -> Result<Vec<serde_json::Value>, a
 fn search_trait_impl(target_path: &Path, trait_name: &str) -> Result<Vec<serde_json::Value>, anyhow::Error> {
     let mut results = Vec::new();
 
-    let search_pattern = if trait_name.is_empty() {
+    let _search_pattern = if trait_name.is_empty() {
         r"impl\s+\w+\s+for"
     } else {
         &format!(r"impl\s+{}\s+for", trait_name)

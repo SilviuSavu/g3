@@ -1,0 +1,10 @@
+[
+  {
+    "session_id": "a6d80f33-5ed7-455a-934d-b0cb4ba07009",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3/a6d80f33-5ed7-455a-934d-b0cb4ba07009.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3",
+    "hook_event_name": "PreCompact",
+    "trigger": "auto",
+    "custom_instructions": null
+  }
+]

@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-08T03:00:45Z | Size: 25.6k chars
+> Updated: 2026-02-08T06:48:15Z | Size: 26.6k chars
 
 ### Final Output Test
 Test for the final_output tool with TEST_SUCCESS success indicator.
@@ -503,3 +503,22 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
   - All tests pass (4/4)
 
 The test demonstrates the final_output mechanism used in g3 for task completion signaling.
+
+### CLI Integration Test Fix
+Fixed failing CLI integration tests that couldn't find the g3 binary.
+
+- `crates/g3-cli/tests/cli_integration_test.rs` [27..41]
+  - `get_g3_binary()` - uses `CARGO_BIN_EXE_g3` env var to locate built binary
+  - Cargo automatically sets this variable when building binaries, ensuring tests run in correct order
+
+**Fix**: Replaced manual path traversal with Cargo's idiomatic `CARGO_BIN_EXE_g3` environment variable.
+
+**Result**: All 17 integration tests and 500+ total workspace tests now pass.
+
+**Warnings fixed**:
+- `crates/g3-index/src/storage.rs:362` - unused snapshot_path
+- `crates/g3-core/src/tools/index.rs:132` - unused results assignment  
+- `crates/g3-core/src/tools/index.rs:195,232` - unused patterns/search_pattern
+- `crates/g3-core/src/lib.rs:171` - dead code beads_context_injected (with #[allow(dead_code)])
+
+**Key insight**: `CARGO_BIN_EXE_g3` tells Cargo to build the binary before tests run, solving the "binary not found" issue.
