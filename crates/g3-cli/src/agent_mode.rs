@@ -10,7 +10,7 @@ use crate::project_files::{combine_project_content, read_agents_config, read_inc
 use crate::display::{LoadedContent, print_loaded_status, print_workspace_path};
 use crate::language_prompts::{get_language_prompts_for_workspace, get_agent_language_prompts_for_workspace_with_langs};
 use crate::simple_output::SimpleOutput;
-use crate::embedded_agents::load_agent_prompt;
+use crate::embedded_agents::{load_agent_prompt, load_agent_file};
 use crate::ui_writer_impl::ConsoleUiWriter;
 use crate::interactive::run_interactive;
 use crate::template::process_template;
@@ -177,6 +177,11 @@ pub async fn run_agent_mode(
 
     // Set agent mode for session tracking
     agent.set_agent_mode(agent_name);
+
+    // Set active persona from parsed front matter (for scope enforcement and tool overrides)
+    if let Some(agent_file) = load_agent_file(agent_name, &workspace_dir) {
+        agent.set_active_persona(agent_file.persona);
+    }
 
     // Auto-memory is enabled by default in agent mode (unless --no-auto-memory is set)
     // This prompts the LLM to save discoveries to workspace memory after each turn

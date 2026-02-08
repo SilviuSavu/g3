@@ -10,6 +10,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use g3_core::persona::{self, AgentFile};
+
 use crate::template::process_template;
 
 /// Embedded agent prompts, keyed by agent name.
@@ -52,6 +54,42 @@ pub fn load_agent_prompt(name: &str, workspace_dir: &Path) -> Option<(String, bo
 
     // Fall back to embedded prompt
     get_embedded_agent(name).map(|content| (process_template(content), false))
+}
+
+/// Load an agent file with parsed persona metadata.
+///
+/// Like `load_agent_prompt()`, checks workspace first then falls back to embedded.
+/// Returns the full `AgentFile` with parsed front matter (TOML or legacy).
+pub fn load_agent_file(name: &str, workspace_dir: &Path) -> Option<AgentFile> {
+    // First, try workspace agents/<name>.md
+    let workspace_path = workspace_dir.join("agents").join(format!("{}.md", name));
+    if workspace_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&workspace_path) {
+            let processed = process_template(&content);
+            match persona::parse_agent_file(name, &processed, true) {
+                Ok(agent_file) => return Some(agent_file),
+                Err(e) => {
+                    eprintln!("Warning: failed to parse agent '{}' front matter: {}", name, e);
+                    // Fall through to embedded
+                }
+            }
+        }
+    }
+
+    // Fall back to embedded prompt
+    let content = get_embedded_agent(name)?;
+    let processed = process_template(content);
+    persona::parse_agent_file(name, &processed, false).ok()
+}
+
+/// Load all available agent files with parsed persona metadata.
+///
+/// Returns agent files for all embedded + workspace agents, with workspace overriding embedded.
+pub fn load_all_agent_files(workspace_dir: &Path) -> Vec<AgentFile> {
+    let available = get_available_agents(workspace_dir);
+    available.keys()
+        .filter_map(|name| load_agent_file(name, workspace_dir))
+        .collect()
 }
 
 /// Get a map of all available agents (both embedded and from workspace).

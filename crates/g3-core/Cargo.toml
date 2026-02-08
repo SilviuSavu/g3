@@ -48,6 +48,7 @@ tree-sitter-scheme = "0.24"
 tree-sitter-racket = "0.24"
 streaming-iterator = "0.1"
 walkdir = "2.4"
+toml = "0.8"
 
 base64 = "0.22.1"
 

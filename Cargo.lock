@@ -1577,6 +1577,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
+ "toml",
  "tracing",
  "tree-sitter",
  "tree-sitter-c",

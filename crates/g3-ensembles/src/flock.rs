@@ -365,6 +365,18 @@ impl FlockMode {
             self.status.update_segment(segment_id, segment_status);
             self.save_status()?;
             
+            // Route task to best-matching agent via keyword matching
+            let agent_name = {
+                let req_path = segment_dir.join("segment-requirements.md");
+                if let Ok(req_text) = std::fs::read_to_string(&req_path) {
+                    let agents_dir = self.config.project_dir.clone();
+                    let all_agents = g3_core::persona::load_all_from_dir(&agents_dir);
+                    route_task_to_agent(&req_text, &all_agents)
+                } else {
+                    None
+                }
+            };
+
             // Spawn a task for this segment
             let handle = tokio::spawn(async move {
                 run_segment(
@@ -374,6 +386,7 @@ impl FlockMode {
                     g3_binary,
                     status_file,
                     session_id,
+                    agent_name,
                 )
                 .await
             });
@@ -473,6 +486,7 @@ async fn run_segment(
     g3_binary: PathBuf,
     status_file: PathBuf,
     session_id: String,
+    agent_name: Option<String>,
 ) -> Result<SegmentStatus> {
     info!("Starting segment {} in {}", segment_id, segment_dir.display());
     
@@ -492,15 +506,20 @@ async fn run_segment(
     };
     
     // Run g3 in autonomous mode with segment-requirements.md
-    let mut child = Command::new(&g3_binary)
-        .arg("--workspace")
+    let mut cmd = Command::new(&g3_binary);
+    cmd.arg("--workspace")
         .arg(&segment_dir)
         .arg("--autonomous")
         .arg("--max-turns")
         .arg(max_turns.to_string())
         .arg("--requirements")
         .arg(std::fs::read_to_string(segment_dir.join("segment-requirements.md"))?)
-        .arg("--quiet") // Disable session logging for workers
+        .arg("--quiet"); // Disable session logging for workers
+    // Add agent routing if a matching agent was found
+    if let Some(ref agent) = agent_name {
+        cmd.arg("--agent").arg(agent);
+    }
+    let mut child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -619,6 +638,25 @@ async fn run_segment(
     update_status_file(&status_file, &session_id, segment_status.clone())?;
     
     Ok(segment_status)
+}
+
+/// Route a task description to the best-matching agent based on keyword overlap.
+///
+/// Counts keyword matches (case-insensitive) for each agent and returns
+/// the agent ID with the highest match count, or None if no keywords match.
+pub fn route_task_to_agent(task: &str, agents: &[g3_core::persona::AgentFile]) -> Option<String> {
+    let mut best_agent: Option<&str> = None;
+    let mut best_score: usize = 0;
+
+    for agent in agents {
+        let score = agent.persona.matches_keywords(task);
+        if score > best_score {
+            best_score = score;
+            best_agent = Some(&agent.id);
+        }
+    }
+
+    best_agent.map(|s| s.to_string())
 }
 
 /// Update the status file with new segment status
