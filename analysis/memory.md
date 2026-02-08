@@ -1,3 +1,6 @@
+# Workspace Memory
+> Updated: 2026-02-08T03:00:45Z | Size: 25.6k chars
+
 ### Final Output Test
 Test for the final_output tool with TEST_SUCCESS success indicator.
 
@@ -487,3 +490,16 @@ Fixed planning mode selection from mode selection menu.
 
 ### Session Management
 The g3 workspace stores session logs in `.g3/sessions/<session_id>/` with session state in `session.json`. The `.g3/session` symlink points to the current/active session. Session cleanup can be performed by removing old session directories.
+
+### Final Output Test
+Test for the final_output tool with TEST_SUCCESS success indicator.
+
+- `crates/g3-core/tests/final_output_test.rs` - Complete test implementation
+  - `call_final_output()` - Simulates calling final_output tool with summary
+  - `test_test_success_constant()` - Verifies TEST_SUCCESS constant
+  - `test_final_output_with_test_success()` - Tests final_output call with TEST_SUCCESS
+  - `test_final_output_format()` - Verifies summary format
+  - `test_test_success_indicates_success()` - Confirms TEST_SUCCESS indicates success
+  - All tests pass (4/4)
+
+The test demonstrates the final_output mechanism used in g3 for task completion signaling.
