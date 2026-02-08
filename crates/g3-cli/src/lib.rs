@@ -305,14 +305,12 @@ async fn run_console_mode(
 }
 
 /// Run the TUI (Text User Interface) application.
-/// This requires the `tui` feature to be enabled.
-#[cfg(feature = "tui")]
-pub async fn run_tui() -> anyhow::Result<()> {
+/// This is synchronous - the TUI manages its own tokio runtime internally.
+pub fn run_tui() -> anyhow::Result<()> {
     crate::tui::run_tui()
 }
 
 /// Check if TUI can run in the current environment.
-#[cfg(feature = "tui")]
 pub fn can_run_tui() -> bool {
     crate::tui::can_run_tui()
 }
@@ -349,9 +347,8 @@ pub fn print_modes() {
 
 /// TUI mode selection helper for interactive mode.
 /// Returns Some(true) to run TUI, Some(false) to run CLI, None to cancel.
-#[cfg(feature = "tui")]
-pub async fn run_tui_mode_selection() -> Option<bool> {
-    use crate::tui;
+pub fn run_tui_mode_selection() -> Option<bool> {
+    use std::io::Write;
 
     println!("\nTUI Mode Selection");
     println!("=================");
