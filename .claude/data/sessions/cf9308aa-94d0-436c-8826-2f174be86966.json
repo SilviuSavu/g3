@@ -1,9 +1,0 @@
-{
-  "session_id": "cf9308aa-94d0-436c-8826-2f174be86966",
-  "prompts": [
-    "what did I tell you about localhost?",
-    "it seems that the tool calling in lmrouter is not configured propperly: \u23fa Read                                                                                                                                                                                                            \n  \u23bf \u00a0API Error: 400 {\"error\":{\"message\":\"You passed 49158 input tokens and requested 16384 output tokens. However, the model's context length is only 65536, resulting in a maximum input length of 49152. Please \n     reduce the length of the input messages. (parameter=input_tokens, value=49158)\",\"type\":\"BadRequestError\",\"param\":\"input_tokens\",\"code\":400}} ",
-    "are you saying that it cannot do tool calls because of what?",
-    "can you set max_model_len to 131072?"
-  ]
-}
