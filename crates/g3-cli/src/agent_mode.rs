@@ -86,6 +86,10 @@ pub async fn run_agent_mode(
     let source = if from_disk { "workspace" } else { "embedded" };
     // Only print verbose header when not in chat mode
     if !chat {
+        println!();
+        println!("🎭 Starting agent mode: {}", agent_name);
+        println!("   specialized agent with custom prompt");
+        println!();
         output.print(&format!(">> agent mode | {} ({})", agent_name, source));
     }
     // Always print workspace path (it's part of minimal output)
@@ -275,6 +279,7 @@ pub async fn run_agent_mode(
             &workspace_dir,
             flags.new_session,
             Some(agent_name),  // agent name for prompt (e.g., "butler>")
+            Some("agent mode"),  // mode info
             initial_project,
         )
         .await;

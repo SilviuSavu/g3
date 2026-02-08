@@ -750,6 +750,10 @@ pub async fn run_planning_mode(
     no_git: bool,
     config_path: Option<&str>,
 ) -> anyhow::Result<()> {
+    println!();
+    println!("📋 Starting planning mode");
+    println!("   requirements-driven development with git integration");
+    println!();
     print_msg("\n🎯 G3 Planning Mode");
     print_msg("==================\n");
     
