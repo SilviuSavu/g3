@@ -11,6 +11,8 @@ members = [
     "crates/g3-index",
     "crates/g3-lsp",
     "crates/studio",
+    "crates/g3-console",
+    "crates/g3-ensembles",
 ]
 resolver = "2"
 
