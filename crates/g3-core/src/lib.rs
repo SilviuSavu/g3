@@ -268,10 +268,12 @@ impl<W: UiWriter> Agent<W> {
         custom_system_prompt: String,
         project_context: Option<String>,
     ) -> Result<Self> {
+        // Agent mode uses autonomous=true so that auto-continue works
+        // (prevents stopping mid-task on max_tokens truncation, incomplete tool calls, etc.)
         Self::new_with_mode_and_project_context(
             config,
             ui_writer,
-            false,
+            true,
             project_context,
             false,
             Some(custom_system_prompt),
@@ -3009,6 +3011,73 @@ Skip if nothing new. Be brief."#;
                 if was_truncated_by_max_tokens {
                     debug!("Response was truncated due to max_tokens limit");
                     warn!("LLM response was cut off due to max_tokens limit");
+                }
+
+                // --- Auto-Continue Decision ---
+                // Check if we should automatically continue instead of stopping.
+                // This prevents the agent from stopping mid-task when the response
+                // was truncated or tool calls were incomplete/unexecuted.
+                let auto_continue = streaming::should_auto_continue(
+                    self.is_autonomous,
+                    state.any_tool_executed, // tools ran in earlier iterations
+                    has_incomplete_tool_call,
+                    has_unexecuted_tool_call,
+                    was_truncated_by_max_tokens,
+                );
+
+                if let Some(ref reason) = auto_continue {
+                    debug!("Auto-continuing streaming loop: {:?}", reason);
+                    self.ui_writer.println(&format!(
+                        "🔄 Auto-continuing: {}",
+                        match reason {
+                            streaming::AutoContinueReason::ToolsExecuted =>
+                                "tools were executed in previous iterations",
+                            streaming::AutoContinueReason::IncompleteToolCall =>
+                                "incomplete tool call detected (response truncated mid-call)",
+                            streaming::AutoContinueReason::UnexecutedToolCall =>
+                                "unexecuted tool call detected (parsing issue)",
+                            streaming::AutoContinueReason::MaxTokensTruncation =>
+                                "response was truncated by max_tokens limit",
+                        }
+                    ));
+
+                    // Save the current response to context before continuing
+                    if !iter.current_response.trim().is_empty() && !state.assistant_message_added {
+                        let raw_text = iter.parser.get_text_content();
+                        let raw_clean = streaming::clean_llm_tokens(&raw_text);
+                        let content_to_save = if !raw_clean.trim().is_empty() {
+                            raw_clean
+                        } else {
+                            iter.current_response.clone()
+                        };
+                        let assistant_message =
+                            Message::new(MessageRole::Assistant, content_to_save);
+                        self.context_window.add_message(assistant_message);
+                        state.assistant_message_added = true;
+                    }
+
+                    // Add a continuation prompt so the LLM knows to keep going
+                    let continuation_prompt = match reason {
+                        streaming::AutoContinueReason::MaxTokensTruncation =>
+                            "Your previous response was cut off due to length limits. Continue exactly where you left off.",
+                        streaming::AutoContinueReason::IncompleteToolCall =>
+                            "Your previous response was cut off mid-tool-call. Please re-emit the tool call completely and continue your work.",
+                        streaming::AutoContinueReason::UnexecutedToolCall =>
+                            "A tool call in your previous response could not be executed. Please retry the tool call and continue your work.",
+                        streaming::AutoContinueReason::ToolsExecuted =>
+                            "Continue working on the task. You have tool results from previous steps available in context.",
+                    };
+                    let continuation_message =
+                        Message::new(MessageRole::User, continuation_prompt.to_string());
+                    self.context_window.add_message(continuation_message);
+
+                    // Update request messages for the next iteration
+                    request.messages = self.context_window.conversation_history.clone();
+
+                    // Ensure context capacity before continuing
+                    self.ensure_context_capacity(&mut request).await?;
+
+                    continue; // Continue the outer streaming loop
                 }
 
                 // Log response status for debugging

@@ -181,6 +181,34 @@ async fn run_console_mode(
         .await?
     };
 
+    // Print mode banner
+    if cli.autonomous {
+        println!();
+        println!("🚀 Starting {}mode", if cli.auto { "accumulative " } else { "" });
+        println!("   autonomous mode with coach-player feedback loop");
+        println!();
+    } else if cli.auto {
+        println!();
+        println!("🔄 Starting accumulative autonomous mode");
+        println!("   combines interactive + autonomous with accumulated requirements");
+        println!();
+    } else if let Some(ref agent_name) = cli.agent {
+        println!();
+        println!("🎭 Starting agent mode: {}", agent_name);
+        println!("   specialized agent with custom prompt");
+        println!();
+    } else if cli.planning {
+        println!();
+        println!("📋 Starting planning mode");
+        println!("   requirements-driven development with git integration");
+        println!();
+    } else if let Some(_) = &cli.task {
+        println!();
+        println!("🎯 Starting single-shot mode");
+        println!("   one task, then exit");
+        println!();
+    }
+
     if cli.auto_memory {
         agent.set_auto_memory(true);
     }
@@ -254,6 +282,7 @@ async fn run_console_mode(
             project.workspace(),
             cli.new_session,
             None, // agent_name (not in agent mode)
+            None, // mode_info (not in agent mode)
             initial_project,
         )
         .await

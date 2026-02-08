@@ -197,6 +197,7 @@ pub async fn run_interactive<W: UiWriter>(
     workspace_path: &Path,
     new_session: bool,
     agent_name: Option<&str>,
+    mode_info: Option<&str>,
     initial_project: Option<Project>,
 ) -> Result<()> {
     let output = SimpleOutput::new();
@@ -280,6 +281,15 @@ pub async fn run_interactive<W: UiWriter>(
         print_workspace_path(workspace_path);
         
         // Print welcome message right before the prompt
+        // Use the provided mode info, defaulting to interactive mode
+        let display_mode = mode_info.unwrap_or("default interactive mode");
+        
+        println!();
+        println!("🤖 g3 programming agent");
+        println!("   {}", display_mode);
+        println!("   (use /compact, /thinnify for context management)");
+        println!();
+        
         output.print("");
         output.print("g3 programming agent");
         output.print("   what shall we build today?");
