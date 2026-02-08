@@ -1,3 +1,6 @@
+use std::io::Write;/// G3 CLI - Command-line interface for the G3 AI coding agent.
+
+
 /// G3 CLI - Command-line interface for the G3 AI coding agent.
 
 pub mod filter_json;
@@ -42,8 +45,9 @@ use agent_mode::run_agent_mode;
 use autonomous::run_autonomous;
 use interactive::run_interactive;
 use project_files::{combine_project_content, read_agents_config, read_include_prompt, read_workspace_memory};
-// Mode selection has been removed - interactive is now the default mode
+use interactive::run_mode_selection;
 use simple_output::SimpleOutput;
+use interactive::ModeSelection;
 use ui_writer_impl::ConsoleUiWriter;
 use g3_core::ui_writer::UiWriter;
 use utils::{initialize_logging, load_config_with_cli_overrides, setup_workspace_directory};
@@ -51,7 +55,7 @@ use template::process_template;
 use project::load_and_validate_project;
 
 pub async fn run() -> Result<()> {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
 
     // Initialize logging FIRST (before any mode checks)
     initialize_logging(cli.verbose);
@@ -74,12 +78,6 @@ pub async fn run() -> Result<()> {
         }
         println!("\nUse: g3 --agent <name> [task]");
         println!("Workspace agents override embedded agents with the same name.");
-        return Ok(());
-    }
-
-    // Check if --list-modes was requested
-    if cli.list_modes {
-        print_modes();
         return Ok(());
     }
 
@@ -106,15 +104,58 @@ pub async fn run() -> Result<()> {
         .await;
     }
     
-    // Interactive mode is now the default when no other mode flags are set
-    // Other modes are accessed via CLI flags:
-    //
-    // --autonomous         : Autonomous mode - Coach-player feedback loop with autonomous iteration
-    // --auto               : Accumulative mode - Evolutionary requirements with incremental development
-    // --agent <name>       : Agent mode - Specialized agents (carmack, torvalds, euler, etc.)
-    // --planning           : Planning mode - Requirements-driven development with git integration
-    // --chat               : Chat mode - Interactive without autonomous tool runs
-    // studio command       : Studio mode - Multi-agent workspace manager (via separate binary)
+    // Check if mode selection is needed (no CLI mode flags set)
+    let needs_mode_selection = !cli.autonomous 
+        && !cli.auto 
+        && !cli.chat 
+        && !cli.planning 
+        && cli.agent.is_none() 
+        && cli.task.is_none();
+    
+    if needs_mode_selection {
+        match run_mode_selection().await? {
+            Some(selected_mode) => {
+                match selected_mode {
+                    ModeSelection::Interactive => {
+                        // Default - no flags needed
+                    }
+                    ModeSelection::Autonomous => {
+                        cli.autonomous = true;
+                    }
+                    ModeSelection::Accumulative => {
+                        cli.auto = true;
+                    }
+                    ModeSelection::Agent => {
+                        // Prompt for agent name or use a default
+                        eprintln!("Select agent mode requires --agent <name> flag");
+                        eprintln!("Use: g3 --agent carmack [task]");
+                        return Ok(());
+                    }
+                    ModeSelection::Planning => {
+                        cli.planning = true;
+                        // Return to let the planning mode check at the top handle it
+                        let codepath = cli.codepath.clone();
+                        return g3_planner::run_planning_mode(
+                            codepath,
+                            cli.workspace.clone(),
+                            cli.no_git,
+                            cli.config.as_deref(),
+                        )
+                        .await;
+                    }
+                    ModeSelection::Studio => {
+                        eprintln!("Studio mode requires running 'studio' command directly");
+                        return Ok(());
+                    }
+                }
+            }
+            None => {
+                return Ok(()); // User cancelled
+            }
+        }
+        // Re-check planning mode after mode selection
+        // (already handled above, so continue)
+    }
     
     let workspace_dir = determine_workspace_dir(&cli)?;
 
@@ -152,7 +193,6 @@ fn determine_workspace_dir(cli: &Cli) -> Result<PathBuf> {
     }
 }
 
-/// create_project creates a new project for the given CLI and workspace.
 fn create_project(cli: &Cli, workspace_dir: &PathBuf) -> Result<Project> {
     if cli.autonomous {
         if let Some(requirements_text) = &cli.requirements {
@@ -317,42 +357,12 @@ pub fn can_run_tui() -> bool {
     crate::tui::can_run_tui()
 }
 
-/// Print a list of all execution modes with descriptions.
-pub fn print_modes() {
-    println!("g3 Execution Modes");
-    println!("==================");
-    println!();
-    println!("Interactive (default) - Conversational development");
-    println!("  Run: g3");
-    println!("  Use for: Chat-based development, exploratory work");
-    println!();
-    println!("Autonomous - Coach-player feedback loop with autonomous iteration");
-    println!("  Run: g3 --autonomous");
-    println!("  Use for: Long-running tasks that need tool execution and feedback");
-    println!();
-    println!("Accumulative - Evolutionary requirements with incremental development");
-    println!("  Run: g3 --auto");
-    println!("  Use for: Projects where requirements evolve over time");
-    println!();
-    println!("Agent - Specialized agents (carmack, torvalds, euler, hopper, etc.)");
-    println!("  Run: g3 --agent carmack [task]");
-    println!("  Use for: Following specific agent personas and workflows");
-    println!();
-    println!("Planning - Requirements-driven development with git integration");
-    println!("  Run: g3 --planning --codepath /path/to/project");
-    println!("  Use for: Formal requirements gathering with git commits");
-    println!();
-    println!("Studio - Multi-agent workspace manager (parallel agents)");
-    println!("  Run: studio");
-    println!("  Use for: Running multiple g3 sessions in isolated worktrees");
-}
-
 /// TUI mode selection helper for interactive mode.
 /// Returns Some(true) to run TUI, Some(false) to run CLI, None to cancel.
 #[cfg(feature = "tui")]
 pub async fn run_tui_mode_selection() -> Option<bool> {
     use crate::tui;
-
+    
     println!("\nTUI Mode Selection");
     println!("=================");
     println!("1. Run TUI (Text User Interface)");
@@ -361,7 +371,7 @@ pub async fn run_tui_mode_selection() -> Option<bool> {
     println!();
     print!("Select mode (1-3): ");
     std::io::stdout().flush().ok();
-
+    
     let mut input = String::new();
     match std::io::stdin().read_line(&mut input) {
         Ok(_) => {

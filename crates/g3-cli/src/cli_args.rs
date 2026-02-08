@@ -36,6 +36,18 @@ pub struct CommonFlags {
 #[command(name = "g3")]
 #[command(about = "A modular, composable AI coding agent")]
 #[command(version)]
+#[command(long_about = r#"A modular, composable AI coding agent.
+
+MODES:
+  Interactive (default) - Conversational development
+  Autonomous - Coach-player feedback loop with autonomous iteration
+  Accumulative - Evolutionary requirements with incremental development
+  Agent - Specialized agents (carmack, torvalds, euler, hopper, etc.)
+  Planning - Requirements-driven development with git integration
+  Studio - Multi-agent workspace manager (parallel agents)
+
+Run: g3 --list-modes  # Show all modes with usage examples
+"#)]
 pub struct Cli {
     /// Enable verbose logging
     #[arg(short, long)]
@@ -65,6 +77,7 @@ pub struct Cli {
     pub task: Option<String>,
 
     /// Enable autonomous mode with coach-player feedback loop
+    /// (autonomous iteration with tool execution and feedback)
     #[arg(long)]
     pub autonomous: bool,
 
@@ -76,11 +89,11 @@ pub struct Cli {
     #[arg(long, value_name = "TEXT")]
     pub requirements: Option<String>,
 
-    /// Enable accumulative autonomous mode (default is chat mode)
+    /// Enable accumulative autonomous mode (evolutionary requirements with incremental development)
     #[arg(long)]
     pub auto: bool,
 
-    /// Enable interactive chat mode (no autonomous runs)
+    /// Enable chat mode (interactive without autonomous tool runs)
     #[arg(long)]
     pub chat: bool,
 
@@ -108,7 +121,7 @@ pub struct Cli {
     #[arg(long)]
     pub safari: bool,
 
-    /// Enable planning mode for requirements-driven development
+    /// Enable planning mode (requirements-driven development with git integration)
     #[arg(long, conflicts_with_all = ["autonomous", "auto", "chat"])]
     pub planning: bool,
 
@@ -124,13 +137,17 @@ pub struct Cli {
     #[arg(long, value_name = "PATH")]
     pub codebase_fast_start: Option<PathBuf>,
 
-    /// Run as a specialized agent (loads prompt from agents/<name>.md)
+    /// Run as a specialized agent (carmack, torvalds, euler, hopper, and more)
     #[arg(long, value_name = "NAME", conflicts_with_all = ["autonomous", "auto", "planning"])]
     pub agent: Option<String>,
 
     /// List all available agents (embedded and workspace)
     #[arg(long)]
     pub list_agents: bool,
+
+    /// List all execution modes with descriptions
+    #[arg(long)]
+    pub list_modes: bool,
 
     /// Skip session resumption and force a new session (for agent mode)
     #[arg(long)]

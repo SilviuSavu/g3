@@ -1,0 +1,10 @@
+{
+  "session_id": "f914b8ee-b5d4-4dd4-bf25-5dc2880475f4",
+  "prompts": [
+    "commit this",
+    "push it",
+    "cargo build --release -p g3-console",
+    "build it all",
+    "cp target/release/g3-console ~/.local/bin/"
+  ]
+}

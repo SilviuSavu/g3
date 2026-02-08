@@ -1,6 +1,7 @@
 //! Shell command execution tools.
 
 use anyhow::Result;
+use serde_json::json;
 use std::fs;
 use tracing::debug;
 
@@ -213,6 +214,41 @@ pub async fn execute_background_process<W: UiWriter>(
         )),
         Err(e) => Ok(format!("❌ Failed to start background process: {}", e)),
     }
+}
+
+/// Execute the `rg` tool - a wrapper for ripgrep.
+/// This is different from shell because it receives {pattern, path} instead of {command}.
+pub async fn execute_rg<W: UiWriter>(tool_call: &ToolCall, ctx: &ToolContext<'_, W>) -> Result<String> {
+    debug!("Processing rg tool call");
+
+    let pattern = match tool_call.args.get("pattern").and_then(|v| v.as_str()) {
+        Some(p) => p,
+        None => {
+            debug!("No pattern parameter found in args: {:?}", tool_call.args);
+            return Ok("❌ Missing pattern argument".to_string());
+        }
+    };
+
+    // Get optional path, default to current directory
+    let path = tool_call
+        .args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or(".");
+
+    debug!("Pattern: {}, Path: {}", pattern, path);
+
+    // Build the rg command
+    let command = format!("rg \"{}\" {}", pattern, path);
+    debug!("Generated command: {}", command);
+
+    // Reuse shell execution with the constructed command
+    let shell_tool_call = ToolCall {
+        tool: "shell".to_string(),
+        args: json!({"command": command}),
+    };
+
+    execute_shell(&shell_tool_call, ctx).await
 }
 
 #[cfg(test)]
