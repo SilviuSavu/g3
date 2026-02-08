@@ -1,0 +1,11 @@
+{
+  "session_id": "a6d80f33-5ed7-455a-934d-b0cb4ba07009",
+  "prompts": [
+    "commit this",
+    "push it",
+    "build the release binary",
+    "run it and see if the TUI works",
+    "yes, commit and push it",
+    "\u276f g3 --tui\n[1]    39811 killed     /Users/savusilviu/.local/bin/g3 --tui"
+  ]
+}

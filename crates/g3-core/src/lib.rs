@@ -167,7 +167,8 @@ pub struct Agent<W: UiWriter> {
     index_client: std::sync::Arc<tokio::sync::RwLock<Option<std::sync::Arc<index_client::IndexClient>>>>,
     /// LSP manager for code intelligence (lazy-initialized)
     lsp_manager: Option<std::sync::Arc<tools::lsp::LspManager>>,
-    /// Whether beads session context has been injected (SessionStart hook)
+    /// Whether beads session context has been injected (SessionStart hook) - for future extension
+    #[allow(dead_code)]
     beads_context_injected: bool,
     /// Active persona data from agent front matter (for scope enforcement and tool overrides)
     active_persona: Option<persona::PersonaData>,
