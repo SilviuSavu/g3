@@ -2758,6 +2758,7 @@ Skip if nothing new. Be brief."#;
 
                             iter.tool_executed = true;
                             state.any_tool_executed = true; // Track across all iterations
+                            state.consecutive_text_only_responses = 0; // Reset: tools ran this iteration
 
                             // Reset the JSON tool call filter state after each tool execution
                             // This ensures the filter doesn't stay in suppression mode for subsequent streaming content
@@ -3031,6 +3032,7 @@ Skip if nothing new. Be brief."#;
                     has_incomplete_tool_call,
                     has_unexecuted_tool_call,
                     was_truncated_by_max_tokens,
+                    state.consecutive_text_only_responses,
                 );
 
                 if let Some(ref reason) = auto_continue {
@@ -3084,6 +3086,9 @@ Skip if nothing new. Be brief."#;
 
                     // Ensure context capacity before continuing
                     self.ensure_context_capacity(&mut request).await?;
+
+                    // Increment AFTER the check so first text-only response sees counter=0
+                    state.consecutive_text_only_responses += 1;
 
                     continue; // Continue the outer streaming loop
                 }

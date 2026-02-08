@@ -23,6 +23,9 @@ pub struct StreamingState {
     pub auto_summary_attempts: usize,
     pub assistant_message_added: bool,
     pub turn_accumulated_usage: Option<g3_providers::Usage>,
+    /// Counts consecutive iterations where the LLM responded with text only (no tools).
+    /// Used to allow interactive mode ONE auto-continue after tool execution before stopping.
+    pub consecutive_text_only_responses: usize,
 }
 
 impl StreamingState {
@@ -37,6 +40,7 @@ impl StreamingState {
             auto_summary_attempts: 0,
             assistant_message_added: false,
             turn_accumulated_usage: None,
+            consecutive_text_only_responses: 0,
         }
     }
 
@@ -600,28 +604,43 @@ pub enum AutoContinueReason {
 
 /// Determine if the streaming loop should auto-continue.
 /// Returns `Some(reason)` if it should continue, `None` otherwise.
+///
+/// `consecutive_text_only_responses` counts how many iterations in a row the LLM
+/// responded with text only (no tool calls). In interactive mode (!is_autonomous),
+/// we allow ONE auto-continue after tool execution (counter == 0) so the LLM can
+/// chain follow-up tool calls, but stop if it responds with text again (counter >= 1).
 pub fn should_auto_continue(
     is_autonomous: bool,
     any_tool_executed: bool,
     has_incomplete_tool_call: bool,
     has_unexecuted_tool_call: bool,
     was_truncated: bool,
+    consecutive_text_only_responses: usize,
 ) -> Option<AutoContinueReason> {
-    if !is_autonomous {
-        return None;
+    // Always auto-continue on incomplete/unexecuted tool calls, even in non-autonomous mode
+    if has_incomplete_tool_call {
+        return Some(AutoContinueReason::IncompleteToolCall);
+    }
+    if has_unexecuted_tool_call {
+        return Some(AutoContinueReason::UnexecutedToolCall);
+    }
+    if was_truncated {
+        return Some(AutoContinueReason::MaxTokensTruncation);
     }
 
-    if any_tool_executed {
-        Some(AutoContinueReason::ToolsExecuted)
-    } else if has_incomplete_tool_call {
-        Some(AutoContinueReason::IncompleteToolCall)
-    } else if has_unexecuted_tool_call {
-        Some(AutoContinueReason::UnexecutedToolCall)
-    } else if was_truncated {
-        Some(AutoContinueReason::MaxTokensTruncation)
-    } else {
-        None
+    // Autonomous mode: always continue after tool execution
+    if is_autonomous && any_tool_executed {
+        return Some(AutoContinueReason::ToolsExecuted);
     }
+
+    // Interactive mode: allow ONE continuation after tools, then stop.
+    // This gives the LLM a chance to continue with more tool calls without
+    // creating an infinite loop.
+    if !is_autonomous && any_tool_executed && consecutive_text_only_responses == 0 {
+        return Some(AutoContinueReason::ToolsExecuted);
+    }
+
+    None
 }
 
 /// Determine if a response is essentially empty (whitespace or timing only)
@@ -756,29 +775,53 @@ mod tests {
     }
 
     #[test]
-    fn test_should_auto_continue_not_autonomous() {
-        // Never auto-continue in interactive mode
-        assert_eq!(should_auto_continue(false, true, false, false, false), None);
-        assert_eq!(should_auto_continue(false, false, true, false, false), None);
+    fn test_should_auto_continue_autonomous() {
+        use AutoContinueReason::*;
+
+        // Tools executed in autonomous mode → always continue
+        assert_eq!(should_auto_continue(true, true, false, false, false, 0), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(true, true, false, false, false, 5), Some(ToolsExecuted));
+
+        // Incomplete tool call
+        assert_eq!(should_auto_continue(true, false, true, false, false, 0), Some(IncompleteToolCall));
+
+        // Unexecuted tool call
+        assert_eq!(should_auto_continue(true, false, false, true, false, 0), Some(UnexecutedToolCall));
+
+        // Max tokens truncation
+        assert_eq!(should_auto_continue(true, false, false, false, true, 0), Some(MaxTokensTruncation));
+
+        // Nothing special - no auto-continue
+        assert_eq!(should_auto_continue(true, false, false, false, false, 0), None);
     }
 
     #[test]
-    fn test_should_auto_continue_autonomous() {
+    fn test_should_auto_continue_interactive_first_text_response() {
         use AutoContinueReason::*;
-        
-        // Tools executed
-        assert_eq!(should_auto_continue(true, true, false, false, false), Some(ToolsExecuted));
-        
-        // Incomplete tool call
-        assert_eq!(should_auto_continue(true, false, true, false, false), Some(IncompleteToolCall));
-        
-        // Unexecuted tool call
-        assert_eq!(should_auto_continue(true, false, false, true, false), Some(UnexecutedToolCall));
-        
-        // Max tokens truncation
-        assert_eq!(should_auto_continue(true, false, false, false, true), Some(MaxTokensTruncation));
-        
-        // Nothing special - no auto-continue
-        assert_eq!(should_auto_continue(true, false, false, false, false), None);
+
+        // Interactive mode, tools ran, first text-only response → continue once
+        assert_eq!(should_auto_continue(false, true, false, false, false, 0), Some(ToolsExecuted));
+    }
+
+    #[test]
+    fn test_should_auto_continue_interactive_second_text_response() {
+        // Interactive mode, tools ran, second consecutive text-only → stop
+        assert_eq!(should_auto_continue(false, true, false, false, false, 1), None);
+        assert_eq!(should_auto_continue(false, true, false, false, false, 5), None);
+    }
+
+    #[test]
+    fn test_should_auto_continue_interactive_no_tools() {
+        // Interactive mode, no tools ran → never continue
+        assert_eq!(should_auto_continue(false, false, false, false, false, 0), None);
+    }
+
+    #[test]
+    fn test_should_auto_continue_interactive_incomplete_tool() {
+        use AutoContinueReason::*;
+
+        // Interactive mode, incomplete tool call → always continue regardless of counter
+        assert_eq!(should_auto_continue(false, false, true, false, false, 0), Some(IncompleteToolCall));
+        assert_eq!(should_auto_continue(false, false, true, false, false, 5), Some(IncompleteToolCall));
     }
 }

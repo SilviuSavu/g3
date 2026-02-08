@@ -115,87 +115,61 @@ fn test_max_auto_summary_attempts_is_reasonable() {
 // Test: Auto-continue condition logic
 // =============================================================================
 
-/// Simulates the should_auto_continue logic from lib.rs
-/// After removing final_output, the logic is simpler:
-/// - Continue if there's an incomplete tool call
-/// - Continue if there's an unexecuted tool call  
-/// - Continue if tool executed but response is empty (LLM stuttered)
-fn should_auto_continue(
-    any_tool_executed: bool,
-    has_incomplete_tool_call: bool,
-    has_unexecuted_tool_call: bool,
-    is_empty_response: bool,
-) -> bool {
-    has_incomplete_tool_call
-        || has_unexecuted_tool_call
-        || (any_tool_executed && is_empty_response)
+/// Uses the real should_auto_continue from g3_core::streaming
+use g3_core::streaming::{should_auto_continue, AutoContinueReason};
+
+#[test]
+fn test_auto_continue_autonomous_tool_executed() {
+    // Autonomous mode, tools executed → always continue
+    assert_eq!(
+        should_auto_continue(true, true, false, false, false, 0),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
 }
 
 #[test]
-fn test_auto_continue_tool_executed_with_response() {
-    // Tool executed with substantive response - should NOT continue
-    assert!(!should_auto_continue(
-        true,  // any_tool_executed
-        false, // has_incomplete_tool_call
-        false, // has_unexecuted_tool_call
-        false, // is_empty_response
-    ));
+fn test_auto_continue_interactive_first_text_only() {
+    // Interactive mode, tools executed, first text-only response → continue
+    assert_eq!(
+        should_auto_continue(false, true, false, false, false, 0),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+}
+
+#[test]
+fn test_auto_continue_interactive_second_text_only() {
+    // Interactive mode, tools executed, second text-only → stop
+    assert_eq!(
+        should_auto_continue(false, true, false, false, false, 1),
+        None,
+    );
 }
 
 #[test]
 fn test_auto_continue_incomplete_tool_call() {
-    // Incomplete tool call - should continue regardless of other flags
-    assert!(should_auto_continue(
-        false, // any_tool_executed
-        true,  // has_incomplete_tool_call
-        false, // has_unexecuted_tool_call
-        false, // is_empty_response
-    ));
+    // Incomplete tool call - should continue regardless of mode or counter
+    assert_eq!(
+        should_auto_continue(false, false, true, false, false, 5),
+        Some(AutoContinueReason::IncompleteToolCall),
+    );
 }
 
 #[test]
 fn test_auto_continue_unexecuted_tool_call() {
     // Unexecuted tool call - should continue
-    assert!(should_auto_continue(
-        false, // any_tool_executed
-        false, // has_incomplete_tool_call
-        true,  // has_unexecuted_tool_call
-        false, // is_empty_response
-    ));
-}
-
-#[test]
-fn test_auto_continue_empty_response_after_tool() {
-    // Empty response after tool execution - should continue
-    assert!(should_auto_continue(
-        true,  // any_tool_executed
-        false, // has_incomplete_tool_call
-        false, // has_unexecuted_tool_call
-        true,  // is_empty_response
-    ));
-}
-
-#[test]
-fn test_auto_continue_empty_response_no_tool() {
-    // Empty response but no tool executed - should NOT continue
-    // (This is a normal case where LLM just didn't respond)
-    assert!(!should_auto_continue(
-        false, // any_tool_executed
-        false, // has_incomplete_tool_call
-        false, // has_unexecuted_tool_call
-        true,  // is_empty_response
-    ));
+    assert_eq!(
+        should_auto_continue(false, false, false, true, false, 5),
+        Some(AutoContinueReason::UnexecutedToolCall),
+    );
 }
 
 #[test]
 fn test_auto_continue_no_conditions_met() {
-    // No tools, no incomplete calls, substantive response - should NOT continue
-    assert!(!should_auto_continue(
-        false, // any_tool_executed
-        false, // has_incomplete_tool_call
-        false, // has_unexecuted_tool_call
-        false, // is_empty_response
-    ));
+    // No tools, no incomplete calls - should NOT continue
+    assert_eq!(
+        should_auto_continue(false, false, false, false, false, 0),
+        None,
+    );
 }
 
 // =============================================================================
@@ -204,17 +178,21 @@ fn test_auto_continue_no_conditions_met() {
 
 #[test]
 fn test_auto_continue_multiple_conditions() {
-    // Multiple conditions true - should still continue
-    assert!(should_auto_continue(
-        true,  // any_tool_executed
-        true,  // has_incomplete_tool_call
-        true,  // has_unexecuted_tool_call
-        true,  // is_empty_response
-    ));
-    
+    // Multiple conditions true - incomplete takes priority
+    assert_eq!(
+        should_auto_continue(true, true, true, true, true, 0),
+        Some(AutoContinueReason::IncompleteToolCall),
+    );
+
     // Only incomplete tool call
-    assert!(should_auto_continue(false, true, false, false));
-    
-    // Only unexecuted tool call  
-    assert!(should_auto_continue(false, false, true, false));
+    assert_eq!(
+        should_auto_continue(false, false, true, false, false, 0),
+        Some(AutoContinueReason::IncompleteToolCall),
+    );
+
+    // Only unexecuted tool call
+    assert_eq!(
+        should_auto_continue(false, false, false, true, false, 0),
+        Some(AutoContinueReason::UnexecutedToolCall),
+    );
 }

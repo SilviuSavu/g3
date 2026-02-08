@@ -202,123 +202,87 @@ mod streaming_parser_characterization {
 mod auto_continue_characterization {
     use g3_core::streaming::{should_auto_continue, AutoContinueReason};
 
-    /// CHARACTERIZATION: Non-autonomous mode never auto-continues
+    /// CHARACTERIZATION: Interactive mode allows ONE auto-continue after tools, then stops
     #[test]
-    fn non_autonomous_never_continues() {
-        // Even with all conditions true, non-autonomous should not continue
-        let result = should_auto_continue(
-            false, // not autonomous
-            true,  // tools executed
-            true,  // incomplete tool call
-            true,  // unexecuted tool call
-            true,  // was truncated
-        );
+    fn interactive_continues_once_after_tools() {
+        // First text-only response after tools → continue
+        let result = should_auto_continue(false, true, false, false, false, 0);
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "Interactive mode should continue once after tool execution");
 
-        assert!(result.is_none(), "Non-autonomous mode should never auto-continue");
+        // Second text-only response → stop
+        let result = should_auto_continue(false, true, false, false, false, 1);
+        assert!(result.is_none(),
+            "Interactive mode should stop after second consecutive text-only response");
+    }
+
+    /// CHARACTERIZATION: Interactive mode still respects incomplete/unexecuted/truncated
+    #[test]
+    fn interactive_always_continues_for_errors() {
+        assert_eq!(
+            should_auto_continue(false, false, true, false, false, 5),
+            Some(AutoContinueReason::IncompleteToolCall),
+        );
+        assert_eq!(
+            should_auto_continue(false, false, false, true, false, 5),
+            Some(AutoContinueReason::UnexecutedToolCall),
+        );
+        assert_eq!(
+            should_auto_continue(false, false, false, false, true, 5),
+            Some(AutoContinueReason::MaxTokensTruncation),
+        );
     }
 
     /// CHARACTERIZATION: Autonomous mode continues after tool execution
     #[test]
     fn autonomous_continues_after_tools() {
-        let result = should_auto_continue(
-            true,  // autonomous
-            true,  // tools executed
-            false, // no incomplete
-            false, // no unexecuted
-            false, // not truncated
-        );
+        let result = should_auto_continue(true, true, false, false, false, 0);
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "Should continue after tool execution");
 
-        assert_eq!(
-            result,
-            Some(AutoContinueReason::ToolsExecuted),
-            "Should continue after tool execution"
-        );
+        // Autonomous ignores the counter
+        let result = should_auto_continue(true, true, false, false, false, 10);
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "Autonomous should continue regardless of counter");
     }
 
     /// CHARACTERIZATION: Incomplete tool call triggers continue
     #[test]
     fn incomplete_tool_triggers_continue() {
-        let result = should_auto_continue(
-            true,  // autonomous
-            false, // no tools executed
-            true,  // incomplete tool call
-            false, // no unexecuted
-            false, // not truncated
-        );
-
-        assert_eq!(
-            result,
-            Some(AutoContinueReason::IncompleteToolCall),
-            "Should continue on incomplete tool call"
-        );
+        let result = should_auto_continue(true, false, true, false, false, 0);
+        assert_eq!(result, Some(AutoContinueReason::IncompleteToolCall),
+            "Should continue on incomplete tool call");
     }
 
     /// CHARACTERIZATION: Unexecuted tool call triggers continue
     #[test]
     fn unexecuted_tool_triggers_continue() {
-        let result = should_auto_continue(
-            true,  // autonomous
-            false, // no tools executed
-            false, // no incomplete
-            true,  // unexecuted tool call
-            false, // not truncated
-        );
-
-        assert_eq!(
-            result,
-            Some(AutoContinueReason::UnexecutedToolCall),
-            "Should continue on unexecuted tool call"
-        );
+        let result = should_auto_continue(true, false, false, true, false, 0);
+        assert_eq!(result, Some(AutoContinueReason::UnexecutedToolCall),
+            "Should continue on unexecuted tool call");
     }
 
     /// CHARACTERIZATION: Max tokens truncation triggers continue
     #[test]
     fn truncation_triggers_continue() {
-        let result = should_auto_continue(
-            true,  // autonomous
-            false, // no tools executed
-            false, // no incomplete
-            false, // no unexecuted
-            true,  // was truncated
-        );
-
-        assert_eq!(
-            result,
-            Some(AutoContinueReason::MaxTokensTruncation),
-            "Should continue on truncation"
-        );
+        let result = should_auto_continue(true, false, false, false, true, 0);
+        assert_eq!(result, Some(AutoContinueReason::MaxTokensTruncation),
+            "Should continue on truncation");
     }
 
-    /// CHARACTERIZATION: Priority order - tools > incomplete > unexecuted > truncated
+    /// CHARACTERIZATION: Priority order - incomplete > unexecuted > truncated > tools
     #[test]
-    fn priority_order_is_tools_first() {
-        // When multiple conditions are true, tools executed takes priority
-        let result = should_auto_continue(
-            true, // autonomous
-            true, // tools executed
-            true, // incomplete tool call
-            true, // unexecuted tool call
-            true, // was truncated
-        );
-
-        assert_eq!(
-            result,
-            Some(AutoContinueReason::ToolsExecuted),
-            "Tools executed should have highest priority"
-        );
+    fn priority_order_incomplete_first() {
+        // Incomplete tool call has highest priority
+        let result = should_auto_continue(true, true, true, true, true, 0);
+        assert_eq!(result, Some(AutoContinueReason::IncompleteToolCall),
+            "Incomplete tool call should have highest priority");
     }
 
     /// CHARACTERIZATION: No conditions means no continue
     #[test]
     fn no_conditions_no_continue() {
-        let result = should_auto_continue(
-            true,  // autonomous
-            false, // no tools executed
-            false, // no incomplete
-            false, // no unexecuted
-            false, // not truncated
-        );
-
+        let result = should_auto_continue(true, false, false, false, false, 0);
         assert!(result.is_none(), "Should not continue when no conditions met");
     }
 }
