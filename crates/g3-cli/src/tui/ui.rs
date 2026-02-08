@@ -1,14 +1,14 @@
-//! TUI rendering module using ratatui.
+//! TUI rendering functions using ratatui.
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Style, Stylize},
+    style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph, Tabs},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
     Frame,
 };
 
-use crate::tui::app::AppMode;
+use crate::tui::app::{ChatMessage, MessageRole, PendingPrompt};
 
 /// Color palette for the TUI.
 #[derive(Clone)]
@@ -16,259 +16,307 @@ pub struct Colors {
     pub primary: Color,
     pub secondary: Color,
     pub accent: Color,
-    pub background: Color,
     pub text: Color,
     pub error: Color,
     pub success: Color,
+    pub user: Color,
+    pub assistant: Color,
+    pub tool: Color,
 }
 
 impl Default for Colors {
     fn default() -> Self {
         Colors {
             primary: Color::Cyan,
-            secondary: Color::Blue,
+            secondary: Color::DarkGray,
             accent: Color::Magenta,
-            background: Color::Reset,
             text: Color::White,
             error: Color::Red,
             success: Color::Green,
+            user: Color::Yellow,
+            assistant: Color::Cyan,
+            tool: Color::Blue,
         }
     }
 }
 
-/// UI layout configuration.
-#[derive(Clone)]
-pub struct LayoutConfig {
-    pub show_status_bar: bool,
-    pub show_header: bool,
-    pub show_footer: bool,
-    pub tab_width: u16,
+/// A read-only view of app state for rendering.
+/// Avoids borrow checker issues with terminal.draw() taking &mut self.
+pub struct AppView<'a> {
+    pub colors: &'a Colors,
+    pub messages: &'a [ChatMessage],
+    pub input_buffer: &'a str,
+    pub cursor_position: usize,
+    pub context_percentage: f32,
+    pub current_tool: &'a Option<String>,
+    pub scroll_offset: u16,
+    pub pending_prompt: &'a Option<PendingPrompt>,
 }
 
-impl Default for LayoutConfig {
-    fn default() -> Self {
-        LayoutConfig {
-            show_status_bar: true,
-            show_header: true,
-            show_footer: true,
-            tab_width: 12,
-        }
+/// Render the entire TUI frame.
+pub fn render(frame: &mut Frame, app: &AppView) {
+    let size = frame.area();
+    let colors = app.colors;
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(1),
+            Constraint::Length(1),
+            Constraint::Length(3),
+        ])
+        .split(size);
+
+    render_chat(frame, chunks[0], app, colors);
+    render_context_bar(frame, chunks[1], app, colors);
+    render_input_box(frame, chunks[2], app, colors);
+
+    if app.current_tool.is_some() {
+        render_tool_status(frame, chunks[0], app, colors);
+    }
+
+    if app.pending_prompt.is_some() {
+        render_prompt_overlay(frame, size, app, colors);
     }
 }
 
-/// Render text content with basic styling.
-pub fn render_text(frame: &mut Frame, area: Rect, text: &str, colors: &Colors) {
-    let lines: Vec<Line> = text
-        .lines()
-        .map(|line| {
+fn render_chat(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
+    let block = Block::default()
+        .borders(Borders::NONE)
+        .style(Style::default());
+
+    if app.messages.is_empty() {
+        let welcome = Paragraph::new(Text::from(vec![
+            Line::from(""),
             Line::from(Span::styled(
-                line.to_string(),
-                Style::default().fg(colors.text),
-            ))
-        })
-        .collect();
-    
-    let paragraph = Paragraph::new(Text::from(lines))
-        .style(Style::default().fg(colors.text))
-        .alignment(Alignment::Left);
-    
-    frame.render_widget(paragraph, area);
-}
-
-/// Render a status bar.
-pub fn render_status_bar(frame: &mut Frame, area: Rect, status: &str, colors: &Colors) {
-    let status_text = Text::from(vec![Line::from(vec![
-        Span::styled("[", Style::default().fg(colors.secondary)),
-        Span::styled(status, Style::default().fg(colors.text)),
-        Span::styled("]", Style::default().fg(colors.secondary)),
-    ])]);
-    
-    let paragraph = Paragraph::new(status_text)
-        .style(Style::default().fg(colors.text).bg(colors.secondary))
-        .alignment(Alignment::Left);
-    
-    frame.render_widget(paragraph, area);
-}
-
-/// Render a header with title.
-pub fn render_header(frame: &mut Frame, area: Rect, title: &str, colors: &Colors) {
-    let header_text = Text::from(vec![Line::from(vec![
-        Span::styled(" ", Style::default().fg(colors.secondary)),
-        Span::styled(title, Style::default().fg(colors.primary).bold()),
-    ])]);
-    
-    let block = Block::default()
-        .borders(Borders::BOTTOM)
-        .border_style(Style::default().fg(colors.secondary));
-    
-    let paragraph = Paragraph::new(header_text)
-        .style(Style::default().fg(colors.text))
-        .alignment(Alignment::Left)
-        .block(block);
-    
-    frame.render_widget(paragraph, area);
-}
-
-/// Render a footer with instructions.
-pub fn render_footer(frame: &mut Frame, area: Rect, instructions: &[&str], colors: &Colors) {
-    let footer_text = Text::from(vec![Line::from(instructions
-        .iter()
-        .enumerate()
-        .map(|(i, &inst)| {
-            let prefix = if i > 0 { " | " } else { "" };
-            Span::styled(
-                format!("{}{}", prefix, inst),
+                "g3 TUI",
+                Style::default()
+                    .fg(colors.primary)
+                    .add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "Type a message and press Enter to start.",
                 Style::default().fg(colors.secondary),
-            )
-        })
-        .collect::<Vec<Span>>())]);
-    
-    let block = Block::default()
-        .borders(Borders::TOP)
-        .border_style(Style::default().fg(colors.secondary));
-    
-    let paragraph = Paragraph::new(footer_text)
-        .style(Style::default().fg(colors.text))
-        .alignment(Alignment::Left)
+            )),
+        ]))
+        .alignment(Alignment::Center)
         .block(block);
-    
-    frame.render_widget(paragraph, area);
-}
+        frame.render_widget(welcome, area);
+        return;
+    }
 
-/// Render a centered message.
-pub fn render_centered_message(
-    frame: &mut Frame,
-    area: Rect,
-    message: &str,
-    colors: &Colors,
-) {
-    let lines = Text::from(vec![Line::from(Span::styled(
-        message,
-        Style::default().fg(colors.primary).bold(),
-    ))]);
-    
-    let paragraph = Paragraph::new(lines)
-        .style(Style::default().fg(colors.text))
-        .alignment(Alignment::Center);
-    
-    frame.render_widget(paragraph, area);
-}
+    let mut lines: Vec<Line> = Vec::new();
+    for msg in app.messages {
+        match msg.role {
+            MessageRole::User => {
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        "You: ",
+                        Style::default()
+                            .fg(colors.user)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(&msg.content, Style::default().fg(colors.text)),
+                ]));
+            }
+            MessageRole::Assistant => {
+                if msg.content.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::styled(
+                            "g3: ",
+                            Style::default()
+                                .fg(colors.assistant)
+                                .add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled("...", Style::default().fg(colors.secondary)),
+                    ]));
+                } else {
+                    let content_lines: Vec<&str> = msg.content.lines().collect();
+                    for (i, line) in content_lines.iter().enumerate() {
+                        if i == 0 {
+                            lines.push(Line::from(vec![
+                                Span::styled(
+                                    "g3: ",
+                                    Style::default()
+                                        .fg(colors.assistant)
+                                        .add_modifier(Modifier::BOLD),
+                                ),
+                                Span::styled(*line, Style::default().fg(colors.text)),
+                            ]));
+                        } else {
+                            lines.push(Line::from(Span::styled(
+                                format!("    {}", line),
+                                Style::default().fg(colors.text),
+                            )));
+                        }
+                    }
+                }
+            }
+            MessageRole::Tool => {
+                lines.push(Line::from(Span::styled(
+                    format!("  [{}]", msg.content),
+                    Style::default().fg(colors.tool),
+                )));
+            }
+            MessageRole::Error => {
+                lines.push(Line::from(Span::styled(
+                    format!("  Error: {}", msg.content),
+                    Style::default().fg(colors.error),
+                )));
+            }
+        }
+        lines.push(Line::from(""));
+    }
 
-/// Render an error message.
-pub fn render_error(frame: &mut Frame, area: Rect, message: &str, colors: &Colors) {
-    let lines = Text::from(vec![Line::from(vec![
-        Span::styled("X ", Style::default().fg(colors.error)),
-        Span::styled(message, Style::default().fg(colors.text)),
-    ])]);
-    
-    let block = Block::default()
-        .border_style(Style::default().fg(colors.error))
-        .title(Span::styled(" Error ", Style::default().fg(colors.error).bold()));
-    
-    let paragraph = Paragraph::new(lines)
-        .style(Style::default().fg(colors.text))
-        .block(block);
-    
-    frame.render_widget(paragraph, area);
-}
-
-/// Render a success message.
-pub fn render_success(frame: &mut Frame, area: Rect, message: &str, colors: &Colors) {
-    let lines = Text::from(vec![Line::from(vec![
-        Span::styled("V ", Style::default().fg(colors.success)),
-        Span::styled(message, Style::default().fg(colors.text)),
-    ])]);
-    
-    let block = Block::default()
-        .border_style(Style::default().fg(colors.success))
-        .title(Span::styled(" Success ", Style::default().fg(colors.success).bold()));
-    
-    let paragraph = Paragraph::new(lines)
-        .style(Style::default().fg(colors.text))
-        .block(block);
-    
-    frame.render_widget(paragraph, area);
-}
-
-/// Split an area into a header, main content, and footer.
-pub fn split_with_header_footer(
-    area: Rect,
-    header_height: u16,
-    footer_height: u16,
-) -> (Rect, Rect, Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(header_height),
-            Constraint::Min(0),
-            Constraint::Length(footer_height),
-        ])
-        .split(area);
-    
-    (chunks[0], chunks[1], chunks[2])
-}
-
-/// Split an area into a header and main content.
-pub fn split_with_header(area: Rect, header_height: u16) -> (Rect, Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(header_height),
-            Constraint::Min(0),
-        ])
-        .split(area);
-    
-    (chunks[0], chunks[1])
-}
-
-/// Draw the main content area (standalone function to avoid borrow conflicts).
-pub fn draw_main_content(
-    frame: &mut ratatui::Frame,
-    area: ratatui::layout::Rect,
-    mode: AppMode,
-    messages: &[String],
-    error: &Option<String>,
-    success: &Option<String>,
-    colors: &Colors,
-) {
-    if let Some(ref error) = error {
-        render_error(frame, area, error, colors);
-    } else if let Some(ref success) = success {
-        render_centered_message(frame, area, success, colors);
-    } else if messages.is_empty() {
-        render_centered_message(
-            frame,
-            area,
-            "Welcome to g3 TUI\n\nPress Ctrl+C to exit",
-            colors,
-        );
+    let text = Text::from(lines);
+    let visible_height = area.height as usize;
+    let total_lines = text.lines.len();
+    let scroll = if total_lines > visible_height {
+        (total_lines - visible_height) as u16 + app.scroll_offset
     } else {
-        // Display recent messages
-        let text = messages.join("\n");
-        render_text(frame, area, &text, colors);
+        0
+    };
+
+    let paragraph = Paragraph::new(text)
+        .block(block)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll, 0));
+
+    frame.render_widget(paragraph, area);
+}
+
+fn render_context_bar(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
+    let pct = app.context_percentage;
+    let color = if pct < 50.0 {
+        colors.success
+    } else if pct < 80.0 {
+        Color::Yellow
+    } else {
+        colors.error
+    };
+
+    let status_text = if let Some(ref tool) = app.current_tool {
+        format!(" Context: {:.0}% | Running: {} ", pct, tool)
+    } else {
+        format!(" Context: {:.0}% | Ready ", pct)
+    };
+
+    let bar = Paragraph::new(Line::from(Span::styled(
+        status_text,
+        Style::default().fg(color),
+    )))
+    .style(Style::default().bg(Color::Black));
+
+    frame.render_widget(bar, area);
+}
+
+fn render_input_box(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(colors.primary))
+        .title(Span::styled(
+            " Input ",
+            Style::default()
+                .fg(colors.primary)
+                .add_modifier(Modifier::BOLD),
+        ));
+
+    let input_text = if app.input_buffer.is_empty() {
+        Span::styled(
+            "Type your message here...",
+            Style::default().fg(colors.secondary),
+        )
+    } else {
+        Span::styled(app.input_buffer, Style::default().fg(colors.text))
+    };
+
+    let input = Paragraph::new(Line::from(input_text)).block(block);
+    frame.render_widget(input, area);
+
+    if app.pending_prompt.is_none() {
+        let cursor_x = area.x + 1 + app.cursor_position as u16;
+        let cursor_y = area.y + 1;
+        frame.set_cursor_position((cursor_x, cursor_y));
     }
 }
 
-/// Draw the footer (standalone function to avoid borrow conflicts).
-pub fn draw_footer(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, mode: AppMode) {
-    let instructions = match mode {
-        AppMode::Interactive => ["Enter: Send", "Esc: Menu", "Ctrl+C: Quit"],
-        AppMode::Settings => ["Arrow keys: Navigate", "Enter: Select", "Esc: Back"],
-        AppMode::Help => ["Arrow keys: Navigate", "Esc: Back", ""],
-        AppMode::Logs => ["Arrow keys: Scroll", "Page Up/Down: Scroll", "Esc: Back"],
-    };
-    render_footer(frame, area, &instructions, &Colors::default());
+fn render_tool_status(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
+    if let Some(ref tool) = app.current_tool {
+        let text = format!(" {} running... ", tool);
+        let width = text.len() as u16;
+        if area.width > width + 2 && area.height > 2 {
+            let tool_area = Rect::new(
+                area.x + area.width - width - 1,
+                area.y + area.height - 1,
+                width,
+                1,
+            );
+            let widget = Paragraph::new(Span::styled(
+                text,
+                Style::default().fg(Color::Black).bg(colors.tool),
+            ));
+            frame.render_widget(widget, tool_area);
+        }
+    }
 }
 
-/// Draw the status bar (standalone function to avoid borrow conflicts).
-pub fn draw_status_bar(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, mode: AppMode) {
-    let status = match mode {
-        AppMode::Interactive => "INTERACTIVE",
-        AppMode::Settings => "SETTINGS",
-        AppMode::Help => "HELP",
-        AppMode::Logs => "LOGS",
-    };
-    render_status_bar(frame, area, status, &Colors::default());
+fn render_prompt_overlay(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
+    if let Some(ref prompt) = app.pending_prompt {
+        let message = prompt.message();
+
+        let width = (message.len() as u16 + 6).min(area.width.saturating_sub(4));
+        let height: u16 = match prompt {
+            PendingPrompt::YesNo { .. } => 5,
+            PendingPrompt::Choice { options, .. } => 4 + options.len() as u16,
+        };
+        let x = area.x + (area.width.saturating_sub(width)) / 2;
+        let y = area.y + (area.height.saturating_sub(height)) / 2;
+        let popup_area = Rect::new(x, y, width, height);
+
+        frame.render_widget(Clear, popup_area);
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(colors.accent))
+            .title(Span::styled(
+                " Prompt ",
+                Style::default()
+                    .fg(colors.accent)
+                    .add_modifier(Modifier::BOLD),
+            ));
+
+        let mut lines = vec![
+            Line::from(""),
+            Line::from(Span::styled(message, Style::default().fg(colors.text))),
+            Line::from(""),
+        ];
+
+        match prompt {
+            PendingPrompt::YesNo { .. } => {
+                lines.push(Line::from(Span::styled(
+                    "[y] Yes  [n] No",
+                    Style::default()
+                        .fg(colors.primary)
+                        .add_modifier(Modifier::BOLD),
+                )));
+            }
+            PendingPrompt::Choice { options, .. } => {
+                for (i, opt) in options.iter().enumerate() {
+                    lines.push(Line::from(Span::styled(
+                        format!("[{}] {}", i + 1, opt),
+                        Style::default().fg(colors.primary),
+                    )));
+                }
+            }
+        }
+
+        let paragraph = Paragraph::new(Text::from(lines))
+            .block(block)
+            .alignment(Alignment::Center);
+
+        frame.render_widget(paragraph, popup_area);
+    }
 }
 
 #[cfg(test)]
@@ -280,20 +328,5 @@ mod tests {
         let colors = Colors::default();
         assert_eq!(colors.primary, Color::Cyan);
         assert_eq!(colors.text, Color::White);
-    }
-
-    #[test]
-    fn test_split_with_header_footer() {
-        let area = Rect::new(0, 0, 80, 24);
-        let (header, main, footer) = split_with_header_footer(area, 2, 2);
-        assert_eq!(header.height, 2);
-        assert_eq!(footer.height, 2);
-        assert!(main.height > 0);
-    }
-
-    #[test]
-    fn test_draw_footer() {
-        let mode = AppMode::Interactive;
-        assert_eq!(mode, AppMode::Interactive);
     }
 }

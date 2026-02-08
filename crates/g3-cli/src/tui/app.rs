@@ -1,214 +1,359 @@
 //! TUI application state and main loop.
 
-use crate::tui::events::{EventType, get_terminal_size, has_minimum_size};
-use crate::tui::ui::{Colors, LayoutConfig, draw_main_content, draw_status_bar, draw_footer, split_with_header_footer};
+use crate::tui::events::has_minimum_size;
+use crate::tui::tui_ui_writer::TuiEvent;
+use crate::tui::ui::{self, Colors};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use ratatui::{prelude::CrosstermBackend, Terminal};
 use std::io::Stdout;
+use std::time::Duration;
+use tokio::sync::{mpsc, oneshot};
 
-/// Current mode of the TUI.
-#[derive(Debug, Clone, PartialEq, Copy)]
-pub enum AppMode {
-    /// Interactive chat mode
-    Interactive,
-    /// View settings
-    Settings,
-    /// View help
-    Help,
-    /// View logs
-    Logs,
+/// Role of a chat message.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MessageRole {
+    User,
+    Assistant,
+    Tool,
+    Error,
+}
+
+/// A single chat message for display.
+#[derive(Debug, Clone)]
+pub struct ChatMessage {
+    pub role: MessageRole,
+    pub content: String,
+}
+
+/// A pending prompt from the agent that needs user input.
+#[derive(Debug)]
+pub enum PendingPrompt {
+    YesNo {
+        message: String,
+        responder: oneshot::Sender<bool>,
+    },
+    Choice {
+        message: String,
+        options: Vec<String>,
+        responder: oneshot::Sender<usize>,
+    },
+}
+
+impl PendingPrompt {
+    pub fn message(&self) -> &str {
+        match self {
+            PendingPrompt::YesNo { message, .. } => message,
+            PendingPrompt::Choice { message, .. } => message,
+        }
+    }
 }
 
 /// Application state.
 pub struct App {
-    /// Terminal backend
     terminal: Terminal<CrosstermBackend<Stdout>>,
-    /// Current application mode
-    mode: AppMode,
-    /// Current input text
-    input: String,
-    /// Recent messages/outputs
-    messages: Vec<String>,
-    /// Color palette
-    colors: Colors,
-    /// Layout configuration
-    layout_config: LayoutConfig,
-    /// Whether the app should continue running
     running: bool,
-    /// Error message to display
-    error: Option<String>,
-    /// Success message to display
-    success: Option<String>,
+    pub input_buffer: String,
+    pub cursor_position: usize,
+    pub messages: Vec<ChatMessage>,
+    pub context_percentage: f32,
+    pub current_tool: Option<String>,
+    pub pending_prompt: Option<PendingPrompt>,
+    pub scroll_offset: u16,
+    pub colors: Colors,
+    agent_input_tx: mpsc::UnboundedSender<String>,
+    tui_event_rx: mpsc::UnboundedReceiver<TuiEvent>,
 }
 
 impl App {
-    /// Create a new TUI application.
-    pub fn new() -> anyhow::Result<Self> {
-        // Check terminal size
+    pub fn new(
+        agent_input_tx: mpsc::UnboundedSender<String>,
+        tui_event_rx: mpsc::UnboundedReceiver<TuiEvent>,
+    ) -> anyhow::Result<Self> {
         if !has_minimum_size(80, 24) {
             anyhow::bail!("Terminal too small. Minimum required: 80x24");
         }
 
-        // Initialize terminal
         let backend = CrosstermBackend::new(std::io::stdout());
-        let mut terminal = Terminal::new(backend)?;
-
-        // Hide cursor
-        terminal.hide_cursor()?;
+        let terminal = Terminal::new(backend)?;
 
         Ok(App {
             terminal,
-            mode: AppMode::Interactive,
-            input: String::new(),
-            messages: Vec::new(),
-            colors: Colors::default(),
-            layout_config: LayoutConfig::default(),
             running: true,
-            error: None,
-            success: None,
+            input_buffer: String::new(),
+            cursor_position: 0,
+            messages: Vec::new(),
+            context_percentage: 0.0,
+            current_tool: None,
+            pending_prompt: None,
+            scroll_offset: 0,
+            colors: Colors::default(),
+            agent_input_tx,
+            tui_event_rx,
         })
     }
 
-    /// Run the main application loop.
     pub fn run(&mut self) -> anyhow::Result<()> {
-        // Simple event loop - poll for events
+        crossterm::terminal::enable_raw_mode()?;
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::EnterAlternateScreen,
+            crossterm::event::EnableMouseCapture,
+        )?;
+        self.terminal.clear()?;
+
+        let result = self.event_loop();
+
+        crossterm::terminal::disable_raw_mode()?;
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::LeaveAlternateScreen,
+            crossterm::event::DisableMouseCapture,
+        )?;
+        self.terminal.show_cursor()?;
+
+        result
+    }
+
+    fn event_loop(&mut self) -> anyhow::Result<()> {
         while self.running {
-            // Draw the UI
             self.draw()?;
-            
-            // Small delay to avoid busy-waiting
-            std::thread::sleep(std::time::Duration::from_millis(16));
-            
-            // Check for escape key to exit
-            if crossterm::event::poll(std::time::Duration::from_millis(16))? {
-                if let crossterm::event::Event::Key(key) = crossterm::event::read()? {
-                    if key.code == crossterm::event::KeyCode::Esc {
-                        self.running = false;
-                    }
+            self.process_tui_events();
+
+            if event::poll(Duration::from_millis(16))? {
+                if let Event::Key(key) = event::read()? {
+                    self.handle_key_event(key);
                 }
             }
         }
-
-        // Restore cursor on exit
-        self.terminal.show_cursor()?;
         Ok(())
     }
 
-    /// Draw the current UI state.
     fn draw(&mut self) -> anyhow::Result<()> {
-        // Clone state before entering the closure to avoid borrow issues
-        let mode = self.mode.clone();
-        let messages = self.messages.clone();
-        let error = self.error.clone();
-        let success = self.success.clone();
         let colors = self.colors.clone();
-        let layout_config = self.layout_config.clone();
-        
+        let messages = self.messages.clone();
+        let input_buffer = self.input_buffer.clone();
+        let cursor_position = self.cursor_position;
+        let context_percentage = self.context_percentage;
+        let current_tool = self.current_tool.clone();
+        let scroll_offset = self.scroll_offset;
+
         self.terminal.draw(|frame| {
-            let size = frame.area();
-
-            // Split the screen
-            let (header, main, footer) = split_with_header_footer(size, 3, 2);
-
-            // Draw header
-            if layout_config.show_header {
-                crate::tui::ui::render_header(frame, header, "g3 - AI Coding Assistant", &colors);
-            }
-
-            // Draw main content based on mode
-            draw_main_content(
-                frame,
-                main,
-                mode,
-                &messages,
-                &error,
-                &success,
-                &colors,
-            );
-
-            // Draw footer
-            if layout_config.show_footer {
-                draw_footer(frame, footer, mode);
-            }
-
-            // Draw status bar
-            if layout_config.show_status_bar {
-                draw_status_bar(frame, size, mode);
-            }
+            let app_view = ui::AppView {
+                colors: &colors,
+                messages: &messages,
+                input_buffer: &input_buffer,
+                cursor_position,
+                context_percentage,
+                current_tool: &current_tool,
+                scroll_offset,
+                pending_prompt: &None,
+            };
+            ui::render(frame, &app_view);
         })?;
-
         Ok(())
     }
 
-    /// Add a message to the output.
-    pub fn add_message(&mut self, message: &str) {
-        self.messages.push(message.to_string());
-        // Keep only last 100 messages
-        if self.messages.len() > 100 {
-            self.messages.drain(0..(self.messages.len() - 100));
+    fn process_tui_events(&mut self) {
+        while let Ok(evt) = self.tui_event_rx.try_recv() {
+            match evt {
+                TuiEvent::ResponseChunk(text) => {
+                    if let Some(last) = self.messages.last_mut() {
+                        if last.role == MessageRole::Assistant {
+                            last.content.push_str(&text);
+                        } else {
+                            self.messages.push(ChatMessage {
+                                role: MessageRole::Assistant,
+                                content: text,
+                            });
+                        }
+                    } else {
+                        self.messages.push(ChatMessage {
+                            role: MessageRole::Assistant,
+                            content: text,
+                        });
+                    }
+                    self.scroll_offset = 0;
+                }
+                TuiEvent::ResponseDone => {
+                    self.current_tool = None;
+                }
+                TuiEvent::ToolStart(name) => {
+                    self.current_tool = Some(name.clone());
+                    self.messages.push(ChatMessage {
+                        role: MessageRole::Tool,
+                        content: format!("{} ...", name),
+                    });
+                }
+                TuiEvent::ToolComplete(name, summary, ctx_pct) => {
+                    self.current_tool = None;
+                    self.context_percentage = ctx_pct;
+                    if let Some(last) = self.messages.last_mut() {
+                        if last.role == MessageRole::Tool && last.content.starts_with(&name) {
+                            if summary.is_empty() {
+                                last.content = format!("{} done", name);
+                            } else {
+                                last.content = format!("{}: {}", name, summary);
+                            }
+                        }
+                    }
+                }
+                TuiEvent::ContextUpdate(pct) => {
+                    self.context_percentage = pct;
+                }
+                TuiEvent::Status(msg) => {
+                    if !msg.trim().is_empty() {
+                        self.messages.push(ChatMessage {
+                            role: MessageRole::Tool,
+                            content: msg,
+                        });
+                    }
+                }
+                TuiEvent::PromptYesNo(message, responder) => {
+                    self.pending_prompt = Some(PendingPrompt::YesNo { message, responder });
+                }
+                TuiEvent::PromptChoice(message, options, responder) => {
+                    self.pending_prompt =
+                        Some(PendingPrompt::Choice { message, options, responder });
+                }
+                TuiEvent::Error(msg) => {
+                    self.messages.push(ChatMessage {
+                        role: MessageRole::Error,
+                        content: msg,
+                    });
+                }
+            }
         }
     }
 
-    /// Set an error message.
-    pub fn set_error(&mut self, error: &str) {
-        self.error = Some(error.to_string());
+    fn handle_key_event(&mut self, key: event::KeyEvent) {
+        if self.pending_prompt.is_some() {
+            self.handle_prompt_key(key);
+            return;
+        }
+
+        match key.code {
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.running = false;
+            }
+            KeyCode::Enter => {
+                self.submit_input();
+            }
+            KeyCode::Char(c) => {
+                self.input_buffer.insert(self.cursor_position, c);
+                self.cursor_position += 1;
+            }
+            KeyCode::Backspace => {
+                if self.cursor_position > 0 {
+                    self.cursor_position -= 1;
+                    self.input_buffer.remove(self.cursor_position);
+                }
+            }
+            KeyCode::Delete => {
+                if self.cursor_position < self.input_buffer.len() {
+                    self.input_buffer.remove(self.cursor_position);
+                }
+            }
+            KeyCode::Left => {
+                if self.cursor_position > 0 {
+                    self.cursor_position -= 1;
+                }
+            }
+            KeyCode::Right => {
+                if self.cursor_position < self.input_buffer.len() {
+                    self.cursor_position += 1;
+                }
+            }
+            KeyCode::Home => {
+                self.cursor_position = 0;
+            }
+            KeyCode::End => {
+                self.cursor_position = self.input_buffer.len();
+            }
+            KeyCode::PageUp => {
+                self.scroll_offset = self.scroll_offset.saturating_add(10);
+            }
+            KeyCode::PageDown => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(10);
+            }
+            KeyCode::Esc => {
+                if self.input_buffer.is_empty() {
+                    self.running = false;
+                } else {
+                    self.input_buffer.clear();
+                    self.cursor_position = 0;
+                }
+            }
+            _ => {}
+        }
     }
 
-    /// Set a success message.
-    pub fn set_success(&mut self, success: &str) {
-        self.success = Some(success.to_string());
+    fn handle_prompt_key(&mut self, key: event::KeyEvent) {
+        let prompt = match self.pending_prompt.take() {
+            Some(p) => p,
+            None => return,
+        };
+
+        match prompt {
+            PendingPrompt::YesNo { message, responder } => match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    let _ = responder.send(true);
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') => {
+                    let _ = responder.send(false);
+                }
+                _ => {
+                    self.pending_prompt = Some(PendingPrompt::YesNo { message, responder });
+                }
+            },
+            PendingPrompt::Choice {
+                message,
+                options,
+                responder,
+            } => {
+                if let KeyCode::Char(c) = key.code {
+                    if let Some(digit) = c.to_digit(10) {
+                        let idx = digit as usize;
+                        if idx >= 1 && idx <= options.len() {
+                            let _ = responder.send(idx - 1);
+                            return;
+                        }
+                    }
+                }
+                self.pending_prompt = Some(PendingPrompt::Choice {
+                    message,
+                    options,
+                    responder,
+                });
+            }
+        }
     }
 
-    /// Get the current input.
-    pub fn get_input(&self) -> &str {
-        &self.input
-    }
+    fn submit_input(&mut self) {
+        let text = self.input_buffer.trim().to_string();
+        if text.is_empty() {
+            return;
+        }
 
-    /// Clear the input.
-    pub fn clear_input(&mut self) {
-        self.input.clear();
-    }
+        self.messages.push(ChatMessage {
+            role: MessageRole::User,
+            content: text.clone(),
+        });
 
-    /// Get the current mode.
-    pub fn get_mode(&self) -> &AppMode {
-        &self.mode
-    }
+        let _ = self.agent_input_tx.send(text);
 
-    /// Set the current mode.
-    pub fn set_mode(&mut self, mode: AppMode) {
-        self.mode = mode;
+        self.input_buffer.clear();
+        self.cursor_position = 0;
+        self.scroll_offset = 0;
     }
 }
 
 impl Drop for App {
     fn drop(&mut self) {
-        // Ensure cursor is shown when app is dropped
+        let _ = crossterm::terminal::disable_raw_mode();
+        let _ = crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::LeaveAlternateScreen,
+        );
         let _ = self.terminal.show_cursor();
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_app_creation() {
-        // This test would require a proper terminal setup
-        // For now, we just test that the struct has the right fields
-        let _app = App::new();
-        // Note: This will fail in tests without proper terminal setup
-    }
-
-    #[test]
-    fn test_add_message() {
-        let mut app = App::new().unwrap_or_else(|_| panic!("Terminal not available"));
-        app.add_message("Test message");
-        assert!(app.messages.len() > 0);
-    }
-
-    #[test]
-    fn test_input_handling() {
-        let mut app = App::new().unwrap_or_else(|_| panic!("Terminal not available"));
-        app.input.push('H');
-        assert!(app.get_input().contains('H'));
     }
 }

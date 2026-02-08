@@ -1,0 +1,183 @@
+//! TUI-specific UiWriter implementation.
+//!
+//! Bridges the async Agent engine to the synchronous ratatui event loop
+//! by sending TuiEvent messages over an unbounded mpsc channel.
+
+use g3_core::ui_writer::UiWriter;
+use std::sync::Mutex;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+
+/// Events the agent sends to the TUI for rendering.
+#[derive(Debug)]
+pub enum TuiEvent {
+    /// Streaming response chunk from the agent
+    ResponseChunk(String),
+    /// Agent finished its current response
+    ResponseDone,
+    /// A tool execution started
+    ToolStart(String),
+    /// A tool execution completed (tool_name, summary, context_percentage)
+    ToolComplete(String, String, f32),
+    /// Context window percentage update
+    ContextUpdate(f32),
+    /// Status message from agent
+    Status(String),
+    /// Agent is requesting a yes/no prompt from the user
+    PromptYesNo(String, oneshot::Sender<bool>),
+    /// Agent is requesting a choice prompt from the user
+    PromptChoice(String, Vec<String>, oneshot::Sender<usize>),
+    /// Agent encountered an error
+    Error(String),
+}
+
+/// UiWriter implementation that sends events to the TUI via a channel.
+pub struct TuiUiWriter {
+    tx: mpsc::UnboundedSender<TuiEvent>,
+    /// Tracks the current tool name for compact display
+    current_tool: Mutex<Option<String>>,
+}
+
+impl TuiUiWriter {
+    pub fn new(tx: mpsc::UnboundedSender<TuiEvent>) -> Self {
+        Self {
+            tx,
+            current_tool: Mutex::new(None),
+        }
+    }
+
+    fn send(&self, event: TuiEvent) {
+        let _ = self.tx.send(event);
+    }
+}
+
+impl UiWriter for TuiUiWriter {
+    fn print(&self, message: &str) {
+        self.send(TuiEvent::Status(message.to_string()));
+    }
+
+    fn println(&self, message: &str) {
+        self.send(TuiEvent::Status(message.to_string()));
+    }
+
+    fn print_inline(&self, message: &str) {
+        self.send(TuiEvent::Status(message.to_string()));
+    }
+
+    fn print_system_prompt(&self, _prompt: &str) {}
+
+    fn print_context_status(&self, message: &str) {
+        self.send(TuiEvent::Status(message.to_string()));
+    }
+
+    fn print_g3_progress(&self, message: &str) {
+        self.send(TuiEvent::Status(message.to_string()));
+    }
+
+    fn print_g3_status(&self, message: &str, status: &str) {
+        self.send(TuiEvent::Status(format!("{} [{}]", message, status)));
+    }
+
+    fn print_thin_result(&self, result: &g3_core::ThinResult) {
+        if result.had_changes {
+            self.send(TuiEvent::Status(format!(
+                "Context thinned: {}% -> {}%",
+                result.before_percentage, result.after_percentage
+            )));
+        }
+    }
+
+    fn print_tool_header(&self, tool_name: &str, _tool_args: Option<&serde_json::Value>) {
+        *self.current_tool.lock().unwrap() = Some(tool_name.to_string());
+        self.send(TuiEvent::ToolStart(tool_name.to_string()));
+    }
+
+    fn print_tool_arg(&self, _key: &str, _value: &str) {}
+    fn print_tool_output_header(&self) {}
+    fn update_tool_output_line(&self, _line: &str) {}
+    fn print_tool_output_line(&self, _line: &str) {}
+    fn print_tool_output_summary(&self, _hidden_count: usize) {}
+
+    fn print_tool_compact(
+        &self,
+        tool_name: &str,
+        summary: &str,
+        _duration_str: &str,
+        _tokens_delta: u32,
+        context_percentage: f32,
+    ) -> bool {
+        self.send(TuiEvent::ToolComplete(
+            tool_name.to_string(),
+            summary.to_string(),
+            context_percentage,
+        ));
+        self.send(TuiEvent::ContextUpdate(context_percentage));
+        true
+    }
+
+    fn print_todo_compact(&self, _content: Option<&str>, _is_write: bool) -> bool {
+        false
+    }
+
+    fn print_plan_compact(
+        &self,
+        _plan_yaml: Option<&str>,
+        _plan_file_path: Option<&str>,
+        _is_write: bool,
+    ) -> bool {
+        false
+    }
+
+    fn print_tool_timing(
+        &self,
+        _duration_str: &str,
+        _tokens_delta: u32,
+        context_percentage: f32,
+    ) {
+        let tool_name = self
+            .current_tool
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap_or_default();
+        self.send(TuiEvent::ToolComplete(
+            tool_name,
+            String::new(),
+            context_percentage,
+        ));
+        self.send(TuiEvent::ContextUpdate(context_percentage));
+    }
+
+    fn print_agent_prompt(&self) {}
+
+    fn print_agent_response(&self, content: &str) {
+        self.send(TuiEvent::ResponseChunk(content.to_string()));
+    }
+
+    fn notify_sse_received(&self) {}
+
+    fn print_tool_streaming_hint(&self, tool_name: &str) {
+        self.send(TuiEvent::ToolStart(tool_name.to_string()));
+    }
+
+    fn print_tool_streaming_active(&self) {}
+
+    fn flush(&self) {}
+
+    fn prompt_user_yes_no(&self, message: &str) -> bool {
+        let (tx, rx) = oneshot::channel();
+        self.send(TuiEvent::PromptYesNo(message.to_string(), tx));
+        rx.blocking_recv().unwrap_or(false)
+    }
+
+    fn prompt_user_choice(&self, message: &str, options: &[&str]) -> usize {
+        let (tx, rx) = oneshot::channel();
+        let options_owned: Vec<String> = options.iter().map(|s| s.to_string()).collect();
+        self.send(TuiEvent::PromptChoice(message.to_string(), options_owned, tx));
+        rx.blocking_recv().unwrap_or(0)
+    }
+
+    fn finish_streaming_markdown(&self) {
+        self.send(TuiEvent::ResponseDone);
+    }
+}
