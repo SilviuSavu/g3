@@ -8,6 +8,7 @@ pub mod feedback_extraction;
 pub mod mcp_client;
 pub mod paths;
 pub mod pending_research;
+pub mod persona;
 pub mod project;
 pub mod provider_config;
 pub mod provider_registration;
@@ -168,6 +169,8 @@ pub struct Agent<W: UiWriter> {
     lsp_manager: Option<std::sync::Arc<tools::lsp::LspManager>>,
     /// Whether beads session context has been injected (SessionStart hook)
     beads_context_injected: bool,
+    /// Active persona data from agent front matter (for scope enforcement and tool overrides)
+    active_persona: Option<persona::PersonaData>,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -231,6 +234,7 @@ impl<W: UiWriter> Agent<W> {
             index_client: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
             lsp_manager,
             beads_context_injected,
+            active_persona: None,
         }
     }
 
@@ -1095,21 +1099,8 @@ impl<W: UiWriter> Agent<W> {
         let provider_name = provider.name().to_string();
         let _has_native_tool_calling = provider.has_native_tool_calling();
         let _supports_cache_control = provider.supports_cache_control();
-        // Check if we should exclude the research tool (scout agent to prevent recursion)
-        let exclude_research = self.agent_name.as_deref() == Some("scout");
         let tools = if provider.has_native_tool_calling() {
-            let mut tool_config = tool_definitions::ToolConfig::new(
-                self.config.webdriver.enabled,
-                self.config.computer_control.enabled,
-                self.config.zai_tools.enabled,
-                self.config.index.enabled,
-            );
-            if exclude_research {
-                tool_config = tool_config.with_research_excluded();
-            }
-            if self.config.lsp.enabled {
-                tool_config = tool_config.with_lsp_tools();
-            }
+            let tool_config = self.build_tool_config();
             Some(tool_definitions::create_tool_definitions(tool_config))
         } else {
             None
@@ -1765,6 +1756,43 @@ impl<W: UiWriter> Agent<W> {
         debug!("Agent mode enabled for agent: {}", agent_name);
     }
 
+    /// Set the active persona for this agent (from parsed front matter).
+    pub fn set_active_persona(&mut self, persona: persona::PersonaData) {
+        debug!("Active persona set: {} (role: {})", persona.display_name, persona.role);
+        self.active_persona = Some(persona);
+    }
+
+    /// Replace the system message (first message in conversation history).
+    /// Used by runtime `/agent` switching to change personas mid-session.
+    pub fn replace_system_message(&mut self, new_prompt: String) {
+        if !self.context_window.conversation_history.is_empty() {
+            self.context_window.conversation_history[0] =
+                Message::new(MessageRole::User, new_prompt);
+            debug!("System message replaced for agent switch");
+        }
+    }
+
+    /// Build a ToolConfig based on current agent state.
+    /// Centralizes the logic for tool config construction and applies persona-based tool exclusions.
+    pub fn build_tool_config(&self) -> tool_definitions::ToolConfig {
+        let mut tool_config = tool_definitions::ToolConfig::new(
+            self.config.webdriver.enabled,
+            self.config.computer_control.enabled,
+            self.config.zai_tools.enabled,
+            self.config.index.enabled,
+        );
+        if self.active_persona.as_ref()
+            .map(|p| p.should_exclude_tool("research"))
+            .unwrap_or(false)
+        {
+            tool_config = tool_config.with_research_excluded();
+        }
+        if self.config.lsp.enabled {
+            tool_config = tool_config.with_lsp_tools();
+        }
+        tool_config
+    }
+
     /// Enable auto-memory reminders after turns with tool calls
     pub fn set_auto_memory(&mut self, enabled: bool) {
         self.auto_memory = enabled;
@@ -2035,15 +2063,7 @@ Skip if nothing new. Be brief."#;
         let provider = self.providers.get(None)?;
         let provider_name = provider.name().to_string();
         let tools = if provider.has_native_tool_calling() {
-            let mut tool_config = tool_definitions::ToolConfig::new(
-                self.config.webdriver.enabled,
-                self.config.computer_control.enabled,
-                self.config.zai_tools.enabled,
-                self.config.index.enabled,
-            );
-            if self.config.lsp.enabled {
-                tool_config = tool_config.with_lsp_tools();
-            }
+            let tool_config = self.build_tool_config();
             Some(tool_definitions::create_tool_definitions(tool_config))
         } else {
             None
@@ -2723,19 +2743,7 @@ Skip if nothing new. Be brief."#;
                             // Ensure tools are included for native providers in subsequent iterations
                             let provider_for_tools = self.providers.get(None)?;
                             if provider_for_tools.has_native_tool_calling() {
-                                let mut tool_config = tool_definitions::ToolConfig::new(
-                                    self.config.webdriver.enabled,
-                                    self.config.computer_control.enabled,
-                                    self.config.zai_tools.enabled,
-                                    self.config.index.enabled,
-                                );
-                                // Exclude research tool for scout agent to prevent recursion
-                                if self.agent_name.as_deref() == Some("scout") {
-                                    tool_config = tool_config.with_research_excluded();
-                                }
-                                if self.config.lsp.enabled {
-                                    tool_config = tool_config.with_lsp_tools();
-                                }
+                                let tool_config = self.build_tool_config();
                                 request.tools =
                                     Some(tool_definitions::create_tool_definitions(tool_config));
                             }
@@ -3001,8 +3009,7 @@ Skip if nothing new. Be brief."#;
                         iter.parser.text_buffer_len(), iter.parser.text_buffer_len());
                 }
                 if has_unexecuted_tool_call {
-                    debug!("Detected unexecuted tool call in buffer - this may indicate a parsing issue");
-                    warn!("Unexecuted tool call detected in buffer after stream ended");
+                    warn!("Detected unexecuted tool call in buffer after stream ended");
                 }
 
                 // Check if the response was truncated due to max_tokens
@@ -3203,6 +3210,7 @@ Skip if nothing new. Be brief."#;
             mcp_clients: self.mcp_clients.clone(),
             index_client: self.index_client.read().await.clone(),
             lsp_manager: self.lsp_manager.clone(),
+            active_persona: self.active_persona.as_ref(),
         };
 
         // Dispatch to the appropriate tool handler

@@ -21,6 +21,40 @@ pub async fn dispatch_tool<W: UiWriter>(
 ) -> Result<String> {
     debug!("Dispatching tool: {}", tool_call.tool);
 
+    // Scope enforcement: check read_only persona constraint for write operations
+    if let Some(persona) = ctx.active_persona {
+        if persona.scope.read_only {
+            match tool_call.tool.as_str() {
+                "write_file" => {
+                    return Ok(format!(
+                        "Blocked: agent '{}' has read_only scope and cannot use write_file.",
+                        persona.display_name
+                    ));
+                }
+                "str_replace" => {
+                    return Ok(format!(
+                        "Blocked: agent '{}' has read_only scope and cannot use str_replace.",
+                        persona.display_name
+                    ));
+                }
+                "shell" => {
+                    debug!(
+                        "Warning: agent '{}' has read_only scope but is using shell (soft enforcement)",
+                        persona.display_name
+                    );
+                }
+                _ => {}
+            }
+        }
+        // Check forbidden_tools
+        if persona.scope.forbidden_tools.iter().any(|t| t == &tool_call.tool) {
+            return Ok(format!(
+                "Blocked: tool '{}' is forbidden for agent '{}'.",
+                tool_call.tool, persona.display_name
+            ));
+        }
+    }
+
     match tool_call.tool.as_str() {
         // Shell tools
         "shell" => shell::execute_shell(tool_call, ctx).await,

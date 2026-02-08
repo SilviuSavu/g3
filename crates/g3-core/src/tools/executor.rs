@@ -39,6 +39,8 @@ pub struct ToolContext<'a, W: UiWriter> {
     pub index_client: Option<Arc<IndexClient>>,
     /// LSP manager for code intelligence
     pub lsp_manager: Option<Arc<LspManager>>,
+    /// Active persona scope boundaries (for read-only enforcement)
+    pub active_persona: Option<&'a crate::persona::PersonaData>,
 }
 
 impl<'a, W: UiWriter> ToolContext<'a, W> {

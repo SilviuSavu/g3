@@ -14,6 +14,7 @@ use crate::simple_output::SimpleOutput;
 use crate::project::Project;
 use crate::project::load_and_validate_project;
 use crate::template::process_template;
+use crate::embedded_agents::{load_agent_file, get_available_agents};
 use crate::task_execution::execute_task_with_retry;
 
 /// Result of handling a command.
@@ -84,6 +85,7 @@ pub async fn handle_command<W: UiWriter>(
             output.print("  /stats     - Show detailed context and performance statistics");
             output.print("  /run <file> - Read file and execute as prompt");
             output.print("  /plan <description> - Start Plan Mode for a new feature");
+            output.print("  /agent <name> - Switch to a different agent persona mid-session");
             output.print("  /help      - Show this help message");
             output.print("  exit/quit  - Exit the interactive session");
             output.print("");
@@ -508,6 +510,42 @@ pub async fn handle_command<W: UiWriter>(
                 output.print("Context reset to original system message.");
             } else {
                 output.print("No project is currently loaded.");
+            }
+            Ok(CommandResult::Handled)
+        }
+        cmd if cmd.starts_with("/agent") => {
+            let parts: Vec<&str> = cmd.splitn(2, ' ').collect();
+            if parts.len() < 2 || parts[1].trim().is_empty() {
+                // List available agents
+                let agents = get_available_agents(workspace_dir);
+                output.print("Available agents:");
+                for (name, from_disk) in &agents {
+                    let source = if *from_disk { "workspace" } else { "embedded" };
+                    output.print(&format!("  {} ({})", name, source));
+                }
+                output.print("\nUsage: /agent <name>");
+            } else {
+                let agent_name = parts[1].trim();
+                match load_agent_file(agent_name, workspace_dir) {
+                    Some(agent_file) => {
+                        use g3_core::get_agent_system_prompt;
+                        // Generate new system prompt
+                        let new_system_prompt = get_agent_system_prompt(&agent_file.prompt, true);
+                        // Replace system message in conversation
+                        agent.replace_system_message(new_system_prompt);
+                        // Update persona and agent name
+                        agent.set_active_persona(agent_file.persona);
+                        agent.set_agent_mode(agent_name);
+                        let source = if agent_file.from_disk { "workspace" } else { "embedded" };
+                        output.print(&format!("Switched to agent '{}' ({})", agent_name, source));
+                    }
+                    None => {
+                        output.print(&format!(
+                            "Agent '{}' not found. Use /agent to list available agents.",
+                            agent_name
+                        ));
+                    }
+                }
             }
             Ok(CommandResult::Handled)
         }

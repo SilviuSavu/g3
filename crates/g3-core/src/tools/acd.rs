@@ -177,6 +177,7 @@ mod tests {
             mcp_clients: None,
             index_client: None,
             lsp_manager: None,
+            active_persona: None,
         };
 
         let tool_call = ToolCall {
@@ -212,6 +213,7 @@ mod tests {
             mcp_clients: None,
             index_client: None,
             lsp_manager: None,
+            active_persona: None,
         };
 
         let tool_call = ToolCall {
@@ -247,6 +249,7 @@ mod tests {
             mcp_clients: None,
             index_client: None,
             lsp_manager: None,
+            active_persona: None,
         };
 
         let tool_call = ToolCall {
