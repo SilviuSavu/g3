@@ -144,8 +144,15 @@ pub async fn run() -> Result<()> {
                         .await;
                     }
                     ModeSelection::Studio => {
-                        eprintln!("Studio mode requires running 'studio' command directly");
-                        return Ok(());
+                        // Execute the studio binary
+                        use std::process::Command;
+                        let studio_path = find_studio_binary()?;
+                        eprintln!("Launching studio mode...");
+                        return Command::new(studio_path)
+                            .args(std::env::args_os().skip(1))
+                            .status()
+                            .map_err(|e| anyhow::anyhow!("Failed to launch studio: {}", e))
+                            .map(|_| ());
                     }
                 }
             }
@@ -193,6 +200,26 @@ fn determine_workspace_dir(cli: &Cli) -> Result<PathBuf> {
     }
 }
 
+/// Find the studio binary in the target directory.
+fn find_studio_binary() -> Result<String> {
+    let workspace = std::env::current_dir()?;
+    
+    // Try release first, then debug (release is preferred for final binaries)
+    let paths = [
+        workspace.join("target").join("release").join("studio"),
+        workspace.join("target").join("debug").join("studio"),
+    ];
+    
+    for path in paths {
+        if path.exists() {
+            return Ok(path.to_string_lossy().to_string());
+        }
+    }
+    
+    Err(anyhow::anyhow!(
+        "studio binary not found. Build with: cargo build --package studio"
+    ))
+}
 fn create_project(cli: &Cli, workspace_dir: &PathBuf) -> Result<Project> {
     if cli.autonomous {
         if let Some(requirements_text) = &cli.requirements {
