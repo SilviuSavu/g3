@@ -1,9 +1,0 @@
-{
-  "session_id": "9324842a-302b-46d9-9281-371915d9961f",
-  "prompts": [
-    "/plan_w_team  Architect a comprehensive codebase intelligence system that integrates Language Server Protocol (LSP) static analysis with a tri-layered search infrastructure combining lexical codebase indexing, dense vector semantic retrieval, and abstract syntax tree-aware code search to construct a navigable, dependency-resolved knowledge graph of the repository, enabling autonomous AI agents to independently traverse complex code architectures, resolve cross-references, and locate relevant implementation patterns without manual guidance. orchestrate to perfection using molecules, proto molecules and beads",
-    "continue",
-    "continue",
-    "continue"
-  ]
-}

@@ -1,6 +1,0 @@
-{
-  "session_id": "0cb1c73d-5304-4fac-9956-b952bd529c4f",
-  "prompts": [
-    " Analyze this codebase to quantify and categorize all forms of non-functional or artificially generated artifacts including mock implementations that replace real business logic without migration paths, placeholder functions returning hardcoded literals or empty collections, tautological test cases asserting that true equals true or comparing implementation output against itself, test suites engineered to maximize coverage metrics while bypassing actual behavioral verification, speculative boilerplate for unimplemented features referencing non-existent APIs, hallucinated dependencies and import statements for fictional libraries, auto-generated documentation describing functionality that was never developed, commented-out code blocks masquerading as error handling, and other synthetic patterns characteristic of LLM-generated technical debt; provide specific file paths, line ranges, quantified percentages of affected code volume, severity classifications based on production risk, and a prioritized remediation strategy distinguishing between immediately removable dead code and transitional mocks requiring proper implementation."
-  ]
-}

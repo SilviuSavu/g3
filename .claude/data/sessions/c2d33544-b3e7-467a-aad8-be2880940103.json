@@ -1,6 +1,0 @@
-{
-  "session_id": "c2d33544-b3e7-467a-aad8-be2880940103",
-  "prompts": [
-    "/plan  Architect a comprehensive codebase intelligence system that integrates Language Server Protocol (LSP) static analysis with a tri-layered search infrastructure combining lexical codebase indexing, dense vector semantic retrieval, and abstract syntax tree-aware code search to construct a navigable, dependency-resolved knowledge graph of the repository, enabling autonomous AI agents to independently traverse complex code architectures, resolve cross-references, and locate relevant implementation patterns without manual guidance."
-  ]
-}

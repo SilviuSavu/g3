@@ -1,9 +1,0 @@
-{
-  "session_id": "8139606b-6db3-43fd-beb6-2ec67eab1b2d",
-  "prompts": [
-    "can you look up the last commit and make sure that everything is wired completely inside the codebase?",
-    "do we need to commit this as well?",
-    "investigate the z.ai special tools: https://docs.z.ai/guides/tools/ and develop a plan to fully integrate them in the codebase",
-    "additional mcps that you might have missed: https://docs.z.ai/devpack/mcp/vision-mcp-server, https://docs.z.ai/devpack/mcp/search-mcp-server, https://docs.z.ai/devpack/mcp/reader-mcp-server, https://docs.z.ai/devpack/mcp/zread-mcp-server, https://docs.z.ai/devpack/extension/coding-tool-helper, https://docs.z.ai/devpack/extension/usage-query-plugin"
-  ]
-}

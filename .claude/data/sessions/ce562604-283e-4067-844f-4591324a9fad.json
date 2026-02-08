@@ -1,8 +1,0 @@
-{
-  "session_id": "ce562604-283e-4067-844f-4591324a9fad",
-  "prompts": [
-    "make sure everything is fully wired up in the codebase and you did not leave anything unconnected and un used",
-    "complete the MCP wiring",
-    "commit this"
-  ]
-}

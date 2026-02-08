@@ -1,6 +1,0 @@
-{
-  "session_id": "f23e1b47-c80a-491e-8c39-96d496a04c3a",
-  "prompts": [
-    "we have come to a point in the codebase's life where we need to add indexing. indexing will bring a new improved ability of the tools to better understand the codebase and each other. for this I have chosen to use 4096 dimensions qdrant vector database. the embeddings models will be supplied by www.openrouter.com. the database exists locally, the model is available. all you need to do is find the best possible way to integrate codebase indexing in g3 and discover the necesarry tools that will bring this codebase to the cutting edge"
-  ]
-}

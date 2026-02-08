@@ -1,6 +1,0 @@
-{
-  "session_id": "ffa4af6f-d0f3-41a3-9d12-88b63d2ebdb9",
-  "prompts": [
-    "the g3 codebase needs a rust LSP server integration, your task is to get the gest suited LSP integration and propose the most state of the art implementation for 2026"
-  ]
-}

@@ -1,7 +1,0 @@
-{
-  "session_id": "ed530978-1bfc-4d4f-97bc-79c5cfe05dad",
-  "prompts": [
-    "\u25cf code_search | rust:\"index_tools\" | \ud83d\udd0d 39 matches in 1 files | 70207 \u25c9 26ms --> that's a lot of tokens. what exactly is extracted here? the whole code",
-    "yes please"
-  ]
-}

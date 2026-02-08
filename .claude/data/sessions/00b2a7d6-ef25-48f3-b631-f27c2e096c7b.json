@@ -1,7 +1,0 @@
-{
-  "session_id": "00b2a7d6-ef25-48f3-b631-f27c2e096c7b",
-  "prompts": [
-    "/plan can you do a deep dive into beads and /tasks from claude code?",
-    "<task-notification>\n<task-id>b399c16</task-id>\n<output-file>/private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b399c16.output</output-file>\n<status>completed</status>\n<summary>Background command \"Find references to Beads author/source\" completed (exit code 0)</summary>\n</task-notification>\nRead the output file to retrieve the result: /private/tmp/claude-501/-Users-savusilviu-Desktop-self-contained-system-g3-g3/tasks/b399c16.output"
-  ]
-}
