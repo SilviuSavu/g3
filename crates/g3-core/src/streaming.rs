@@ -605,10 +605,12 @@ pub enum AutoContinueReason {
 /// Determine if the streaming loop should auto-continue.
 /// Returns `Some(reason)` if it should continue, `None` otherwise.
 ///
-/// `consecutive_text_only_responses` counts how many iterations in a row the LLM
-/// responded with text only (no tool calls). In interactive mode (!is_autonomous),
-/// we allow ONE auto-continue after tool execution (counter == 0) so the LLM can
-/// chain follow-up tool calls, but stop if it responds with text again (counter >= 1).
+/// `stop_reason` is the API stop_reason from the stream. When the LLM sends
+/// `"end_turn"`, it intentionally finished — it had a chance to call more tools
+/// and chose not to. We respect that decision and don't auto-continue with
+/// `ToolsExecuted`. Error-recovery reasons (IncompleteToolCall, UnexecutedToolCall,
+/// MaxTokensTruncation) still override since those indicate the LLM didn't
+/// actually finish intentionally.
 pub fn should_auto_continue(
     is_autonomous: bool,
     any_tool_executed: bool,
@@ -616,6 +618,7 @@ pub fn should_auto_continue(
     has_unexecuted_tool_call: bool,
     was_truncated: bool,
     consecutive_text_only_responses: usize,
+    stop_reason: Option<&str>,
 ) -> Option<AutoContinueReason> {
     // Always auto-continue on incomplete/unexecuted tool calls, even in non-autonomous mode
     if has_incomplete_tool_call {
@@ -628,14 +631,18 @@ pub fn should_auto_continue(
         return Some(AutoContinueReason::MaxTokensTruncation);
     }
 
-    // Autonomous mode: always continue after tool execution
+    // If the LLM intentionally ended its turn (end_turn), respect that decision.
+    // It had a chance to call more tools and chose not to — don't force it to continue.
+    if stop_reason == Some("end_turn") {
+        return None;
+    }
+
+    // Autonomous mode: continue after tool execution (when stop_reason is not end_turn)
     if is_autonomous && any_tool_executed {
         return Some(AutoContinueReason::ToolsExecuted);
     }
 
     // Interactive mode: allow ONE continuation after tools, then stop.
-    // This gives the LLM a chance to continue with more tool calls without
-    // creating an infinite loop.
     if !is_autonomous && any_tool_executed && consecutive_text_only_responses == 0 {
         return Some(AutoContinueReason::ToolsExecuted);
     }
@@ -778,42 +785,59 @@ mod tests {
     fn test_should_auto_continue_autonomous() {
         use AutoContinueReason::*;
 
-        // Tools executed in autonomous mode → always continue
-        assert_eq!(should_auto_continue(true, true, false, false, false, 0), Some(ToolsExecuted));
-        assert_eq!(should_auto_continue(true, true, false, false, false, 5), Some(ToolsExecuted));
+        // Tools executed in autonomous mode, no stop_reason → continue
+        assert_eq!(should_auto_continue(true, true, false, false, false, 0, None), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(true, true, false, false, false, 5, None), Some(ToolsExecuted));
 
         // Incomplete tool call
-        assert_eq!(should_auto_continue(true, false, true, false, false, 0), Some(IncompleteToolCall));
+        assert_eq!(should_auto_continue(true, false, true, false, false, 0, None), Some(IncompleteToolCall));
 
         // Unexecuted tool call
-        assert_eq!(should_auto_continue(true, false, false, true, false, 0), Some(UnexecutedToolCall));
+        assert_eq!(should_auto_continue(true, false, false, true, false, 0, None), Some(UnexecutedToolCall));
 
         // Max tokens truncation
-        assert_eq!(should_auto_continue(true, false, false, false, true, 0), Some(MaxTokensTruncation));
+        assert_eq!(should_auto_continue(true, false, false, false, true, 0, None), Some(MaxTokensTruncation));
 
         // Nothing special - no auto-continue
-        assert_eq!(should_auto_continue(true, false, false, false, false, 0), None);
+        assert_eq!(should_auto_continue(true, false, false, false, false, 0, None), None);
+    }
+
+    #[test]
+    fn test_should_auto_continue_end_turn_stops() {
+        // end_turn stop_reason → LLM intentionally finished, don't continue with ToolsExecuted
+        assert_eq!(should_auto_continue(true, true, false, false, false, 0, Some("end_turn")), None);
+        assert_eq!(should_auto_continue(false, true, false, false, false, 0, Some("end_turn")), None);
+    }
+
+    #[test]
+    fn test_should_auto_continue_end_turn_still_recovers_errors() {
+        use AutoContinueReason::*;
+
+        // Even with end_turn, error-recovery reasons still fire
+        assert_eq!(should_auto_continue(true, false, true, false, false, 0, Some("end_turn")), Some(IncompleteToolCall));
+        assert_eq!(should_auto_continue(true, false, false, true, false, 0, Some("end_turn")), Some(UnexecutedToolCall));
+        assert_eq!(should_auto_continue(true, false, false, false, true, 0, Some("end_turn")), Some(MaxTokensTruncation));
     }
 
     #[test]
     fn test_should_auto_continue_interactive_first_text_response() {
         use AutoContinueReason::*;
 
-        // Interactive mode, tools ran, first text-only response → continue once
-        assert_eq!(should_auto_continue(false, true, false, false, false, 0), Some(ToolsExecuted));
+        // Interactive mode, tools ran, first text-only response, no stop_reason → continue once
+        assert_eq!(should_auto_continue(false, true, false, false, false, 0, None), Some(ToolsExecuted));
     }
 
     #[test]
     fn test_should_auto_continue_interactive_second_text_response() {
         // Interactive mode, tools ran, second consecutive text-only → stop
-        assert_eq!(should_auto_continue(false, true, false, false, false, 1), None);
-        assert_eq!(should_auto_continue(false, true, false, false, false, 5), None);
+        assert_eq!(should_auto_continue(false, true, false, false, false, 1, None), None);
+        assert_eq!(should_auto_continue(false, true, false, false, false, 5, None), None);
     }
 
     #[test]
     fn test_should_auto_continue_interactive_no_tools() {
         // Interactive mode, no tools ran → never continue
-        assert_eq!(should_auto_continue(false, false, false, false, false, 0), None);
+        assert_eq!(should_auto_continue(false, false, false, false, false, 0, None), None);
     }
 
     #[test]
@@ -821,7 +845,7 @@ mod tests {
         use AutoContinueReason::*;
 
         // Interactive mode, incomplete tool call → always continue regardless of counter
-        assert_eq!(should_auto_continue(false, false, true, false, false, 0), Some(IncompleteToolCall));
-        assert_eq!(should_auto_continue(false, false, true, false, false, 5), Some(IncompleteToolCall));
+        assert_eq!(should_auto_continue(false, false, true, false, false, 0, None), Some(IncompleteToolCall));
+        assert_eq!(should_auto_continue(false, false, true, false, false, 5, None), Some(IncompleteToolCall));
     }
 }

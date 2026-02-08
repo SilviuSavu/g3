@@ -27,8 +27,8 @@ pub mod ui_writer;
 pub mod utils;
 pub mod webdriver_session;
 // TODO: fs_cache and fs_service are WIP - commented out until compilation issues are resolved
-// pub mod fs_cache;
-// pub mod fs_service;
+pub mod fs_cache;
+pub mod fs_service;
 
 pub use feedback_extraction::{
     extract_coach_feedback, ExtractedFeedback, FeedbackExtractionConfig, FeedbackSource,
@@ -3036,6 +3036,7 @@ Skip if nothing new. Be brief."#;
                     has_unexecuted_tool_call,
                     was_truncated_by_max_tokens,
                     state.consecutive_text_only_responses,
+                    iter.stream_stop_reason.as_deref(),
                 );
 
                 if let Some(ref reason) = auto_continue {

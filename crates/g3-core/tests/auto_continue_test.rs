@@ -120,18 +120,48 @@ use g3_core::streaming::{should_auto_continue, AutoContinueReason};
 
 #[test]
 fn test_auto_continue_autonomous_tool_executed() {
-    // Autonomous mode, tools executed → always continue
+    // Autonomous mode, tools executed, no stop_reason → continue
     assert_eq!(
-        should_auto_continue(true, true, false, false, false, 0),
+        should_auto_continue(true, true, false, false, false, 0, None),
         Some(AutoContinueReason::ToolsExecuted),
     );
 }
 
 #[test]
-fn test_auto_continue_interactive_first_text_only() {
-    // Interactive mode, tools executed, first text-only response → continue
+fn test_auto_continue_end_turn_stops_session() {
+    // end_turn stop_reason → LLM intentionally finished, don't continue
     assert_eq!(
-        should_auto_continue(false, true, false, false, false, 0),
+        should_auto_continue(true, true, false, false, false, 0, Some("end_turn")),
+        None,
+    );
+    assert_eq!(
+        should_auto_continue(false, true, false, false, false, 0, Some("end_turn")),
+        None,
+    );
+}
+
+#[test]
+fn test_auto_continue_end_turn_still_recovers_errors() {
+    // Even with end_turn, error-recovery reasons still fire
+    assert_eq!(
+        should_auto_continue(true, false, true, false, false, 0, Some("end_turn")),
+        Some(AutoContinueReason::IncompleteToolCall),
+    );
+    assert_eq!(
+        should_auto_continue(false, false, false, true, false, 0, Some("end_turn")),
+        Some(AutoContinueReason::UnexecutedToolCall),
+    );
+    assert_eq!(
+        should_auto_continue(false, false, false, false, true, 0, Some("end_turn")),
+        Some(AutoContinueReason::MaxTokensTruncation),
+    );
+}
+
+#[test]
+fn test_auto_continue_interactive_first_text_only() {
+    // Interactive mode, tools executed, first text-only response, no stop_reason → continue
+    assert_eq!(
+        should_auto_continue(false, true, false, false, false, 0, None),
         Some(AutoContinueReason::ToolsExecuted),
     );
 }
@@ -140,7 +170,7 @@ fn test_auto_continue_interactive_first_text_only() {
 fn test_auto_continue_interactive_second_text_only() {
     // Interactive mode, tools executed, second text-only → stop
     assert_eq!(
-        should_auto_continue(false, true, false, false, false, 1),
+        should_auto_continue(false, true, false, false, false, 1, None),
         None,
     );
 }
@@ -149,7 +179,7 @@ fn test_auto_continue_interactive_second_text_only() {
 fn test_auto_continue_incomplete_tool_call() {
     // Incomplete tool call - should continue regardless of mode or counter
     assert_eq!(
-        should_auto_continue(false, false, true, false, false, 5),
+        should_auto_continue(false, false, true, false, false, 5, None),
         Some(AutoContinueReason::IncompleteToolCall),
     );
 }
@@ -158,7 +188,7 @@ fn test_auto_continue_incomplete_tool_call() {
 fn test_auto_continue_unexecuted_tool_call() {
     // Unexecuted tool call - should continue
     assert_eq!(
-        should_auto_continue(false, false, false, true, false, 5),
+        should_auto_continue(false, false, false, true, false, 5, None),
         Some(AutoContinueReason::UnexecutedToolCall),
     );
 }
@@ -167,7 +197,7 @@ fn test_auto_continue_unexecuted_tool_call() {
 fn test_auto_continue_no_conditions_met() {
     // No tools, no incomplete calls - should NOT continue
     assert_eq!(
-        should_auto_continue(false, false, false, false, false, 0),
+        should_auto_continue(false, false, false, false, false, 0, None),
         None,
     );
 }
@@ -180,19 +210,19 @@ fn test_auto_continue_no_conditions_met() {
 fn test_auto_continue_multiple_conditions() {
     // Multiple conditions true - incomplete takes priority
     assert_eq!(
-        should_auto_continue(true, true, true, true, true, 0),
+        should_auto_continue(true, true, true, true, true, 0, None),
         Some(AutoContinueReason::IncompleteToolCall),
     );
 
     // Only incomplete tool call
     assert_eq!(
-        should_auto_continue(false, false, true, false, false, 0),
+        should_auto_continue(false, false, true, false, false, 0, None),
         Some(AutoContinueReason::IncompleteToolCall),
     );
 
     // Only unexecuted tool call
     assert_eq!(
-        should_auto_continue(false, false, false, true, false, 0),
+        should_auto_continue(false, false, false, true, false, 0, None),
         Some(AutoContinueReason::UnexecutedToolCall),
     );
 }
