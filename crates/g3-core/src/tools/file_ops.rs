@@ -263,6 +263,186 @@ fn read_file_range(path: &Path, start: usize, end: usize) -> Result<String> {
     Ok(full_str[start_idx..end_idx.min(full_str.len())].to_string())
 }
 
+/// Execute the `scan_folder` tool.
+/// Previews all files in a directory in a single tool call.
+pub async fn execute_scan_folder<W: UiWriter>(
+    tool_call: &ToolCall,
+    ctx: &ToolContext<'_, W>,
+) -> Result<String> {
+    debug!("Processing scan_folder tool call");
+
+    let dir_path = match tool_call.args.get("path").and_then(|v| v.as_str()) {
+        Some(p) => p,
+        None => return Ok("Missing required 'path' parameter".to_string()),
+    };
+
+    let preview_lines = tool_call
+        .args
+        .get("preview_lines")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(20) as usize;
+
+    let max_depth = tool_call
+        .args
+        .get("max_depth")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1) as usize;
+
+    // Resolve path relative to working directory
+    let expanded = shellexpand::tilde(dir_path);
+    let target_path = if std::path::Path::new(expanded.as_ref()).is_absolute() {
+        std::path::PathBuf::from(expanded.as_ref())
+    } else {
+        let base = ctx.working_dir.unwrap_or(".");
+        std::path::PathBuf::from(base).join(expanded.as_ref())
+    };
+
+    if !target_path.is_dir() {
+        return Ok(format!("Path '{}' is not a directory", dir_path));
+    }
+
+    // Calculate max output budget (~20% of available context tokens -> bytes)
+    let available_tokens = ctx.context_total_tokens.saturating_sub(ctx.context_used_tokens);
+    let max_output_tokens = (available_tokens / 5).min(30_000); // 20% of available, cap at 30k tokens
+    let max_output_bytes = (max_output_tokens as f32 * BYTES_PER_TOKEN) as usize;
+
+    let mut files_data: Vec<serde_json::Value> = Vec::new();
+    let mut total_bytes = 0usize;
+    let mut skipped_count = 0u32;
+
+    // Walk directory with depth limit
+    let walker = walkdir::WalkDir::new(&target_path)
+        .max_depth(max_depth)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_entry(|e| {
+            // Skip hidden directories and common noise
+            let name = e.file_name().to_string_lossy();
+            !name.starts_with('.') && name != "node_modules" && name != "target" && name != "__pycache__"
+        });
+
+    for entry in walker.filter_map(|e| e.ok()) {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+
+        let file_path = entry.path();
+        let relative = file_path
+            .strip_prefix(&target_path)
+            .unwrap_or(file_path);
+
+        let file_size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+
+        // Skip binary/large files
+        let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        if is_binary_extension(ext) || file_size > 1_000_000 {
+            skipped_count += 1;
+            continue;
+        }
+
+        // Read preview lines
+        let preview = match std::fs::File::open(file_path) {
+            Ok(f) => {
+                use std::io::BufRead;
+                let reader = std::io::BufReader::new(f);
+                let lines: Vec<String> = reader
+                    .lines()
+                    .take(preview_lines)
+                    .filter_map(|l| l.ok())
+                    .collect();
+                lines.join("\n")
+            }
+            Err(_) => {
+                skipped_count += 1;
+                continue;
+            }
+        };
+
+        let language = detect_language_from_ext(ext);
+
+        let entry_json = serde_json::json!({
+            "path": relative.to_string_lossy(),
+            "language": language,
+            "size_bytes": file_size,
+            "preview": preview
+        });
+
+        let entry_size = entry_json.to_string().len();
+        if total_bytes + entry_size > max_output_bytes {
+            skipped_count += 1;
+            continue;
+        }
+
+        total_bytes += entry_size;
+        files_data.push(entry_json);
+    }
+
+    let result = serde_json::json!({
+        "status": "success",
+        "directory": dir_path,
+        "count": files_data.len(),
+        "skipped": skipped_count,
+        "files": files_data
+    });
+
+    Ok(result.to_string())
+}
+
+/// Check if a file extension indicates a binary format.
+fn is_binary_extension(ext: &str) -> bool {
+    matches!(
+        ext.to_lowercase().as_str(),
+        "png" | "jpg" | "jpeg" | "gif" | "bmp" | "ico" | "webp" | "svg"
+            | "woff" | "woff2" | "ttf" | "otf" | "eot"
+            | "zip" | "tar" | "gz" | "bz2" | "xz" | "7z" | "rar"
+            | "exe" | "dll" | "so" | "dylib" | "o" | "a"
+            | "pdf" | "doc" | "docx" | "xls" | "xlsx"
+            | "mp3" | "mp4" | "wav" | "avi" | "mov"
+            | "wasm" | "pyc" | "pyo" | "class"
+            | "sqlite" | "db"
+    )
+}
+
+/// Detect programming language from file extension.
+fn detect_language_from_ext(ext: &str) -> &'static str {
+    match ext.to_lowercase().as_str() {
+        "rs" => "rust",
+        "py" => "python",
+        "js" | "mjs" | "cjs" => "javascript",
+        "ts" | "mts" | "cts" => "typescript",
+        "jsx" => "jsx",
+        "tsx" => "tsx",
+        "go" => "go",
+        "java" => "java",
+        "c" | "h" => "c",
+        "cpp" | "hpp" | "cc" | "hh" | "cxx" => "cpp",
+        "rb" => "ruby",
+        "php" => "php",
+        "swift" => "swift",
+        "kt" | "kts" => "kotlin",
+        "scala" => "scala",
+        "sh" | "bash" | "zsh" => "shell",
+        "toml" => "toml",
+        "yaml" | "yml" => "yaml",
+        "json" => "json",
+        "xml" => "xml",
+        "html" | "htm" => "html",
+        "css" => "css",
+        "md" | "markdown" => "markdown",
+        "sql" => "sql",
+        "r" => "r",
+        "lua" => "lua",
+        "zig" => "zig",
+        "nim" => "nim",
+        "ex" | "exs" => "elixir",
+        "erl" | "hrl" => "erlang",
+        "hs" => "haskell",
+        "ml" | "mli" => "ocaml",
+        "rkt" => "racket",
+        _ => "text",
+    }
+}
+
 /// Execute the `read_image` tool.
 pub async fn execute_read_image<W: UiWriter>(
     tool_call: &ToolCall,

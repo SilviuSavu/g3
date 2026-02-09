@@ -236,19 +236,44 @@ async fn execute_find_callees<W: UiWriter>(
 
     info!("Finding callees for: {} (depth={})", symbol, depth);
 
-    // Use g3-index traverser for call graph traversal
     match &ctx.index_client {
-        Some(_client) => {
-            // For now, we don't have a direct find_callees method in index_client
-            // This would require traversing the graph from the symbol
-            Ok(json!({
-                "status": "success",
-                "source": "graph",
-                "symbol": symbol,
-                "callees": Vec::<String>::new(),
-                "count": 0,
-                "note": "Callees traversal available via traverser module in g3-index"
-            }).to_string())
+        Some(client) => {
+            match client.find_symbols_by_name(symbol).await {
+                Ok(symbols) => {
+                    let mut all_callees = Vec::new();
+
+                    for sym in symbols.iter().take(5) {
+                        match client.find_callees(&sym.id).await {
+                            Ok(callees) => {
+                                for callee_id in callees {
+                                    all_callees.push(json!({
+                                        "callee_id": callee_id,
+                                        "depth": 1
+                                    }));
+                                }
+                            }
+                            Err(e) => {
+                                return Ok(json!({
+                                    "status": "error",
+                                    "message": format!("Failed to find callees: {}", e)
+                                }).to_string());
+                            }
+                        }
+                    }
+
+                    Ok(json!({
+                        "status": "success",
+                        "source": "graph",
+                        "symbol": symbol,
+                        "callees": all_callees,
+                        "count": all_callees.len()
+                    }).to_string())
+                }
+                Err(e) => Ok(json!({
+                    "status": "error",
+                    "message": format!("Failed to find symbol: {}", e)
+                }).to_string()),
+            }
         }
         None => Ok(json!({
             "status": "error",

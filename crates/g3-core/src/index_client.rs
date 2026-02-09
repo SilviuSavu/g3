@@ -366,6 +366,22 @@ impl IndexClient {
         Ok(callers)
     }
 
+    /// Find all callees of a symbol.
+    ///
+    /// Returns the IDs of symbols called by the given symbol.
+    pub async fn find_callees(&self, symbol_id: &str) -> Result<Vec<String>> {
+        let indexer = self.indexer.read().await;
+        let Some(gb) = indexer.graph_builder() else {
+            return Ok(Vec::new());
+        };
+
+        let gb_read = gb.read().await;
+        let callees = gb_read.find_callees(symbol_id);
+
+        debug!("Found {} callees for symbol '{}'", callees.len(), symbol_id);
+        Ok(callees)
+    }
+
     /// Find all references to a symbol.
     pub async fn find_references(&self, symbol_id: &str) -> Result<Vec<ReferenceInfo>> {
         let indexer = self.indexer.read().await;

@@ -18,6 +18,7 @@
 pub mod executor;
 pub mod acd;
 pub mod beads;
+pub mod codebase_scout;
 pub mod file_ops;
 pub mod index;
 pub mod intelligence;

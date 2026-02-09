@@ -412,9 +412,15 @@ fn truncate_query(query: &str, max_len: usize) -> String {
 }
 
 /// Extract the research report from scout output.
-/// 
+///
 /// Looks for content between SCOUT_REPORT_START and SCOUT_REPORT_END markers.
 /// Preserves ANSI escape codes in the extracted content for terminal formatting.
+/// Public alias for use by codebase_scout and other modules that need report extraction.
+pub fn extract_report_from_output(output: &str) -> Result<String> {
+    extract_report(output)
+}
+
+/// Extract the research report from scout output (internal).
 fn extract_report(output: &str) -> Result<String> {
     // Strip ANSI codes only for finding markers, but preserve them in the output
     let clean_output = strip_ansi_codes(output);

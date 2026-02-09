@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, beads, file_ops, index, intelligence, lsp, mcp_tools, memory, misc, plan, research, shell, todo, webdriver, zai_tools};
+use crate::tools::{acd, beads, codebase_scout, file_ops, index, intelligence, lsp, mcp_tools, memory, misc, plan, research, shell, todo, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -83,6 +83,10 @@ pub async fn dispatch_tool<W: UiWriter>(
         "research" => research::execute_research(tool_call, ctx).await,
         "research_status" => research::execute_research_status(tool_call, ctx).await,
 
+        // Codebase scout tool
+        "codebase_scout" => codebase_scout::execute_codebase_scout(tool_call, ctx).await,
+        "codebase_scout_status" => codebase_scout::execute_codebase_scout_status(tool_call, ctx).await,
+
         // Workspace memory tools
         "remember" => memory::execute_remember(tool_call, ctx).await,
 
@@ -141,6 +145,9 @@ pub async fn dispatch_tool<W: UiWriter>(
         "index_codebase" => index::execute_index_codebase(tool_call, ctx).await,
         "semantic_search" => index::execute_semantic_search(tool_call, ctx).await,
         "index_status" => index::execute_index_status(tool_call, ctx).await,
+
+        // Folder scanning
+        "scan_folder" => file_ops::execute_scan_folder(tool_call, ctx).await,
 
         // Self-improvement tools
         "list_directory" => index::execute_list_directory(tool_call, ctx).await,

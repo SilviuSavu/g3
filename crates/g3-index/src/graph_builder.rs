@@ -153,6 +153,12 @@ impl GraphBuilder {
         self.storage.graph().find_callers(&id)
     }
 
+    /// Find all callees of a symbol.
+    pub fn find_callees(&self, symbol_id: &str) -> Vec<String> {
+        let id = symbol_id.to_string();
+        self.storage.graph().find_callees(&id)
+    }
+
     /// Find all references to a symbol.
     pub fn find_references(&self, symbol_id: &str) -> Vec<crate::graph::Edge> {
         let id = symbol_id.to_string();

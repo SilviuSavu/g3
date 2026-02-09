@@ -306,6 +306,38 @@ fn create_core_tools(exclude_research: bool) -> Vec<Tool> {
             }),
         });
 
+        // codebase_scout tool
+        tools.push(Tool {
+            name: "codebase_scout".to_string(),
+            description: "Initiate codebase exploration. Spawns a scout agent in the background to explore codebase structure, abstractions, and relationships using the intelligence engine. Returns immediately with a scout_id. Results auto-injected when ready. Use this when you need to understand a codebase's architecture before making changes.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to explore (default: current workspace)"
+                    }
+                },
+                "required": []
+            }),
+        });
+
+        // codebase_scout_status tool
+        tools.push(Tool {
+            name: "codebase_scout_status".to_string(),
+            description: "Check status of a codebase scout task. Call without arguments to list all pending tasks, or with a scout_id to check a specific one.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "research_id": {
+                        "type": "string",
+                        "description": "Optional: specific scout_id to check. If omitted, lists all pending tasks."
+                    }
+                },
+                "required": []
+            }),
+        });
+
         // research_status tool - check status of pending research
         tools.push(Tool {
             name: "research_status".to_string(),
@@ -945,6 +977,34 @@ fn create_index_tools() -> Vec<Tool> {
             }),
         },
         // Self-improvement tools
+        Tool {
+            name: "scan_folder".to_string(),
+            description: "Scan a directory and return previews of all files in one call. Returns file names, first N lines, detected language, and file size. Much more efficient than multiple read_file calls for surveying a directory.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory to scan (relative to workspace or absolute)"
+                    },
+                    "preview_lines": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100,
+                        "default": 20,
+                        "description": "Number of lines to preview per file (default: 20)"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "default": 1,
+                        "description": "Maximum directory depth to scan (default: 1)"
+                    }
+                },
+                "required": ["path"]
+            }),
+        },
         Tool {
             name: "list_directory".to_string(),
             description: "List files in a directory with metadata (name, size, line count, test flag). Useful for exploring codebase structure and finding files of interest.".to_string(),
@@ -1624,9 +1684,10 @@ mod tests {
         let tools = create_core_tools(false);
         // Core tools: shell, background_process, read_file, read_image,
         // write_file, str_replace, screenshot, coverage, code_search,
-        // research, research_status, remember, plan_read, plan_write, plan_approve,
-        // todo_read, todo_write, rehydrate, switch_mode, rg (20 total)
-        assert_eq!(tools.len(), 20);
+        // research, research_status, codebase_scout, codebase_scout_status,
+        // remember, plan_read, plan_write, plan_approve,
+        // todo_read, todo_write, rehydrate, switch_mode, rg (22 total)
+        assert_eq!(tools.len(), 22);
     }
 
     #[test]
@@ -1655,23 +1716,23 @@ mod tests {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
         // Default config has beads_tools: false (from derive Default)
-        assert_eq!(tools.len(), 20);
+        assert_eq!(tools.len(), 22);
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled() {
         let config = ToolConfig::new(true, true, true, false);
         let tools = create_tool_definitions(config);
-        // 19 core + 15 webdriver + 3 zai + 15 beads = 52
-        assert_eq!(tools.len(), 53);
+        // 22 core + 15 webdriver + 3 zai + 15 beads = 55
+        assert_eq!(tools.len(), 55);
     }
 
     #[test]
     fn test_create_tool_definitions_with_zai_tools() {
         let config = ToolConfig::new(false, false, true, false);
         let tools = create_tool_definitions(config);
-        // 19 core + 3 zai + 15 beads = 37
-        assert_eq!(tools.len(), 38);
+        // 22 core + 3 zai + 15 beads = 40
+        assert_eq!(tools.len(), 40);
 
         // Verify Z.ai tools are present
         assert!(tools.iter().any(|t| t.name == "zai_web_search"));
@@ -1704,8 +1765,8 @@ mod tests {
         let tools_with_research = create_core_tools(false);
         let tools_without_research = create_core_tools(true);
 
-        assert_eq!(tools_with_research.len(), 20);
-        assert_eq!(tools_without_research.len(), 18);  // research + research_status both excluded
+        assert_eq!(tools_with_research.len(), 22);
+        assert_eq!(tools_without_research.len(), 18);  // research, research_status, codebase_scout, codebase_scout_status all excluded
 
         assert!(tools_with_research.iter().any(|t| t.name == "research"));
         assert!(!tools_without_research.iter().any(|t| t.name == "research"));
@@ -1722,8 +1783,8 @@ mod tests {
     fn test_create_tool_definitions_with_mcp_tools() {
         let config = ToolConfig::default().with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 19 core + 5 mcp = 24 (default has beads_tools: false)
-        assert_eq!(tools.len(), 25);
+        // 22 core + 5 mcp = 27 (default has beads_tools: false)
+        assert_eq!(tools.len(), 27);
 
         // Verify MCP tools are present
         assert!(tools.iter().any(|t| t.name == "mcp_web_search"));
@@ -1747,8 +1808,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_mcp() {
         let config = ToolConfig::new(true, true, true, false).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 19 core + 15 webdriver + 3 zai + 5 mcp + 15 beads = 57
-        assert_eq!(tools.len(), 58);
+        // 22 core + 15 webdriver + 3 zai + 5 mcp + 15 beads = 60
+        assert_eq!(tools.len(), 60);
     }
 
     #[test]
@@ -1772,8 +1833,8 @@ mod tests {
     fn test_create_tool_definitions_with_beads_tools() {
         let config = ToolConfig::new(false, false, false, false);
         let tools = create_tool_definitions(config);
-        // 20 core + 15 beads = 35
-        assert_eq!(tools.len(), 35);
+        // 22 core + 15 beads = 37
+        assert_eq!(tools.len(), 37);
 
         // Verify Beads tools are present
         assert!(tools.iter().any(|t| t.name == "beads_ready"));
@@ -1785,8 +1846,8 @@ mod tests {
     fn test_create_tool_definitions_without_beads_tools() {
         let config = ToolConfig::new(false, false, false, false).without_beads_tools();
         let tools = create_tool_definitions(config);
-        // 20 core only (beads disabled)
-        assert_eq!(tools.len(), 20);
+        // 22 core only (beads disabled)
+        assert_eq!(tools.len(), 22);
 
         // Verify Beads tools are NOT present
         assert!(!tools.iter().any(|t| t.name == "beads_ready"));
@@ -1795,9 +1856,8 @@ mod tests {
     #[test]
     fn test_index_tools_count() {
         let tools = create_index_tools();
-        // 9 index tools: index_codebase, semantic_search, index_status,
-        // graph_find_symbol, graph_file_symbols, graph_find_callers, graph_find_references, graph_stats, code_intelligence
-        assert_eq!(tools.len(), 14);  // +5 self-improvement tools: list_directory, preview_file, complexity_metrics, list_files, pattern_search
+        // 9 index tools + 5 self-improvement + 1 scan_folder = 15
+        assert_eq!(tools.len(), 15);
     }
 
     #[test]
@@ -1814,8 +1874,8 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 20 core + 15 beads + 14 index = 49
-        assert_eq!(tools.len(), 49);
+        // 22 core + 15 beads + 15 index = 52
+        assert_eq!(tools.len(), 52);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
@@ -1830,14 +1890,15 @@ mod tests {
         assert!(tools.iter().any(|t| t.name == "graph_find_references"));
         assert!(tools.iter().any(|t| t.name == "graph_stats"));
         assert!(tools.iter().any(|t| t.name == "code_intelligence"));
+        assert!(tools.iter().any(|t| t.name == "scan_folder"));
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 20 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index = 72
-        assert_eq!(tools.len(), 72);
+        // 22 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 15 index = 75
+        assert_eq!(tools.len(), 75);
     }
 
     #[test]
@@ -1862,8 +1923,8 @@ mod tests {
     fn test_create_tool_definitions_with_lsp_tools() {
         let config = ToolConfig::default().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 20 core + 9 lsp = 29 (default has beads_tools: false)
-        assert_eq!(tools.len(), 29);
+        // 22 core + 9 lsp = 31 (default has beads_tools: false)
+        assert_eq!(tools.len(), 31);
 
         // Verify LSP tools are present
         assert!(tools.iter().any(|t| t.name == "lsp_goto_definition"));
@@ -1881,7 +1942,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 20 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 14 index + 9 lsp = 81
-        assert_eq!(tools.len(), 81);
+        // 22 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 15 index + 9 lsp = 84
+        assert_eq!(tools.len(), 84);
     }
 }
