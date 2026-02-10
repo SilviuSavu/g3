@@ -69,7 +69,7 @@ use prompts::{get_system_prompt_for_native, get_system_prompt_for_non_native};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 // Re-export path utilities
 use paths::get_todo_path;
@@ -579,6 +579,10 @@ impl<W: UiWriter> Agent<W> {
             match IndexClient::new(&config.index, work_dir.as_path()).await {
                 Ok(client) => {
                     debug!("Initialized IndexClient for workspace: {}", work_dir.display());
+                    // Log index status with basic stats
+                    let stats = client.get_stats().await;
+                    info!("Index enabled - workspace: {}, files indexed: {}, chunks: {}", 
+                          work_dir.display(), stats.files_processed, stats.chunks_created);
                     std::sync::Arc::new(tokio::sync::RwLock::new(Some(std::sync::Arc::new(client))))
                 }
                 Err(e) => {
@@ -590,6 +594,19 @@ impl<W: UiWriter> Agent<W> {
         } else {
             std::sync::Arc::new(tokio::sync::RwLock::new(None))
         };
+        // Log final index status
+        if config.index.enabled {
+            let guard = index_client.read().await;
+            match guard.as_ref() {
+                Some(_) => {
+                    info!("Index is ready for use");
+                }
+                None => {
+                    warn!("Index failed to initialize - index features will fail with helpful errors");
+                }
+            }
+            drop(guard);
+        }
         
         Ok(Self::build_agent(
             config,
