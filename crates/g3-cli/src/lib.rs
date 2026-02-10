@@ -12,6 +12,7 @@ mod accumulative;
 mod agent_mode;
 mod autonomous;
 mod cli_args;
+mod dytopo;
 mod coach_feedback;
 mod commands;
 mod display;
@@ -87,6 +88,17 @@ pub async fn run() -> Result<()> {
     if cli.list_modes {
         print_modes();
         return Ok(());
+    }
+
+    // Check if dytopo mode is enabled
+    if cli.dytopo {
+        let workspace_dir = cli.workspace.clone().unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+        let config = load_config_with_cli_overrides(&cli)?;
+        let task = cli.task.clone().unwrap_or_else(|| {
+            eprintln!("DyTopo mode requires a task. Usage: g3 --dytopo \"your task\"");
+            std::process::exit(1);
+        });
+        return dytopo::run_dytopo_mode(&task, config, &workspace_dir).await;
     }
 
     // Check if planning mode is enabled
@@ -346,6 +358,10 @@ pub fn print_modes() {
     println!("  Run: g3 --planning --codepath /path/to/project");
     println!("  Use for: Formal requirements gathering with git commits");
     println!();
+    println!();
+    println!("DyTopo - Dynamic topology multi-agent collaboration");
+    println!("  Run: g3 --dytopo \"your task\"");
+    println!("  Use for: Collaborative multi-agent reasoning with dynamic message routing");
     println!("Studio - Multi-agent workspace manager (parallel agents)");
     println!("  Run: studio");
     println!("  Use for: Running multiple g3 sessions in isolated worktrees");

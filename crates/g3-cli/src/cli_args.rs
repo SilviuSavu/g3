@@ -173,6 +173,11 @@ pub struct Cli {
     #[arg(long, value_name = "PATH")]
     pub project: Option<PathBuf>,
 
+    /// Launch DyTopo mode (dynamic topology multi-agent collaboration)
+    #[arg(long, conflicts_with_all = ["autonomous", "auto", "planning", "agent", "chat"])]
+    pub dytopo: bool,
+
+
     /// Launch the TUI (Text User Interface) instead of the CLI
     #[arg(long)]
     pub tui: bool,

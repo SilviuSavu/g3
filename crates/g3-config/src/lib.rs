@@ -22,6 +22,8 @@ pub struct Config {
     pub index: IndexConfig,
     #[serde(default)]
     pub lsp: LspConfig,
+    #[serde(default)]
+    pub ensembles: EnsemblesConfig,
 }
 
 /// Provider configuration with named configs per provider type
@@ -507,6 +509,41 @@ impl LspConfig {
     }
 }
 
+/// Ensembles configuration (multi-agent modes)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EnsemblesConfig {
+    #[serde(default)]
+    pub dytopo: DyTopoConfigToml,
+}
+
+/// DyTopo configuration from config.toml
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DyTopoConfigToml {
+    #[serde(default = "default_dytopo_max_rounds")]
+    pub max_rounds: usize,
+    #[serde(default = "default_dytopo_tau_edge")]
+    pub tau_edge: f32,
+    #[serde(default = "default_dytopo_k_in")]
+    pub k_in: usize,
+    #[serde(default)]
+    pub workers: Vec<String>,
+}
+
+fn default_dytopo_max_rounds() -> usize { 10 }
+fn default_dytopo_tau_edge() -> f32 { 0.35 }
+fn default_dytopo_k_in() -> usize { 3 }
+
+impl Default for DyTopoConfigToml {
+    fn default() -> Self {
+        Self {
+            max_rounds: default_dytopo_max_rounds(),
+            tau_edge: default_dytopo_tau_edge(),
+            k_in: default_dytopo_k_in(),
+            workers: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
     pub max_context_length: Option<u32>,
@@ -665,6 +702,7 @@ impl Default for Config {
             zai_mcp: ZaiMcpConfig::default(),
             index: IndexConfig::default(),
             lsp: LspConfig::default(),
+            ensembles: EnsemblesConfig::default(),
         }
     }
 }

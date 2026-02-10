@@ -14,6 +14,8 @@ g3-config = { path = "../g3-config" }
 g3-planner = { path = "../g3-planner" }
 g3-computer-control = { path = "../g3-computer-control" }
 g3-providers = { path = "../g3-providers" }
+g3-ensembles = { path = "../g3-ensembles" }
+g3-index = { path = "../g3-index" }
 clap = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
