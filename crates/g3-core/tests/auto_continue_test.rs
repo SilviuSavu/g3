@@ -120,10 +120,15 @@ use g3_core::streaming::{should_auto_continue, AutoContinueReason};
 
 #[test]
 fn test_auto_continue_autonomous_tool_executed() {
-    // Autonomous mode, tools executed, no stop_reason → continue
+    // Autonomous mode, tools executed, stop_reason = "tool_use" → continue
+    assert_eq!(
+        should_auto_continue(true, true, false, false, false, 0, Some("tool_use")),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+    // No stop_reason (None) → treat as natural end, don't continue
     assert_eq!(
         should_auto_continue(true, true, false, false, false, 0, None),
-        Some(AutoContinueReason::ToolsExecuted),
+        None,
     );
 }
 
@@ -159,10 +164,15 @@ fn test_auto_continue_end_turn_still_recovers_errors() {
 
 #[test]
 fn test_auto_continue_interactive_first_text_only() {
-    // Interactive mode, tools executed, first text-only response, no stop_reason → continue
+    // Interactive mode, tools executed, first text-only response, stop_reason = "tool_use" → continue
+    assert_eq!(
+        should_auto_continue(false, true, false, false, false, 0, Some("tool_use")),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+    // No stop_reason (None) → treat as natural end, don't continue
     assert_eq!(
         should_auto_continue(false, true, false, false, false, 0, None),
-        Some(AutoContinueReason::ToolsExecuted),
+        None,
     );
 }
 

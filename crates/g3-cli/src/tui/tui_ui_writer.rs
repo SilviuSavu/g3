@@ -89,30 +89,30 @@ impl TuiUiWriter {
 }
 
 impl UiWriter for TuiUiWriter {
-    fn print(&self, message: &str) {
-        self.send(TuiEvent::Status(message.to_string()));
+    fn print(&self, _message: &str) {
+        // Suppressed in TUI — these are CLI progress messages
     }
 
-    fn println(&self, message: &str) {
-        self.send(TuiEvent::Status(message.to_string()));
+    fn println(&self, _message: &str) {
+        // Suppressed in TUI
     }
 
-    fn print_inline(&self, message: &str) {
-        self.send(TuiEvent::Status(message.to_string()));
+    fn print_inline(&self, _message: &str) {
+        // Suppressed in TUI
     }
 
     fn print_system_prompt(&self, _prompt: &str) {}
 
-    fn print_context_status(&self, message: &str) {
-        self.send(TuiEvent::Status(message.to_string()));
+    fn print_context_status(&self, _message: &str) {
+        // Context status shown in status bar, not chat
     }
 
-    fn print_g3_progress(&self, message: &str) {
-        self.send(TuiEvent::Status(message.to_string()));
+    fn print_g3_progress(&self, _message: &str) {
+        // Progress shown via ThinkingStart/tool status, not chat messages
     }
 
-    fn print_g3_status(&self, message: &str, status: &str) {
-        self.send(TuiEvent::Status(format!("{} [{}]", message, status)));
+    fn print_g3_status(&self, _message: &str, _status: &str) {
+        // Status shown in status bar
     }
 
     fn print_thin_result(&self, result: &g3_core::ThinResult) {
@@ -236,8 +236,8 @@ impl UiWriter for TuiUiWriter {
 
     fn notify_sse_received(&self) {}
 
-    fn print_tool_streaming_hint(&self, tool_name: &str) {
-        self.send(TuiEvent::ToolStart(tool_name.to_string()));
+    fn print_tool_streaming_hint(&self, _tool_name: &str) {
+        // Tool start already sent by print_tool_header
     }
 
     fn print_tool_streaming_active(&self) {}

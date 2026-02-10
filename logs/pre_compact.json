@@ -6,5 +6,37 @@
     "hook_event_name": "PreCompact",
     "trigger": "auto",
     "custom_instructions": null
+  },
+  {
+    "session_id": "684e34b0-2410-47aa-a475-c9951e37354a",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3/684e34b0-2410-47aa-a475-c9951e37354a.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3",
+    "hook_event_name": "PreCompact",
+    "trigger": "auto",
+    "custom_instructions": null
+  },
+  {
+    "session_id": "be0ec641-1b40-4a5f-b930-0b5f03b83a14",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3/be0ec641-1b40-4a5f-b930-0b5f03b83a14.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3",
+    "hook_event_name": "PreCompact",
+    "trigger": "auto",
+    "custom_instructions": null
+  },
+  {
+    "session_id": "be0ec641-1b40-4a5f-b930-0b5f03b83a14",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3/be0ec641-1b40-4a5f-b930-0b5f03b83a14.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3",
+    "hook_event_name": "PreCompact",
+    "trigger": "auto",
+    "custom_instructions": null
+  },
+  {
+    "session_id": "5381d66f-f85a-4df0-ae8d-2dcdc3906657",
+    "transcript_path": "/Users/savusilviu/.claude/projects/-Users-savusilviu-Desktop-self-contained-system-g3/5381d66f-f85a-4df0-ae8d-2dcdc3906657.jsonl",
+    "cwd": "/Users/savusilviu/Desktop/self-contained-system/g3",
+    "hook_event_name": "PreCompact",
+    "trigger": "auto",
+    "custom_instructions": null
   }
 ]

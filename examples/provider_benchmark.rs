@@ -204,6 +204,7 @@ async fn run_single_benchmark(
         stream: true,
         tools: None,
         disable_thinking: false,
+        stop_sequences: vec![],
     };
 
     let start = Instant::now();

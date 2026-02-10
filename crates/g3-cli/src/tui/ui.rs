@@ -8,7 +8,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::tui::app::{ChatContent, ChatMessage, MessageRole, Pane, PendingPrompt};
+use crate::tui::app::{ChatContent, ChatMessage, MessageRole, Pane, PendingPromptView};
 use crate::tui::markdown;
 use crate::tui::subagent_monitor::SubagentEntry;
 use crate::tui::subagent_panel;
@@ -54,7 +54,7 @@ pub struct AppView<'a> {
     pub context_percentage: f32,
     pub current_tool: &'a Option<String>,
     pub scroll_offset: u16,
-    pub pending_prompt: &'a Option<PendingPrompt>,
+    pub pending_prompt: &'a Option<PendingPromptView>,
     pub active_pane: &'a Pane,
     pub split_ratio: f32,
     pub subagent_entries: &'a [SubagentEntry],
@@ -259,19 +259,23 @@ fn render_chat(frame: &mut Frame, area: Rect, app: &AppView, colors: &Colors) {
     }
 
     let text = Text::from(lines);
-    let visible_height = area.height as usize;
-    let total_lines = text.lines.len();
-    let scroll = if total_lines > visible_height {
-        (total_lines - visible_height) as u16 + app.scroll_offset
+
+    let paragraph = Paragraph::new(text)
+        .block(block)
+        .wrap(Wrap { trim: false });
+
+    // line_count accounts for wrapping
+    let wrapped_height = paragraph.line_count(area.width) as u16;
+    let visible_height = area.height;
+
+    let scroll = if wrapped_height > visible_height {
+        let max_scroll = wrapped_height - visible_height;
+        max_scroll.saturating_sub(app.scroll_offset)
     } else {
         0
     };
 
-    let paragraph = Paragraph::new(text)
-        .block(block)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll, 0));
-
+    let paragraph = paragraph.scroll((scroll, 0));
     frame.render_widget(paragraph, area);
 }
 
@@ -391,8 +395,8 @@ fn render_prompt_overlay(frame: &mut Frame, area: Rect, app: &AppView, colors: &
 
         let width = (message.len() as u16 + 6).min(area.width.saturating_sub(4));
         let height: u16 = match prompt {
-            PendingPrompt::YesNo { .. } => 5,
-            PendingPrompt::Choice { options, .. } => 4 + options.len() as u16,
+            PendingPromptView::YesNo { .. } => 5,
+            PendingPromptView::Choice { options, .. } => 4 + options.len() as u16,
         };
         let x = area.x + (area.width.saturating_sub(width)) / 2;
         let y = area.y + (area.height.saturating_sub(height)) / 2;
@@ -417,7 +421,7 @@ fn render_prompt_overlay(frame: &mut Frame, area: Rect, app: &AppView, colors: &
         ];
 
         match prompt {
-            PendingPrompt::YesNo { .. } => {
+            PendingPromptView::YesNo { .. } => {
                 lines.push(Line::from(Span::styled(
                     "[y] Yes  [n] No",
                     Style::default()
@@ -425,7 +429,7 @@ fn render_prompt_overlay(frame: &mut Frame, area: Rect, app: &AppView, colors: &
                         .add_modifier(Modifier::BOLD),
                 )));
             }
-            PendingPrompt::Choice { options, .. } => {
+            PendingPromptView::Choice { options, .. } => {
                 for (i, opt) in options.iter().enumerate() {
                     lines.push(Line::from(Span::styled(
                         format!("[{}] {}", i + 1, opt),

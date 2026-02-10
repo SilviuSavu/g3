@@ -12,8 +12,19 @@ use tracing::{debug, error};
 use crate::{
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Tool, ToolCall, Usage,
-    streaming::{make_text_chunk, make_final_chunk},
+    streaming::{make_text_chunk, make_final_chunk_with_reason},
 };
+
+/// Convert OpenAI-style finish_reason to our internal stop_reason format
+fn convert_openai_finish_reason(reason: Option<&str>) -> Option<String> {
+    reason.map(|r| match r {
+        "stop" => "end_turn".to_string(),
+        "tool_calls" => "tool_use".to_string(),
+        "length" => "max_tokens".to_string(),
+        "content_filter" => "content_filter".to_string(),
+        other => other.to_string(),
+    })
+}
 
 #[derive(Clone)]
 pub struct OpenAIProvider {
@@ -110,6 +121,7 @@ impl OpenAIProvider {
         let mut accumulated_content = String::new();
         let mut accumulated_usage: Option<Usage> = None;
         let mut current_tool_calls: Vec<OpenAIStreamingToolCall> = Vec::new();
+        let mut last_finish_reason: Option<String> = None;
 
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
@@ -146,7 +158,8 @@ impl OpenAIProvider {
                                         .filter_map(|tc| tc.to_tool_call())
                                         .collect();
 
-                                    let final_chunk = make_final_chunk(tool_calls, accumulated_usage.clone());
+                                    let stop = convert_openai_finish_reason(last_finish_reason.as_deref());
+                                    let final_chunk = make_final_chunk_with_reason(tool_calls, accumulated_usage.clone(), stop);
                                     let _ = tx.send(Ok(final_chunk)).await;
                                 }
 
@@ -158,6 +171,10 @@ impl OpenAIProvider {
                                 Ok(chunk_data) => {
                                     // Handle content
                                     for choice in &chunk_data.choices {
+                                        // Capture finish_reason
+                                        if choice.finish_reason.is_some() {
+                                            last_finish_reason = choice.finish_reason.clone();
+                                        }
                                         if let Some(content) = &choice.delta.content {
                                             accumulated_content.push_str(content);
 
@@ -241,7 +258,8 @@ impl OpenAIProvider {
                 .collect()
         };
 
-        let final_chunk = make_final_chunk(tool_calls, accumulated_usage.clone());
+        let stop = convert_openai_finish_reason(last_finish_reason.as_deref());
+        let final_chunk = make_final_chunk_with_reason(tool_calls, accumulated_usage.clone(), stop);
         let _ = tx.send(Ok(final_chunk)).await;
 
         accumulated_usage
@@ -517,6 +535,7 @@ struct OpenAIStreamChunk {
 #[derive(Debug, Deserialize)]
 struct OpenAIStreamChoice {
     delta: OpenAIDelta,
+    finish_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

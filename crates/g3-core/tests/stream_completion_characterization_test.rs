@@ -205,13 +205,18 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: Interactive mode allows ONE auto-continue after tools, then stops
     #[test]
     fn interactive_continues_once_after_tools() {
-        // First text-only response after tools, no stop_reason → continue
-        let result = should_auto_continue(false, true, false, false, false, 0, None);
+        // First text-only response after tools, stop_reason = "tool_use" → continue
+        let result = should_auto_continue(false, true, false, false, false, 0, Some("tool_use"));
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "Interactive mode should continue once after tool execution");
 
+        // No stop_reason (None) → natural end, don't continue
+        let result = should_auto_continue(false, true, false, false, false, 0, None);
+        assert!(result.is_none(),
+            "No stop_reason means natural end, should not continue");
+
         // Second text-only response → stop
-        let result = should_auto_continue(false, true, false, false, false, 1, None);
+        let result = should_auto_continue(false, true, false, false, false, 1, Some("tool_use"));
         assert!(result.is_none(),
             "Interactive mode should stop after second consecutive text-only response");
     }
@@ -267,14 +272,20 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: Autonomous mode continues after tool execution (no stop_reason)
     #[test]
     fn autonomous_continues_after_tools() {
-        let result = should_auto_continue(true, true, false, false, false, 0, None);
+        // stop_reason = "tool_use" → continue
+        let result = should_auto_continue(true, true, false, false, false, 0, Some("tool_use"));
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "Should continue after tool execution when no stop_reason");
+            "Should continue after tool execution when stop_reason is tool_use");
 
-        // Autonomous ignores the counter
-        let result = should_auto_continue(true, true, false, false, false, 10, None);
+        // No stop_reason (None) → natural end, don't continue
+        let result = should_auto_continue(true, true, false, false, false, 0, None);
+        assert!(result.is_none(),
+            "No stop_reason means natural end, should not continue");
+
+        // Autonomous ignores the counter when stop_reason is tool_use
+        let result = should_auto_continue(true, true, false, false, false, 10, Some("tool_use"));
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "Autonomous should continue regardless of counter when no stop_reason");
+            "Autonomous should continue regardless of counter when stop_reason is tool_use");
     }
 
     /// CHARACTERIZATION: Incomplete tool call triggers continue

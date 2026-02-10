@@ -4,7 +4,7 @@ use crate::tui::events::has_minimum_size;
 use crate::tui::subagent_monitor::SubagentEntry;
 use crate::tui::tui_ui_writer::TuiEvent;
 use crate::tui::ui::{self, Colors};
-use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEvent, MouseEventKind};
 use ratatui::{prelude::CrosstermBackend, Terminal};
 use std::io::Stdout;
 use std::time::Duration;
@@ -93,6 +93,37 @@ impl PendingPrompt {
         match self {
             PendingPrompt::YesNo { message, .. } => message,
             PendingPrompt::Choice { message, .. } => message,
+        }
+    }
+
+    /// Create a lightweight view for rendering (no Sender, so it's Clone-able).
+    pub fn view(&self) -> PendingPromptView {
+        match self {
+            PendingPrompt::YesNo { message, .. } => PendingPromptView::YesNo {
+                message: message.clone(),
+            },
+            PendingPrompt::Choice {
+                message, options, ..
+            } => PendingPromptView::Choice {
+                message: message.clone(),
+                options: options.clone(),
+            },
+        }
+    }
+}
+
+/// Lightweight, Clone-able prompt view for the rendering layer.
+#[derive(Debug, Clone)]
+pub enum PendingPromptView {
+    YesNo { message: String },
+    Choice { message: String, options: Vec<String> },
+}
+
+impl PendingPromptView {
+    pub fn message(&self) -> &str {
+        match self {
+            PendingPromptView::YesNo { message } => message,
+            PendingPromptView::Choice { message, .. } => message,
         }
     }
 }
@@ -188,14 +219,35 @@ impl App {
     }
 
     fn event_loop(&mut self) -> anyhow::Result<()> {
+        let mut dirty = true;
         while self.running {
-            self.draw()?;
-            self.process_tui_events();
-            self.process_subagent_events();
+            if dirty {
+                self.draw()?;
+                dirty = false;
+            }
 
-            if event::poll(Duration::from_millis(16))? {
-                if let Event::Key(key) = event::read()? {
-                    self.handle_key_event(key);
+            // Check for agent/subagent events (non-blocking)
+            let had_tui_events = self.process_tui_events();
+            let had_subagent_events = self.process_subagent_events();
+            if had_tui_events || had_subagent_events {
+                dirty = true;
+            }
+
+            // Poll for terminal events with timeout
+            if event::poll(Duration::from_millis(50))? {
+                match event::read()? {
+                    Event::Key(key) => {
+                        self.handle_key_event(key);
+                        dirty = true;
+                    }
+                    Event::Mouse(mouse) => {
+                        self.handle_mouse_event(mouse);
+                        dirty = true;
+                    }
+                    Event::Resize(_, _) => {
+                        dirty = true;
+                    }
+                    _ => {}
                 }
             }
         }
@@ -217,6 +269,7 @@ impl App {
         let model_name = self.model_name.clone();
         let cost_dollars = self.cost_dollars;
         let is_thinking = self.is_thinking;
+        let prompt_view = self.pending_prompt.as_ref().map(|p| p.view());
 
         self.terminal.draw(|frame| {
             let app_view = ui::AppView {
@@ -227,7 +280,7 @@ impl App {
                 context_percentage,
                 current_tool: &current_tool,
                 scroll_offset,
-                pending_prompt: &None,
+                pending_prompt: &prompt_view,
                 active_pane: &active_pane,
                 split_ratio,
                 subagent_entries: &subagent_entries,
@@ -241,8 +294,10 @@ impl App {
         Ok(())
     }
 
-    fn process_tui_events(&mut self) {
+    fn process_tui_events(&mut self) -> bool {
+        let mut changed = false;
         while let Ok(evt) = self.tui_event_rx.try_recv() {
+            changed = true;
             match evt {
                 TuiEvent::ResponseChunk(text) => {
                     if let Some(last) = self.messages.last_mut() {
@@ -260,7 +315,6 @@ impl App {
                             content: ChatContent::Text(text),
                         });
                     }
-                    self.scroll_offset = 0;
                 }
                 TuiEvent::ResponseDone => {
                     self.current_tool = None;
@@ -374,11 +428,27 @@ impl App {
                 }
             }
         }
+        changed
     }
 
-    fn process_subagent_events(&mut self) {
+    fn process_subagent_events(&mut self) -> bool {
+        let mut changed = false;
         while let Ok(entries) = self.subagent_rx.try_recv() {
             self.subagent_entries = entries;
+            changed = true;
+        }
+        changed
+    }
+
+    fn handle_mouse_event(&mut self, mouse: MouseEvent) {
+        match mouse.kind {
+            MouseEventKind::ScrollUp => {
+                self.scroll_offset = self.scroll_offset.saturating_add(3);
+            }
+            MouseEventKind::ScrollDown => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(3);
+            }
+            _ => {}
         }
     }
 
@@ -468,6 +538,12 @@ impl App {
             KeyCode::End => {
                 self.cursor_position = self.input_buffer.len();
             }
+            KeyCode::Up => {
+                self.scroll_offset = self.scroll_offset.saturating_add(1);
+            }
+            KeyCode::Down => {
+                self.scroll_offset = self.scroll_offset.saturating_sub(1);
+            }
             KeyCode::PageUp => {
                 self.scroll_offset = self.scroll_offset.saturating_add(10);
             }
@@ -551,6 +627,7 @@ impl Drop for App {
         let _ = crossterm::terminal::disable_raw_mode();
         let _ = crossterm::execute!(
             std::io::stdout(),
+            crossterm::event::DisableMouseCapture,
             crossterm::terminal::LeaveAlternateScreen,
         );
         let _ = self.terminal.show_cursor();

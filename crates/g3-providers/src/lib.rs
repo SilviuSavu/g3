@@ -56,6 +56,9 @@ pub struct CompletionRequest {
     pub tools: Option<Vec<Tool>>,
     /// Force disable thinking mode for this request (used when max_tokens is too low)
     pub disable_thinking: bool,
+    /// Stop sequences that halt generation when encountered in output
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stop_sequences: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

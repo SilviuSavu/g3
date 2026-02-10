@@ -523,6 +523,7 @@ mod tests {
             stream: false,
             tools: None,
             disable_thinking: false,
+            stop_sequences: vec![],
         };
 
         let response = provider.complete(request).await.unwrap();
@@ -542,6 +543,7 @@ mod tests {
             stream: true,
             tools: None,
             disable_thinking: false,
+            stop_sequences: vec![],
         };
 
         let mut stream = provider.stream(request).await.unwrap();
@@ -569,6 +571,7 @@ mod tests {
             stream: false,
             tools: None,
             disable_thinking: false,
+            stop_sequences: vec![],
         };
 
         let response1 = provider.complete(request.clone()).await.unwrap();
@@ -594,6 +597,7 @@ mod tests {
             stream: true,
             tools: None,
             disable_thinking: false,
+            stop_sequences: vec![],
         };
 
         let mut stream = provider.stream(request).await.unwrap();
@@ -622,6 +626,7 @@ mod tests {
             stream: false,
             tools: None,
             disable_thinking: false,
+            stop_sequences: vec![],
         };
 
         let request2 = CompletionRequest {
@@ -634,6 +639,7 @@ mod tests {
             stream: false,
             tools: None,
             disable_thinking: false,
+            stop_sequences: vec![],
         };
 
         provider.complete(request1).await.unwrap();

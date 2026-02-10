@@ -386,6 +386,9 @@ impl<W: UiWriter> Agent<W> {
         let provider_has_native_tool_calling = provider.has_native_tool_calling();
         let _ = provider; // Drop provider reference to avoid borrowing issues
 
+        // Track whether we're in agent mode (custom system prompt) before it gets moved
+        let is_agent_mode = custom_system_prompt.is_some();
+
         let system_prompt = if let Some(custom_prompt) = custom_system_prompt {
             // Use custom system prompt (for agent mode)
             custom_prompt
@@ -410,12 +413,17 @@ impl<W: UiWriter> Agent<W> {
         }
 
         // Beads SessionStart hook: inject workflow context at agent initialization
-        let beads_context_injected = if let Some(beads_context) = tools::beads::get_beads_session_context(None).await {
-            debug!("Injecting beads session context at startup ({} chars)", beads_context.len());
-            ui_writer.println("📋 Beads workflow context loaded");
-            let beads_message = Message::new(MessageRole::System, beads_context);
-            context_window.add_message(beads_message);
-            true
+        // Skip for agent mode - agents have their own focused prompts
+        let beads_context_injected = if !is_agent_mode {
+            if let Some(beads_context) = tools::beads::get_beads_session_context(None).await {
+                debug!("Injecting beads session context at startup ({} chars)", beads_context.len());
+                ui_writer.println("📋 Beads workflow context loaded");
+                let beads_message = Message::new(MessageRole::System, beads_context);
+                context_window.add_message(beads_message);
+                true
+            } else {
+                false
+            }
         } else {
             false
         };
@@ -1127,7 +1135,14 @@ impl<W: UiWriter> Agent<W> {
             stream: true, // Enable streaming
             tools,
             disable_thinking: false,
+            stop_sequences: self.active_persona.as_ref()
+                .map(|p| p.stop_sequences.clone())
+                .unwrap_or_default(),
         };
+
+        if !request.stop_sequences.is_empty() {
+            warn!("Stop sequences active: {:?}", request.stop_sequences);
+        }
 
         // Time the LLM call with cancellation support and streaming
         let llm_start = Instant::now();
@@ -2083,6 +2098,7 @@ Skip if nothing new. Be brief."#;
             stream: true,
             tools,
             disable_thinking: true, // Keep it brief
+            stop_sequences: vec![],
         };
 
         // Execute the reminder turn (show_timing = false to keep it quiet)
@@ -2485,6 +2501,41 @@ Skip if nothing new. Be brief."#;
                         // Process chunk with the new parser
                         let completed_tools = iter.parser.process_chunk(&chunk);
 
+                        // Client-side stop_sequence detection (universal check)
+                        // Check parser's text_buffer for stop sequences after every chunk.
+                        // This catches stop sequences regardless of whether tools are being executed.
+                        if !request.stop_sequences.is_empty() {
+                            let text_buf = iter.parser.get_text_content();
+                            if let Some(pos) = request.stop_sequences.iter()
+                                .filter_map(|seq| text_buf.find(seq.as_str())
+                                    .map(|p| p + seq.len()))
+                                .min()
+                            {
+                                warn!("STOP_SEQ: detected in parser buffer at pos={}, buffer_len={}", pos, text_buf.len());
+                                // Display any remaining text up to and including the stop sequence
+                                let displayable = &text_buf[..pos];
+                                let already_shown = iter.current_response.len();
+                                if displayable.len() > already_shown {
+                                    let remaining = &displayable[already_shown..];
+                                    let clean = streaming::clean_llm_tokens(remaining);
+                                    if !clean.trim().is_empty() {
+                                        if !state.response_started {
+                                            self.ui_writer.print_agent_prompt();
+                                            state.response_started = true;
+                                        }
+                                        self.ui_writer.print_agent_response(&clean);
+                                        self.ui_writer.flush();
+                                    }
+                                }
+                                iter.current_response = displayable.to_string();
+                                iter.stream_stop_reason = Some("end_turn".to_string());
+                                state.stop_sequence_seen = true;
+                                iter.parser.reset();
+                                iter.tool_executed = false;
+                                break;
+                            }
+                        }
+
                         // Handle completed tool calls - process all if multiple calls enabled
                         // Always process all tool calls - they will be executed after stream ends
 
@@ -2763,6 +2814,11 @@ Skip if nothing new. Be brief."#;
                             state.any_tool_executed = true; // Track across all iterations
                             state.consecutive_text_only_responses = 0; // Reset: tools ran this iteration
 
+                            // Track tool signature for repetitive call detection
+                            state.recent_tool_signatures.push(
+                                streaming::tool_call_signature(&tool_call),
+                            );
+
                             // Reset the JSON tool call filter state after each tool execution
                             // This ensures the filter doesn't stay in suppression mode for subsequent streaming content
                             self.ui_writer.reset_json_filter();
@@ -2987,6 +3043,31 @@ Skip if nothing new. Be brief."#;
                 self.context_window.add_streaming_tokens(estimated_tokens);
             }
 
+            // --- Repetitive Tool Call Detection (covers tool-executed path) ---
+            // When tools executed, check if we're stuck in a loop BEFORE continuing.
+            // If detected, inject a firm "produce output now" instruction instead of
+            // silently looping forever.
+            if iter.tool_executed && streaming::detect_repetitive_tools(&state.recent_tool_signatures) {
+                warn!("Repetitive tool calls detected — injecting output instruction");
+                self.ui_writer.println(
+                    "⚠️ Repetitive tool pattern detected — requesting final output",
+                );
+                // Add a forceful user message telling the LLM to stop calling tools
+                let nudge = Message::new(
+                    MessageRole::User,
+                    "IMPORTANT: You have been calling the same tools repeatedly with the same arguments. \
+                     You already have all the information you need. Stop calling tools and produce your \
+                     final output NOW. Do not call any more tools."
+                        .to_string(),
+                );
+                self.context_window.add_message(nudge);
+                request.messages = self.context_window.conversation_history.clone();
+                // Remove tools from the request so the LLM physically cannot call them
+                request.tools = None;
+                // Continue to next iteration — LLM will be forced to produce text
+                continue;
+            }
+
             // If we get here and no tool was executed, we're done
             if !iter.tool_executed {
                 // IMPORTANT: Do NOT add parser text_content here!
@@ -3003,10 +3084,10 @@ Skip if nothing new. Be brief."#;
 
                 // Check if the response is essentially empty (just whitespace or timing lines)
                 // Check if there's an incomplete tool call in the buffer (for debugging)
-                let has_incomplete_tool_call = iter.parser.has_incomplete_tool_call();
+                let mut has_incomplete_tool_call = iter.parser.has_incomplete_tool_call();
 
                 // Check if there's a complete but unexecuted tool call in the buffer (for debugging)
-                let has_unexecuted_tool_call = iter.parser.has_unexecuted_tool_call();
+                let mut has_unexecuted_tool_call = iter.parser.has_unexecuted_tool_call();
 
                 // Log when we detect unexecuted or incomplete tool calls for debugging
                 if has_incomplete_tool_call {
@@ -3023,6 +3104,25 @@ Skip if nothing new. Be brief."#;
                 if was_truncated_by_max_tokens {
                     debug!("Response was truncated due to max_tokens limit");
                     warn!("LLM response was cut off due to max_tokens limit");
+                }
+
+                // --- Stop Sequence Safety Net ---
+                // If stop sequence was seen at any point (tracked via state flag),
+                // force end_turn and prevent all auto-continue reasons.
+                let stop_seq_seen = !request.stop_sequences.is_empty() && {
+                    let text_check = iter.parser.get_text_content();
+                    let resp_check = &iter.current_response;
+                    request.stop_sequences.iter().any(|seq|
+                        text_check.contains(seq.as_str()) || resp_check.contains(seq.as_str())
+                    ) || state.stop_sequence_seen
+                };
+                if stop_seq_seen {
+                    warn!("STOP_SEQ safety net: stop sequence detected, preventing auto-continue");
+                    state.stop_sequence_seen = true;
+                    // Override all auto-continue triggers
+                    has_incomplete_tool_call = false;
+                    has_unexecuted_tool_call = false;
+                    iter.stream_stop_reason = Some("end_turn".to_string());
                 }
 
                 // --- Auto-Continue Decision ---

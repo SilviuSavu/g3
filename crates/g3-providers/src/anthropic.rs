@@ -335,6 +335,7 @@ impl AnthropicProvider {
         max_tokens: u32,
         temperature: f32,
         disable_thinking: bool,
+        stop_sequences: Vec<String>,
     ) -> Result<AnthropicRequest> {
         let (system, anthropic_messages) = self.convert_messages(messages)?;
 
@@ -383,6 +384,7 @@ impl AnthropicProvider {
             tools: anthropic_tools,
             stream: streaming,
             thinking,
+            stop_sequences,
         };
 
         // Ensure the conversation starts with a user message
@@ -699,6 +701,7 @@ impl LLMProvider for AnthropicProvider {
             max_tokens,
             temperature,
             request.disable_thinking,
+            request.stop_sequences,
         )?;
 
         debug!(
@@ -775,6 +778,7 @@ impl LLMProvider for AnthropicProvider {
             max_tokens,
             temperature,
             request.disable_thinking,
+            request.stop_sequences,
         )?;
 
         debug!(
@@ -882,6 +886,8 @@ struct AnthropicRequest {
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     thinking: Option<ThinkingConfig>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    stop_sequences: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1047,7 +1053,7 @@ mod tests {
         let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
 
         let request_body = provider
-            .create_request_body(&messages, None, false, 1000, 0.5, false)
+            .create_request_body(&messages, None, false, 1000, 0.5, false, vec![])
             .unwrap();
 
         assert_eq!(request_body.model, "claude-3-haiku-20240307");
@@ -1155,7 +1161,7 @@ mod tests {
 
         let messages = vec![Message::new(MessageRole::User, "Test message".to_string())];
         let request_without = provider_without
-            .create_request_body(&messages, None, false, 1000, 0.5, false)
+            .create_request_body(&messages, None, false, 1000, 0.5, false, vec![])
             .unwrap();
         let json_without = serde_json::to_string(&request_without).unwrap();
         assert!(
@@ -1177,7 +1183,7 @@ mod tests {
         .unwrap();
 
         let request_with = provider_with
-            .create_request_body(&messages, None, false, 20000, 0.5, false)
+            .create_request_body(&messages, None, false, 20000, 0.5, false, vec![])
             .unwrap();
         let json_with = serde_json::to_string(&request_with).unwrap();
         assert!(
@@ -1195,7 +1201,7 @@ mod tests {
 
         // Test WITH thinking parameter but INSUFFICIENT max_tokens - thinking should be disabled
         let request_insufficient = provider_with
-            .create_request_body(&messages, None, false, 5000, 0.5, false) // Less than budget + 1024
+            .create_request_body(&messages, None, false, 5000, 0.5, false, vec![]) // Less than budget + 1024
             .unwrap();
         let json_insufficient = serde_json::to_string(&request_insufficient).unwrap();
         assert!(
@@ -1222,7 +1228,7 @@ mod tests {
 
         // With disable_thinking=false, thinking should be enabled (max_tokens is sufficient)
         let request_with_thinking = provider
-            .create_request_body(&messages, None, false, 20000, 0.5, false)
+            .create_request_body(&messages, None, false, 20000, 0.5, false, vec![])
             .unwrap();
         let json_with = serde_json::to_string(&request_with_thinking).unwrap();
         assert!(
@@ -1232,7 +1238,7 @@ mod tests {
 
         // With disable_thinking=true, thinking should be disabled even with sufficient max_tokens
         let request_without_thinking = provider
-            .create_request_body(&messages, None, false, 20000, 0.5, true)
+            .create_request_body(&messages, None, false, 20000, 0.5, true, vec![])
             .unwrap();
         let json_without = serde_json::to_string(&request_without_thinking).unwrap();
         assert!(

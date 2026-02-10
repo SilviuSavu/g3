@@ -61,9 +61,10 @@ pub async fn run() -> Result<()> {
         std::process::exit(1);
     }
 
-    // Check if TUI mode was requested
+    // TUI mode is handled in main() before the tokio runtime starts.
+    // If we get here with --tui, it means someone called run() directly.
     if cli.tui {
-        return run_tui();
+        anyhow::bail!("TUI mode must be launched before the tokio runtime. Use g3 --tui from the command line.");
     }
 
     // Check if --list-agents was requested

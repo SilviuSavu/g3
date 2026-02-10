@@ -26,6 +26,11 @@ pub struct StreamingState {
     /// Counts consecutive iterations where the LLM responded with text only (no tools).
     /// Used to allow interactive mode ONE auto-continue after tool execution before stopping.
     pub consecutive_text_only_responses: usize,
+    /// Set when a stop sequence is detected in the response.
+    /// Persists across iterations to prevent any auto-continue after stop sequence.
+    pub stop_sequence_seen: bool,
+    /// Recent tool call signatures ("tool_name:args_hash") for repetitive call detection.
+    pub recent_tool_signatures: Vec<String>,
 }
 
 impl StreamingState {
@@ -41,6 +46,8 @@ impl StreamingState {
             assistant_message_added: false,
             turn_accumulated_usage: None,
             consecutive_text_only_responses: 0,
+            stop_sequence_seen: false,
+            recent_tool_signatures: Vec::new(),
         }
     }
 
@@ -53,6 +60,39 @@ impl StreamingState {
     pub fn get_ttft(&self) -> Duration {
         self.first_token_time.unwrap_or_else(|| self.stream_start.elapsed())
     }
+}
+
+/// Create a signature string for a tool call: "tool_name:args_hash".
+pub fn tool_call_signature(tool_call: &ToolCall) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    tool_call.args.to_string().hash(&mut hasher);
+    format!("{}:{:x}", tool_call.tool, hasher.finish())
+}
+
+/// Detect if the last N tool calls show a repeating pattern.
+/// Returns true if the same set of signatures repeats 3 consecutive times.
+/// For example, [A,B,A,B,A,B] with cycle_len=2 repeats 3 times.
+pub fn detect_repetitive_tools(signatures: &[String]) -> bool {
+    let len = signatures.len();
+    if len < 6 {
+        return false;
+    }
+    // Check cycle lengths from 1 to len/3
+    for cycle_len in 1..=(len / 3) {
+        let needed = cycle_len * 3;
+        if needed > len {
+            continue;
+        }
+        let tail = &signatures[len - needed..];
+        let cycle = &tail[..cycle_len];
+        let is_repeating = tail.chunks(cycle_len).all(|chunk| chunk == cycle);
+        if is_repeating {
+            return true;
+        }
+    }
+    false
 }
 
 pub enum ToolOutputFormat {
@@ -631,9 +671,15 @@ pub fn should_auto_continue(
         return Some(AutoContinueReason::MaxTokensTruncation);
     }
 
-    // If the LLM intentionally ended its turn (end_turn), respect that decision.
-    // It had a chance to call more tools and chose not to — don't force it to continue.
-    if stop_reason == Some("end_turn") {
+    // Only auto-continue with ToolsExecuted when we have a clear non-terminal
+    // stop reason (e.g., "tool_use" from Anthropic, "tool_calls" from OpenAI).
+    // All other cases indicate the LLM intentionally finished:
+    //   - "end_turn" (Anthropic): explicit end of turn
+    //   - "stop" (OpenAI): natural completion
+    //   - None: provider didn't propagate reason — treat as natural end
+    // This prevents infinite auto-continue loops when providers don't set stop_reason.
+    let is_tool_stop = matches!(stop_reason, Some("tool_use") | Some("tool_calls"));
+    if !is_tool_stop {
         return None;
     }
 
@@ -785,9 +831,13 @@ mod tests {
     fn test_should_auto_continue_autonomous() {
         use AutoContinueReason::*;
 
-        // Tools executed in autonomous mode, no stop_reason → continue
-        assert_eq!(should_auto_continue(true, true, false, false, false, 0, None), Some(ToolsExecuted));
-        assert_eq!(should_auto_continue(true, true, false, false, false, 5, None), Some(ToolsExecuted));
+        // Tools executed in autonomous mode, no stop_reason → DON'T continue (None = natural end)
+        assert_eq!(should_auto_continue(true, true, false, false, false, 0, None), None);
+        assert_eq!(should_auto_continue(true, true, false, false, false, 5, None), None);
+
+        // Tools executed in autonomous mode, stop_reason = "tool_use" → continue
+        assert_eq!(should_auto_continue(true, true, false, false, false, 0, Some("tool_use")), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(true, true, false, false, false, 5, Some("tool_use")), Some(ToolsExecuted));
 
         // Incomplete tool call
         assert_eq!(should_auto_continue(true, false, true, false, false, 0, None), Some(IncompleteToolCall));
@@ -800,6 +850,9 @@ mod tests {
 
         // Nothing special - no auto-continue
         assert_eq!(should_auto_continue(true, false, false, false, false, 0, None), None);
+
+        // Tools executed, stop_reason = "stop" (OpenAI "stop" = natural end) → don't continue
+        assert_eq!(should_auto_continue(true, true, false, false, false, 0, Some("stop")), None);
     }
 
     #[test]
@@ -823,8 +876,11 @@ mod tests {
     fn test_should_auto_continue_interactive_first_text_response() {
         use AutoContinueReason::*;
 
-        // Interactive mode, tools ran, first text-only response, no stop_reason → continue once
-        assert_eq!(should_auto_continue(false, true, false, false, false, 0, None), Some(ToolsExecuted));
+        // Interactive mode, tools ran, first text-only response, no stop_reason → DON'T continue (None = natural end)
+        assert_eq!(should_auto_continue(false, true, false, false, false, 0, None), None);
+
+        // Interactive mode, tools ran, first text-only response, stop_reason = "tool_use" → continue once
+        assert_eq!(should_auto_continue(false, true, false, false, false, 0, Some("tool_use")), Some(ToolsExecuted));
     }
 
     #[test]
@@ -838,6 +894,58 @@ mod tests {
     fn test_should_auto_continue_interactive_no_tools() {
         // Interactive mode, no tools ran → never continue
         assert_eq!(should_auto_continue(false, false, false, false, false, 0, None), None);
+    }
+
+    #[test]
+    fn test_detect_repetitive_tools_single_repeated() {
+        // A,A,A,A,A,A → cycle of 1 repeated 3+ times
+        let sigs: Vec<String> = vec!["a"; 6].into_iter().map(String::from).collect();
+        assert!(detect_repetitive_tools(&sigs));
+    }
+
+    #[test]
+    fn test_detect_repetitive_tools_pair_repeated() {
+        // A,B,A,B,A,B → cycle of 2 repeated 3 times
+        let sigs: Vec<String> = vec!["a", "b", "a", "b", "a", "b"]
+            .into_iter().map(String::from).collect();
+        assert!(detect_repetitive_tools(&sigs));
+    }
+
+    #[test]
+    fn test_detect_repetitive_tools_no_repeat() {
+        let sigs: Vec<String> = vec!["a", "b", "c", "d", "e", "f"]
+            .into_iter().map(String::from).collect();
+        assert!(!detect_repetitive_tools(&sigs));
+    }
+
+    #[test]
+    fn test_detect_repetitive_tools_too_short() {
+        let sigs: Vec<String> = vec!["a", "a", "a"]
+            .into_iter().map(String::from).collect();
+        assert!(!detect_repetitive_tools(&sigs));
+    }
+
+    #[test]
+    fn test_detect_repetitive_tools_partial_repeat() {
+        // A,B,C,A,B,A,B → not 3 full cycles of any pattern
+        let sigs: Vec<String> = vec!["a", "b", "c", "a", "b", "a", "b"]
+            .into_iter().map(String::from).collect();
+        // Last 6: c,a,b,a,b → no 3x cycle. But let's check carefully.
+        // Actually last 6 = b,c,a,b,a,b - no repeating cycle of any length 3x
+        assert!(!detect_repetitive_tools(&sigs));
+    }
+
+    #[test]
+    fn test_tool_call_signature() {
+        let tc = ToolCall {
+            tool: "shell".to_string(),
+            args: serde_json::json!({"command": "ls"}),
+        };
+        let sig = tool_call_signature(&tc);
+        assert!(sig.starts_with("shell:"));
+        // Same call should produce same signature
+        let sig2 = tool_call_signature(&tc);
+        assert_eq!(sig, sig2);
     }
 
     #[test]

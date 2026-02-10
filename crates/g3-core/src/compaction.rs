@@ -186,6 +186,7 @@ pub async fn perform_compaction<W: UiWriter>(
         stream: false,
         tools: None,
         disable_thinking,
+        stop_sequences: vec![],
     };
     
     // Execute summary request

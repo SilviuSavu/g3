@@ -58,7 +58,18 @@
 
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
-use crate::streaming::{decode_utf8_streaming, is_incomplete_json_error, make_final_chunk};
+use crate::streaming::{decode_utf8_streaming, is_incomplete_json_error, make_final_chunk_with_reason};
+
+/// Convert OpenAI-style finish_reason to our internal stop_reason format
+fn convert_openai_finish_reason(reason: Option<&str>) -> Option<String> {
+    reason.map(|r| match r {
+        "stop" => "end_turn".to_string(),
+        "tool_calls" => "tool_use".to_string(),
+        "length" => "max_tokens".to_string(),
+        "content_filter" => "content_filter".to_string(),
+        other => other.to_string(),
+    })
+}
 use futures_util::stream::StreamExt;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
@@ -406,6 +417,7 @@ impl DatabricksProvider {
         let mut incomplete_data_line = String::new();
         let mut chunk_count = 0;
         let mut byte_buffer = Vec::new();
+        let mut last_finish_reason: Option<String> = None;
 
         while let Some(chunk_result) = stream.next().await {
             // Handle stream errors
@@ -463,7 +475,8 @@ impl DatabricksProvider {
                 if data == "[DONE]" {
                     debug!("Received stream completion marker");
                     let final_calls = finalize_tool_calls(tool_calls);
-                    let _ = tx.send(Ok(make_final_chunk(final_calls, None))).await;
+                    let stop = convert_openai_finish_reason(last_finish_reason.as_deref());
+                    let _ = tx.send(Ok(make_final_chunk_with_reason(final_calls, None, stop))).await;
                     return None;
                 }
 
@@ -484,6 +497,10 @@ impl DatabricksProvider {
                 // Process choices from the chunk
                 let Some(choices) = parsed.choices else { continue };
                 for choice in choices {
+                    // Capture finish_reason whenever it appears
+                    if choice.finish_reason.is_some() {
+                        last_finish_reason = choice.finish_reason.clone();
+                    }
                     // Handle delta content
                     if let Some(delta) = &choice.delta {
                         // Text content
@@ -519,7 +536,8 @@ impl DatabricksProvider {
                     if choice.finish_reason.is_some() {
                         debug!("Choice finished: {:?}", choice.finish_reason);
                         let final_calls = finalize_tool_calls(std::mem::take(&mut tool_calls));
-                        let _ = tx.send(Ok(make_final_chunk(final_calls, None))).await;
+                        let stop = convert_openai_finish_reason(choice.finish_reason.as_deref());
+                        let _ = tx.send(Ok(make_final_chunk_with_reason(final_calls, None, stop))).await;
                         return None;
                     }
                 }
@@ -528,7 +546,8 @@ impl DatabricksProvider {
 
         debug!("Stream ended after {} chunks", chunk_count);
         let final_calls = finalize_tool_calls(tool_calls);
-        let _ = tx.send(Ok(make_final_chunk(final_calls, None))).await;
+        let stop = convert_openai_finish_reason(last_finish_reason.as_deref());
+        let _ = tx.send(Ok(make_final_chunk_with_reason(final_calls, None, stop))).await;
         None
     }
 

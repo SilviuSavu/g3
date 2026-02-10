@@ -161,6 +161,7 @@ pub async fn generate_requirements_summary(
         stream: false,
         tools: None,
         disable_thinking: false,
+        stop_sequences: vec![],
     };
 
     let response = provider
@@ -211,6 +212,7 @@ pub async fn generate_commit_message(
         stream: false,
         tools: None,
         disable_thinking: false,
+        stop_sequences: vec![],
     };
 
     let response = provider

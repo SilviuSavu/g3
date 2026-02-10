@@ -2,6 +2,7 @@
 display_name = "Codebase Scout"
 role = "Codebase exploration specialist"
 keywords = ["codebase", "architecture", "structure", "map"]
+stop_sequences = ["---SCOUT_REPORT_END---"]
 
 [scope]
 read_only = true

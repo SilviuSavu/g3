@@ -27,6 +27,8 @@ pub struct PersonaData {
     pub keywords: Vec<String>,
     pub scope: ScopeBoundaries,
     pub tool_overrides: ToolOverrides,
+    /// Stop sequences that halt LLM generation when encountered in output
+    pub stop_sequences: Vec<String>,
 }
 
 /// Scope boundaries for agent enforcement.
@@ -53,6 +55,8 @@ struct TomlFrontMatter {
     keywords: Vec<String>,
     scope: Option<TomlScope>,
     tools: Option<TomlTools>,
+    #[serde(default)]
+    stop_sequences: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -130,6 +134,7 @@ fn try_parse_toml_front_matter(id: &str, content: &str, from_disk: bool) -> Opti
         tool_overrides: parsed.tools.map(|t| ToolOverrides {
             exclude_tools: t.exclude,
         }).unwrap_or_default(),
+        stop_sequences: parsed.stop_sequences,
     };
 
     Some(Ok(AgentFile {
@@ -294,5 +299,39 @@ You are **Scout**."#;
         assert!(persona.should_exclude_tool("research"));
         assert!(persona.should_exclude_tool("write_file"));
         assert!(!persona.should_exclude_tool("read_file"));
+    }
+
+    #[test]
+    fn test_stop_sequences_parsing() {
+        let content = r#"+++
+display_name = "Scout"
+stop_sequences = ["---END---", "DONE"]
+
+[scope]
+read_only = true
++++
+
+Prompt here.
+"#;
+        let agent = parse_agent_file("scout", content, false).unwrap();
+        assert_eq!(agent.persona.stop_sequences, vec!["---END---", "DONE"]);
+    }
+
+    #[test]
+    fn test_stop_sequences_under_section_not_parsed() {
+        // stop_sequences under [tools] should NOT be read as root-level
+        let content = r#"+++
+display_name = "Scout"
+
+[tools]
+exclude = ["research"]
+stop_sequences = ["---END---"]
++++
+
+Prompt here.
+"#;
+        let agent = parse_agent_file("scout", content, false).unwrap();
+        // stop_sequences is under [tools], not root - should be empty
+        assert!(agent.persona.stop_sequences.is_empty());
     }
 }

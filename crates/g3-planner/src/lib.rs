@@ -98,6 +98,7 @@ pub async fn get_initial_discovery_messages(
         stream: false,
         tools: None,
         disable_thinking: false,
+        stop_sequences: vec![],
     };
 
     status("🤖 Calling LLM for discovery commands...");

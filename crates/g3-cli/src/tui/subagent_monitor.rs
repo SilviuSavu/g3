@@ -29,17 +29,48 @@ pub struct SubagentMonitor {
     last_status_line_count: usize,
     last_subagent_stop_count: usize,
     last_pre_tool_count: usize,
+    // File size cache to avoid re-reading unchanged files
+    status_line_size: u64,
+    subagent_stop_size: u64,
+    pre_tool_size: u64,
 }
 
 impl SubagentMonitor {
     pub fn new(log_dir: PathBuf) -> Self {
+        // Skip ALL existing log entries — only track activity that starts after the TUI launches.
+        // This prevents showing phantom agents from previous/unrelated sessions.
+        let last_status_line_count = Self::count_entries(&log_dir.join("status_line.json"));
+        let last_subagent_stop_count = Self::count_entries(&log_dir.join("subagent_stop.json"));
+        let last_pre_tool_count = Self::count_entries(&log_dir.join("pre_tool_use.json"));
+
+        let status_line_size = Self::file_size(&log_dir.join("status_line.json"));
+        let subagent_stop_size = Self::file_size(&log_dir.join("subagent_stop.json"));
+        let pre_tool_size = Self::file_size(&log_dir.join("pre_tool_use.json"));
+
         Self {
             log_dir,
             agents: HashMap::new(),
-            last_status_line_count: 0,
-            last_subagent_stop_count: 0,
-            last_pre_tool_count: 0,
+            last_status_line_count,
+            last_subagent_stop_count,
+            last_pre_tool_count,
+            status_line_size,
+            subagent_stop_size,
+            pre_tool_size,
         }
+    }
+
+    fn count_entries(path: &PathBuf) -> usize {
+        let Ok(content) = fs::read_to_string(path) else {
+            return 0;
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+            return 0;
+        };
+        value.as_array().map_or(0, |a| a.len())
+    }
+
+    fn file_size(path: &PathBuf) -> u64 {
+        fs::metadata(path).map(|m| m.len()).unwrap_or(0)
     }
 
     pub async fn run(mut self, tx: mpsc::UnboundedSender<Vec<SubagentEntry>>) {
@@ -55,7 +86,6 @@ impl SubagentMonitor {
 
             if changed {
                 if tx.send(self.get_entries()).is_err() {
-                    // Receiver dropped, exit
                     break;
                 }
             }
@@ -64,6 +94,14 @@ impl SubagentMonitor {
 
     fn poll_status_line(&mut self) -> bool {
         let path = self.log_dir.join("status_line.json");
+
+        // Check file size first — skip if unchanged
+        let current_size = Self::file_size(&path);
+        if current_size == self.status_line_size {
+            return false;
+        }
+        self.status_line_size = current_size;
+
         let Ok(content) = fs::read_to_string(&path) else {
             return false;
         };
@@ -130,6 +168,13 @@ impl SubagentMonitor {
 
     fn poll_subagent_stop(&mut self) -> bool {
         let path = self.log_dir.join("subagent_stop.json");
+
+        let current_size = Self::file_size(&path);
+        if current_size == self.subagent_stop_size {
+            return false;
+        }
+        self.subagent_stop_size = current_size;
+
         let Ok(content) = fs::read_to_string(&path) else {
             return false;
         };
@@ -171,6 +216,13 @@ impl SubagentMonitor {
 
     fn poll_pre_tool_use(&mut self) -> bool {
         let path = self.log_dir.join("pre_tool_use.json");
+
+        let current_size = Self::file_size(&path);
+        if current_size == self.pre_tool_size {
+            return false;
+        }
+        self.pre_tool_size = current_size;
+
         let Ok(content) = fs::read_to_string(&path) else {
             return false;
         };
@@ -238,5 +290,15 @@ mod tests {
     fn test_monitor_new() {
         let monitor = SubagentMonitor::new(PathBuf::from("/tmp/nonexistent"));
         assert!(monitor.agents.is_empty());
+    }
+
+    #[test]
+    fn test_count_entries_nonexistent() {
+        assert_eq!(SubagentMonitor::count_entries(&PathBuf::from("/tmp/nonexistent.json")), 0);
+    }
+
+    #[test]
+    fn test_file_size_nonexistent() {
+        assert_eq!(SubagentMonitor::file_size(&PathBuf::from("/tmp/nonexistent.json")), 0);
     }
 }

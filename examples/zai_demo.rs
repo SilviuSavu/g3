@@ -107,6 +107,7 @@ async fn demo_non_streaming(provider: &ZaiProvider) -> Result<()> {
         stream: false,
         tools: None,
         disable_thinking: false,
+        stop_sequences: vec![],
     };
 
     let start = std::time::Instant::now();
@@ -141,6 +142,7 @@ async fn demo_streaming(provider: &ZaiProvider) -> Result<()> {
         stream: true,
         tools: None,
         disable_thinking: false,
+        stop_sequences: vec![],
     };
 
     let start = std::time::Instant::now();
@@ -238,6 +240,7 @@ async fn demo_tool_calling(provider: &ZaiProvider) -> Result<()> {
         stream: true,
         tools: Some(tools),
         disable_thinking: false,
+        stop_sequences: vec![],
     };
 
     let mut stream = provider.stream(request).await?;
