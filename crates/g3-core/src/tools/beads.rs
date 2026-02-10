@@ -242,15 +242,19 @@ async fn run_bd_command(args: &[&str], working_dir: Option<&str>) -> Result<Valu
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Try to parse as JSON
-    serde_json::from_str(&stdout).map_err(|e| {
-        anyhow!(
-            "Failed to parse bd output as JSON: {}\nOutput was: {}",
-            e,
-            stdout
-        )
-    })
+    
+    // Try to parse as JSON first
+    match serde_json::from_str(&stdout) {
+        Ok(json) => Ok(json),
+        Err(_) => {
+            // If not JSON, wrap the output in a JSON object
+            // This handles commands like `bd sync` that output status messages
+            Ok(serde_json::json!({
+                "output": stdout.to_string(),
+                "success": true
+            }))
+        }
+    }
 }
 
 /// Format JSON output for human readability.
@@ -308,7 +312,12 @@ fn format_beads_output(json: &Value, tool_name: &str) -> String {
         }
         "beads_sync" => {
             output.push_str("## Sync Complete\n\n");
-            if let Some(synced) = json.get("synced").and_then(|v| v.as_u64()) {
+            // Handle both JSON output (old format) and wrapped output (new format)
+            if let Some(output_str) = json.get("output").and_then(|v| v.as_str()) {
+                // New format: output is wrapped in a JSON object
+                output.push_str(output_str);
+            } else if let Some(synced) = json.get("synced").and_then(|v| v.as_u64()) {
+                // Old format: direct JSON with synced field
                 output.push_str(&format!("Synced {} changes.\n", synced));
             }
             output.push_str(&format!("```json\n{}\n```\n", serde_json::to_string_pretty(json).unwrap_or_default()));
