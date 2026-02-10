@@ -31,5 +31,8 @@ requirements.md
 todo.g3.md
 tmp/
 
+# Hook logs (may contain API keys)
+logs/
+
 # Studio worktrees
 .worktrees/
