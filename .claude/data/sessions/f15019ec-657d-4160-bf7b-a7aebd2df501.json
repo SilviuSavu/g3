@@ -1,0 +1,7 @@
+{
+  "session_id": "f15019ec-657d-4160-bf7b-a7aebd2df501",
+  "prompts": [
+    "I want you to investigate the bennefit of ading qwen3-reranker-8b to the codebase indexing side of g3",
+    "i think point 2 is already present in this codebase, can you check?"
+  ]
+}

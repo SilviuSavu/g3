@@ -1,0 +1,6 @@
+{
+  "session_id": "209a25d5-496e-4754-a337-7914e90e078a",
+  "prompts": [
+    "why is it always randomly stopping? \"Let me reset the file and apply the changes properly:\n\n{\"type\": \"shell\", \"args\": {\"command\": \"cd /Users/savusilviu/Desktop/self-contained-system/g3 && git checkout crates/g3-core/src/streaming.rs\"}}\n\u25cf\u25cf\u25cf\u25cf\u25cb\u25cb\u25cb\u25cb\u25cb\u25cb 93.7k/262k \u25c9 | 36%\n >> \""
+  ]
+}

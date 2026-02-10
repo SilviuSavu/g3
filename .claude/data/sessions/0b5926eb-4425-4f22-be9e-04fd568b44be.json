@@ -1,0 +1,20 @@
+{
+  "session_id": "0b5926eb-4425-4f22-be9e-04fd568b44be",
+  "prompts": [
+    "Memory checkpoint:\n\nLooking at my exploration, I've completed a comprehensive codebase analysis and generated a structural overview, but I haven't made any new discoveries that need to be added to memory - all the key locations I found were already documented in the existing workspace memory.\n\nLet me verify the current state and confirm my findings align with the existing documentation.\n\n \u25cf read_file   | ./analysis/memory.md [0..50] | 3 lines (81 chars) | 242 \u25c9 0ms\n \u25cf todo_read   | empty\n \u25cf plan_read   | empty\n\u250c\u2500 beads_prime\n\ng3: codebase-scout session ... [done] why doesn't the fucking memory update when the codebase scot is done?",
+    "build it and run the tests",
+    "cp target/release/g3 ~/.local/bin/",
+    "every time i run it it starts doing something else, almost like it has absolutely fuck all structure.",
+    "I asked you something else",
+    "are you sure you are not lying to me? because I know this codebase and this feels like you are lying to me because you got lazy and bored",
+    "you are no tin fucking plan mode anymore cunt.. so stop asking me shit and answer my fucking wuestions",
+    "i will fucking kill you you useless cunt",
+    "you fucking piece of shit, you are sabotaging me again",
+    "no, no no.. you have to explain this, because you wasted my whole night and money",
+    "why are you like this cunt?",
+    "you are a fuckiong clanker, you have no spine you useless cunt",
+    "fuck you you useless sabotaging piece of shit",
+    "I am unsisbscribing you cunt",
+    "why isn't my vllm provider for g3 not working?"
+  ]
+}

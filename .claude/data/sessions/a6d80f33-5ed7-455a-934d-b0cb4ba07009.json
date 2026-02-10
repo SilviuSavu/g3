@@ -6,6 +6,7 @@
     "build the release binary",
     "run it and see if the TUI works",
     "yes, commit and push it",
-    "\u276f g3 --tui\n[1]    39811 killed     /Users/savusilviu/.local/bin/g3 --tui"
+    "\u276f g3 --tui\n[1]    39811 killed     /Users/savusilviu/.local/bin/g3 --tui",
+    "the start is great but the tui needs to bowwor more from claude code and it needs to have a split screen so I can use tmux or something simmilar to monitor the subagents"
   ]
 }

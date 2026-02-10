@@ -23,6 +23,7 @@ pub mod tool_definitions;
 pub mod tool_dispatch;
 pub mod tools;
 pub mod index_client;
+use crate::index_client::IndexClient;
 pub mod ui_writer;
 pub mod utils;
 pub mod webdriver_session;
@@ -196,6 +197,7 @@ impl<W: UiWriter> Agent<W> {
         computer_controller: Option<Box<dyn g3_computer_control::ComputerController>>,
         zai_tools_client: Option<std::sync::Arc<g3_providers::ZaiToolsClient>>,
         mcp_clients: Option<std::sync::Arc<tools::mcp_tools::McpClients>>,
+        index_client: std::sync::Arc<tokio::sync::RwLock<Option<std::sync::Arc<index_client::IndexClient>>>>,
         lsp_manager: Option<std::sync::Arc<tools::lsp::LspManager>>,
         beads_context_injected: bool,
     ) -> Self {
@@ -235,7 +237,7 @@ impl<W: UiWriter> Agent<W> {
             pending_research_manager: pending_research::PendingResearchManager::new(),
             zai_tools_client,
             mcp_clients,
-            index_client: std::sync::Arc::new(tokio::sync::RwLock::new(None)),
+            index_client,
             lsp_manager,
             beads_context_injected,
             active_persona: None,
@@ -341,6 +343,7 @@ impl<W: UiWriter> Agent<W> {
             None,  // computer_controller
             None,  // zai_tools_client
             None,  // mcp_clients
+            std::sync::Arc::new(tokio::sync::RwLock::new(None)),  // index_client
             None,  // lsp_manager
             false, // beads_context_injected
         ))
@@ -569,6 +572,25 @@ impl<W: UiWriter> Agent<W> {
         };
 
         let auto_compact = config.agent.auto_compact;
+        
+        // Initialize IndexClient if indexing is enabled
+        let index_client = if config.index.enabled {
+            let work_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            match IndexClient::new(&config.index, work_dir.as_path()).await {
+                Ok(client) => {
+                    debug!("Initialized IndexClient for workspace: {}", work_dir.display());
+                    std::sync::Arc::new(tokio::sync::RwLock::new(Some(std::sync::Arc::new(client))))
+                }
+                Err(e) => {
+                    warn!("Failed to initialize IndexClient: {}", e);
+                    // Continue with None - index features will fail gracefully
+                    std::sync::Arc::new(tokio::sync::RwLock::new(None))
+                }
+            }
+        } else {
+            std::sync::Arc::new(tokio::sync::RwLock::new(None))
+        };
+        
         Ok(Self::build_agent(
             config,
             ui_writer,
@@ -580,6 +602,7 @@ impl<W: UiWriter> Agent<W> {
             computer_controller,
             zai_tools_client,
             mcp_clients,
+            index_client,
             lsp_manager,
             beads_context_injected,
         ))
@@ -2706,9 +2729,12 @@ Skip if nothing new. Be brief."#;
                                 }
                             };
 
-                            // Add the tool call and result to the context window using RAW unfiltered content
-                            // This ensures the log file contains the true raw content including JSON tool calls
-                            let tool_message = if !raw_content_for_log.trim().is_empty() {
+                            // Add the tool call and result to the context window using RAW unfiltered content.
+                            // Only include the text prefix for the FIRST tool call in a multi-tool response.
+                            // For subsequent tools, iter.tool_executed is already true, so we skip the text
+                            // to avoid duplicating the same text in the context window for every tool call.
+                            let include_text = !raw_content_for_log.trim().is_empty() && !iter.tool_executed;
+                            let tool_message = if include_text {
                                 Message::new(
                                     MessageRole::Assistant,
                                     format!(
@@ -2719,7 +2745,7 @@ Skip if nothing new. Be brief."#;
                                     ),
                                 )
                             } else {
-                                // No text content before tool call, just include the tool call
+                                // No text content (or already included with prior tool call)
                                 Message::new(
                                     MessageRole::Assistant,
                                     format!(
@@ -2831,16 +2857,19 @@ Skip if nothing new. Be brief."#;
                                 );
                                 // Mark current tool as consumed so we don't re-detect it
                                 iter.parser.mark_tool_calls_consumed();
+                                // DON'T clear current_response or response_started here!
+                                // The parser still has the same text buffer, and clearing would
+                                // cause the same text to be displayed and added to context again
+                                // for each subsequent tool call in the same response.
                             } else {
                                 // Reset parser for next iteration - this clears the text buffer
                                 iter.parser.reset();
-                            }
 
-                            // Clear current_response for next iteration to prevent buffered text
-                            // from being incorrectly displayed after tool execution
-                            iter.current_response.clear();
-                            // Reset for next iteration (value read in next loop pass)
-                            state.response_started = false;
+                                // Only clear display state when parser is fully consumed,
+                                // preventing duplicate text display for multi-tool responses
+                                iter.current_response.clear();
+                                state.response_started = false;
+                            }
 
                             // Continue processing - don't break mid-stream
                         } // End of for loop processing each tool call

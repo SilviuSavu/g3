@@ -507,10 +507,16 @@ pub async fn execute_index_status<W: UiWriter>(
     // Check if client is initialized
     match &ctx.index_client {
         Some(client) => {
+            // Get health status
             let stats = client.get_stats().await;
+            let has_graph = client.has_graph().await;
+            
+            // Determine overall status
+            let status = if has_graph { "healthy" } else { "connected" };
+            
             let result = json!({
                 "enabled": true,
-                "status": "connected",
+                "status": status,
                 "working_dir": client.working_dir().to_string_lossy(),
                 "stats": {
                     "files_indexed": stats.files_processed,
@@ -519,6 +525,9 @@ pub async fn execute_index_status<W: UiWriter>(
                 "config": {
                     "qdrant_url": ctx.config.index.qdrant_url,
                     "collection": ctx.config.index.collection_name,
+                    "graph_available": has_graph,
+                    "qdrant_status": "connected",
+                    "indexer_status": "ready",
                     "embedding_model": ctx.config.index.embeddings.model,
                     "dimensions": ctx.config.index.embeddings.dimensions,
                     "hybrid_search": ctx.config.index.search.hybrid,

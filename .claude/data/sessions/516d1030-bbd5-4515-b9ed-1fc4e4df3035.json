@@ -1,0 +1,8 @@
+{
+  "session_id": "516d1030-bbd5-4515-b9ed-1fc4e4df3035",
+  "prompts": [
+    "\ud83d\udd04 Auto-continuing at session complete keeps going. session complete flag should stop the session",
+    "build it",
+    "commit this"
+  ]
+}

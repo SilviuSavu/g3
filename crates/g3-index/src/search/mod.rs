@@ -14,10 +14,11 @@ use tokio::sync::RwLock;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::embeddings::EmbeddingProvider;
 use crate::qdrant::{QdrantClient, SearchFilter, SearchHit};
+use crate::reranker::{Reranker, RerankerDoc};
 
 /// A search result with relevance score and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,6 +117,7 @@ pub struct HybridSearcher<E: EmbeddingProvider + ?Sized> {
     embeddings: Arc<E>,
     qdrant: QdrantClient,
     bm25_index: Arc<RwLock<BM25Index>>,
+    reranker: Option<Arc<dyn Reranker>>,
 }
 
 impl<E: EmbeddingProvider + ?Sized> HybridSearcher<E> {
@@ -131,6 +133,24 @@ impl<E: EmbeddingProvider + ?Sized> HybridSearcher<E> {
             embeddings,
             qdrant,
             bm25_index,
+            reranker: None,
+        }
+    }
+
+    /// Create a new hybrid searcher with an optional reranker.
+    pub fn new_with_reranker(
+        config: SearchConfig,
+        embeddings: Arc<E>,
+        qdrant: QdrantClient,
+        bm25_index: Arc<RwLock<BM25Index>>,
+        reranker: Option<Arc<dyn Reranker>>,
+    ) -> Self {
+        Self {
+            config,
+            embeddings,
+            qdrant,
+            bm25_index,
+            reranker,
         }
     }
 
@@ -145,6 +165,7 @@ impl<E: EmbeddingProvider + ?Sized> HybridSearcher<E> {
             embeddings,
             qdrant,
             bm25_index: Arc::new(RwLock::new(BM25Index::new())),
+            reranker: None,
         }
     }
 
@@ -234,6 +255,117 @@ impl<E: EmbeddingProvider + ?Sized> HybridSearcher<E> {
 
         // Filter by minimum score
         results.retain(|r| r.score >= self.config.min_score);
+
+        Ok(results)
+    }
+
+    /// Search with custom vector/BM25 weights (used by query-adaptive weighting).
+    ///
+    /// Same as `search()` but uses the provided weights instead of config defaults.
+    pub async fn search_with_weights(
+        &self,
+        query: &str,
+        filter: Option<SearchFilter>,
+        vector_weight: f32,
+        bm25_weight: f32,
+        rerank_limit: Option<usize>,
+    ) -> Result<Vec<SearchResult>> {
+        debug!("Searching with adaptive weights: vector={}, bm25={}", vector_weight, bm25_weight);
+
+        let query_vector = self.embeddings.embed(query).await?;
+        let fetch_limit = self.config.limit * 3;
+
+        let vector_hits = self
+            .qdrant
+            .search(query_vector, fetch_limit, filter)
+            .await?;
+
+        let vector_results: Vec<(String, f32)> = vector_hits
+            .iter()
+            .map(|hit| (hit.id.clone(), hit.score))
+            .collect();
+
+        let hits_map: HashMap<String, &SearchHit> = vector_hits
+            .iter()
+            .map(|hit| (hit.id.clone(), hit))
+            .collect();
+
+        let final_ranking = if self.config.hybrid && !self.bm25_index.read().await.is_empty() {
+            let bm25_index = self.bm25_index.read().await;
+            let bm25_results = bm25_index.search(query, fetch_limit);
+
+            reciprocal_rank_fusion(
+                &vector_results,
+                &bm25_results,
+                self.config.rrf_k,
+                vector_weight,
+                bm25_weight,
+            )
+        } else {
+            vector_results
+        };
+
+        let mut results: Vec<SearchResult> = Vec::new();
+
+        for (id, combined_score) in final_ranking.iter().take(self.config.limit) {
+            if let Some(hit) = hits_map.get(id) {
+                let result = SearchResult {
+                    id: id.clone(),
+                    file_path: hit.payload.file_path.clone(),
+                    start_line: hit.payload.line_start,
+                    end_line: hit.payload.line_end,
+                    content: hit.payload.code.clone(),
+                    kind: hit.payload.chunk_type.clone(),
+                    name: if hit.payload.name.is_empty() {
+                        None
+                    } else {
+                        Some(hit.payload.name.clone())
+                    },
+                    signature: hit.payload.signature.clone(),
+                    scope: hit.payload.scope.clone(),
+                    score: *combined_score,
+                    vector_score: Some(hit.score),
+                    bm25_score: None,
+                };
+                results.push(result);
+            }
+        }
+
+        results.retain(|r| r.score >= self.config.min_score);
+
+        // Apply reranker if configured
+        if let Some(reranker) = &self.reranker {
+            let top_n = rerank_limit.unwrap_or(results.len());
+            let candidates: Vec<RerankerDoc> = results.iter().take(top_n)
+                .map(|r| RerankerDoc {
+                    id: r.id.clone(),
+                    content: r.content.clone(),
+                })
+                .collect();
+
+            if !candidates.is_empty() {
+                match reranker.rerank(query, &candidates).await {
+                    Ok(rerank_results) => {
+                        let relevant_ids: std::collections::HashSet<String> = rerank_results
+                            .iter()
+                            .filter(|r| r.relevant)
+                            .map(|r| r.id.clone())
+                            .collect();
+
+                        debug!(
+                            "Reranker kept {}/{} results",
+                            relevant_ids.len(),
+                            candidates.len()
+                        );
+
+                        results.retain(|r| relevant_ids.contains(&r.id));
+                    }
+                    Err(e) => {
+                        warn!("Reranking failed, keeping original results: {}", e);
+                    }
+                }
+            }
+        }
 
         Ok(results)
     }

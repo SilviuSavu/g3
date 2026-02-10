@@ -271,6 +271,14 @@ pub struct SearchConfig {
     /// Enable reranking step
     #[serde(default)]
     pub rerank: bool,
+    /// URL for the reranker service (e.g., "http://192.168.1.6:1234")
+    pub reranker_url: Option<String>,
+    /// Model name for the reranker (e.g., "qwen3-reranker-8b-mlx")
+    pub reranker_model: Option<String>,
+    /// API key for the reranker service (optional)
+    pub reranker_api_key: Option<String>,
+    /// Number of top candidates to send to the reranker (default: 2x limit)
+    pub rerank_top_n: Option<usize>,
 }
 
 fn default_bm25_weight() -> f32 {
@@ -288,6 +296,10 @@ impl Default for SearchConfig {
             bm25_weight: default_bm25_weight(),
             vector_weight: default_vector_weight(),
             rerank: false,
+            reranker_url: None,
+            reranker_model: None,
+            reranker_api_key: None,
+            rerank_top_n: None,
         }
     }
 }
@@ -1005,15 +1017,20 @@ impl Config {
                         ));
                     }
                 }
-                _ => {
-                    // Check openai_compatible
+                "openai_compatible" => {
                     if let Some(ref mut compat_config) =
-                        config.providers.openai_compatible.get_mut(&provider_type)
+                        config.providers.openai_compatible.get_mut(&config_name)
                     {
                         compat_config.model = model;
                     } else {
-                        return Err(anyhow::anyhow!("Unknown provider type: {}", provider_type));
+                        return Err(anyhow::anyhow!(
+                            "Provider config 'openai_compatible.{}' not found.",
+                            config_name
+                        ));
                     }
+                }
+                _ => {
+                    return Err(anyhow::anyhow!("Unknown provider type: {}", provider_type));
                 }
             }
         }
@@ -1137,14 +1154,18 @@ impl Config {
                 .get(&config_name)
                 .map(ProviderConfigRef::Zai)
                 .ok_or_else(|| anyhow::anyhow!("Z.ai config '{}' not found", config_name)),
-            _ => self
+            "openai_compatible" => self
                 .providers
                 .openai_compatible
-                .get(&provider_type)
+                .get(&config_name)
                 .map(ProviderConfigRef::OpenAICompatible)
                 .ok_or_else(|| {
-                    anyhow::anyhow!("OpenAI compatible config '{}' not found", provider_type)
+                    anyhow::anyhow!("OpenAI compatible config '{}' not found", config_name)
                 }),
+            _ => anyhow::bail!(
+                "Unknown provider type '{}'. Valid types: anthropic, openai, databricks, embedded, gemini, zai, openai_compatible",
+                provider_type
+            ),
         }
     }
 

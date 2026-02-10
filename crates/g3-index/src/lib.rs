@@ -17,6 +17,7 @@ pub mod indexer;
 pub mod integration;
 pub mod manifest;
 pub mod qdrant;
+pub mod reranker;
 pub mod search;
 pub mod storage;
 pub mod traverser;
@@ -35,7 +36,8 @@ pub use storage::{
     DEFAULT_GRAPH_DIR, FileIndex, FileIndexEntry, GraphStorage, ScannedFile, SnapshotMetadata,
     UpdateStats,
 };
-pub use unified_index::{UnifiedIndex, UnifiedSearchResult, UnifiedSearchSource, QueryPlanner, QueryPlan};
+pub use reranker::{ChatReranker, Reranker, RerankerDoc, RerankResult};
+pub use unified_index::{UnifiedIndex, UnifiedSearchResult, UnifiedSearchSource, QueryPlanner, QueryPlan, QueryStrategy};
 pub use traverser::{GraphTraverser, TraversalConfig, TraversalResult};
 pub use integration::{CrossIndexQuery, CrossIndexStrategy, IndexConnector, EnrichmentConfig};
 

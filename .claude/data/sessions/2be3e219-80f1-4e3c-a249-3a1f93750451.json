@@ -1,0 +1,9 @@
+{
+  "session_id": "2be3e219-80f1-4e3c-a249-3a1f93750451",
+  "prompts": [
+    "what do you think abut this repo? https://github.com/PromtEngineer/agentic-file-search.git",
+    "yes please",
+    "I would like to know your expert oppinion here regarding the integration into g3. I feell like a separate persona or an overall agent would be interesting, simmilar to the scout agent but also an upgrade to our tools for codebase indexing, search, etc so that the llm is more aware of the codebase it is working on. what's your sme oppinion?",
+    "g3 has an inteligence codebase engine or something that encomposes a lot of tools that all look inward at the codebase. can you look into that a bit longer and deeper please?"
+  ]
+}

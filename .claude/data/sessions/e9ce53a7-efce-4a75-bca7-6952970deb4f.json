@@ -1,0 +1,14 @@
+{
+  "session_id": "e9ce53a7-efce-4a75-bca7-6952970deb4f",
+  "prompts": [
+    "is g3 unable to use this tool?\"Now let me start implementing:\n2026-02-08T19:02:40.634536Z  WARN g3_core::tool_dispatch: Unknown tool: todo_write\nLet me create the file system cache module:\n2026-02-08T19:02:43.485276Z  WARN g3_core::tool_dispatch: Unknown tool: todo_write\nLet me create the directory cache module:\"",
+    "implement them",
+    "run cargo test -p g3-core",
+    "commit this",
+    "push it",
+    "how does this not collide tith the beads implementation?",
+    "can you check if they are perfectly wired up? and if not just check the original repo to see how todo tool are wired: https://github.com/dhanji/g3.git",
+    "now build and copy the binary",
+    "run g3 and test the todo tools"
+  ]
+}

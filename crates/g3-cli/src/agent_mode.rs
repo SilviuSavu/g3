@@ -291,7 +291,21 @@ pub async fn run_agent_mode(
     }
 
     // Single-shot mode: execute the task and exit
-    let _result = agent.execute_task(&final_task, None, true).await?;
+    let result = agent.execute_task(&final_task, None, true).await?;
+
+    // For codebase-scout: persist report findings to workspace memory
+    if agent_name == "codebase-scout" {
+        use g3_core::tools::memory::update_memory;
+        use g3_core::tools::codebase_scout::condense_report_for_memory;
+
+        let memory_content = condense_report_for_memory(&result.response);
+        if !memory_content.is_empty() {
+            let wd = workspace_dir.to_str();
+            if let Err(e) = update_memory(&memory_content, wd) {
+                debug!("Failed to update workspace memory with scout report: {}", e);
+            }
+        }
+    }
 
     // Send auto-memory reminder if enabled and tools were called
     if let Err(e) = agent.send_auto_memory_reminder().await {

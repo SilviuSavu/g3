@@ -420,19 +420,97 @@ impl LLMProvider for OpenAIProvider {
 }
 
 fn convert_messages(messages: &[Message]) -> Vec<serde_json::Value> {
-    messages
-        .iter()
-        .map(|msg| {
-            json!({
-                "role": match msg.role {
-                    MessageRole::System => "system",
-                    MessageRole::User => "user",
-                    MessageRole::Assistant => "assistant",
-                },
-                "content": msg.content,
-            })
-        })
-        .collect()
+    let mut result = Vec::new();
+    // Tracks the synthetic tool_call_id from the most recent assistant tool call message,
+    // so the immediately following "Tool result: ..." user message can be converted to
+    // role:"tool" with the matching ID (required by OpenAI's API).
+    let mut pending_tool_call_id: Option<String> = None;
+    let mut tool_id_counter: u64 = 0;
+
+    for msg in messages {
+        match msg.role {
+            MessageRole::System => {
+                result.push(json!({
+                    "role": "system",
+                    "content": msg.content,
+                }));
+            }
+            MessageRole::Assistant => {
+                if let Some((prefix, tool_name, args_str)) = parse_g3_tool_call(&msg.content) {
+                    let call_id = format!("call_{}", tool_id_counter);
+                    tool_id_counter += 1;
+
+                    let mut message = json!({
+                        "role": "assistant",
+                        "tool_calls": [{
+                            "id": &call_id,
+                            "type": "function",
+                            "function": {
+                                "name": tool_name,
+                                "arguments": args_str,
+                            }
+                        }]
+                    });
+
+                    if !prefix.is_empty() {
+                        message["content"] = json!(prefix);
+                    }
+
+                    pending_tool_call_id = Some(call_id);
+                    result.push(message);
+                } else {
+                    result.push(json!({
+                        "role": "assistant",
+                        "content": msg.content,
+                    }));
+                }
+            }
+            MessageRole::User => {
+                if let Some(call_id) = pending_tool_call_id.take() {
+                    if let Some(tool_result) = msg.content.strip_prefix("Tool result: ") {
+                        result.push(json!({
+                            "role": "tool",
+                            "tool_call_id": call_id,
+                            "content": tool_result,
+                        }));
+                    } else {
+                        // Not a tool result despite pending call - send as normal user message
+                        result.push(json!({
+                            "role": "user",
+                            "content": msg.content,
+                        }));
+                    }
+                } else {
+                    result.push(json!({
+                        "role": "user",
+                        "content": msg.content,
+                    }));
+                }
+            }
+        }
+    }
+
+    result
+}
+
+/// Parse a g3-format tool call from an assistant message content.
+/// g3 stores tool calls as: `{"tool": "name", "args": <value>}`
+/// optionally preceded by text (e.g. "Let me search for that.\n\n{"tool": ...}").
+/// Returns (prefix_text, tool_name, args_json_string) if found.
+fn parse_g3_tool_call(content: &str) -> Option<(String, String, String)> {
+    // Find the last occurrence of the tool call JSON marker
+    let tool_start = content.rfind("{\"tool\":")
+        .or_else(|| content.rfind("{\"tool\" :"))?;
+
+    let prefix = content[..tool_start].trim().to_string();
+    let json_str = &content[tool_start..];
+
+    let parsed: serde_json::Value = serde_json::from_str(json_str).ok()?;
+    let name = parsed.get("tool")?.as_str()?.to_string();
+    let args = parsed.get("args")?;
+    let args_str = serde_json::to_string(args).ok()?;
+
+    Some((prefix, name, args_str))
 }
 
 fn convert_tools(tools: &[Tool]) -> Vec<serde_json::Value> {

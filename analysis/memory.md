@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-10T00:09:07Z | Size: 51.1k chars
+> Updated: 2026-02-10T14:14:59Z | Size: 70.6k chars
 
 ### Final Output Test
 Test for the final_output tool with TEST_SUCCESS success indicator.
@@ -1200,3 +1200,371 @@ Progressive resource management at 4 thresholds:
 - `crates/g3-core/src/ui_writer.rs` - 14 dependents (UiWriter trait)
 - `crates/g3-cli/src/interactive.rs` - 11 dependencies (highest fan-out)
 - `crates/g3-core/src/tools/executor.rs` - 7 dependencies (integration point)
+
+### Agent Architecture
+Main agent struct orchestrating context, provider, tools, and configuration with streaming completion loop.
+
+- `crates/g3-core/src/lib.rs`
+  - `Agent<W>` [121..174] - main agent struct with context_window, provider, tools, config, working_dir
+  - `stream_completion_with_tools()` [2291..3139] - async main loop with streaming, tool execution, retry
+  - `force_compact()` [1328..1380] - context window compaction at 80% threshold
+  - `execute_task()` [929..937] - task execution wrapper calling execute_task_with_options
+  - `add_message_to_context()` [1238..1240] - adds messages to context window
+
+### LLM Provider Abstraction
+Unified interface for all LLM providers with Send + Sync bounds for async runtime compatibility.
+
+- `crates/g3-providers/src/lib.rs`
+  - `LLMProvider` trait [14..48] - complete(), stream(), name(), model(), supports_native_tools()
+  - `ProviderRegistry` - dynamic provider management with name-based lookup
+
+### Context Window Intelligence
+Progressive resource management at 4 thresholds (50%, 60%, 70%, 80%) with compaction at 80%.
+
+- `crates/g3-core/src/context_window.rs`
+  - `ContextWindow` [75..83] - used_tokens, total_tokens, cumulative_tokens, conversation_history
+  - `should_compact()` [222..224] - threshold check (80% usage or 150k tokens)
+  - `thin_context()` - replace large results with file references
+  - `reset_with_summary()` - compact history to summary
+
+### Tool System
+Configurable tool definitions via ToolConfig builder pattern with 42+ available tools.
+
+- `crates/g3-core/src/tool_definitions.rs`
+  - `ToolConfig` [12..21] - webdriver, computer_control, zai_tools, mcp_tools, beads_tools, index_tools, lsp_tools
+  - `create_core_tools()` [104..514] - core 22 tools definition (shell, write_file, str_replace, etc.)
+  - `create_tool_definitions()` [73..101] - full tool set with optional tool sets
+
+### Codebase Intelligence System
+Unified codebase indexing with semantic search, knowledge graph, and 12 relationship types.
+
+- `crates/g3-index/src/unified_index.rs`
+  - `UnifiedIndex` - semantic search & knowledge graph integration
+- `crates/g3-index/src/traverser.rs`
+  - `Traverser` - BFS/DFS/graph traversal utilities
+- `crates/g3-core/src/tools/intelligence.rs`
+  - 7 subcommands: find, refs, callers, callees, similar, graph, query
+
+### Session Continuation
+Save/restore session state across g3 invocations using symlink-based approach.
+
+- `crates/g3-core/src/session_continuation.rs`
+  - `SessionContinuation` [850..2100] - artifact struct with session state, TODO snapshot, context %
+  - `save_continuation()` [5765..7200] - saves to `.g3/sessions/<id>/latest.json`, updates symlink
+  - `load_continuation()` [7250..8900] - follows `.g3/session` symlink to restore
+  - `find_incomplete_agent_session()` [10500..13200] - finds sessions with incomplete TODOs for agent resume
+
+### Streaming Completion Loop
+Main execution pattern with real-time JSON tool call detection via StreamingParser.
+
+- `crates/g3-core/src/streaming.rs`
+  - `MAX_ITERATIONS` [13] - constant (400) to prevent runaway loops
+  - `StreamingState` [16] - cross-iteration: full_response, first_token_time, iteration_count
+  - `should_auto_continue()` [654..697] - handles incomplete/unexecuted tool calls
+
+### Execution Modes
+6 distinct modes: interactive (default), autonomous (coach-player), accumulative, planning, agent mode, studio (multi-agent).
+
+- `crates/g3-cli/src/lib.rs`
+  - `run()` [108..143] - CLI entry point with mode dispatch
+- `crates/g3-cli/src/interactive.rs`
+  - `run_interactive()` [192..526] - REPL-style conversation mode
+- `crates/g3-cli/src/autonomous.rs`
+  - `run_autonomous()` [20..265] - coach-player feedback loop mode
+
+### Error Classification
+Recoverable vs non-recoverable errors with exponential backoff (3 attempts default, 6 in autonomous mode).
+
+- `crates/g3-core/src/error_handling.rs`
+  - `classify_error()` [64..143] - recoverable (rate limits, network, server, timeout) vs non-recoverable
+  - `RecoverableError` - rate limit > network > server > busy > timeout > token limit > context length
+
+### Codebase Scout Agent
+Purpose: Quick orientation for developers new to the g3 codebase.
+
+- `crates/g3-core/src/tools/codebase_scout.rs` - tool that spawns scout agents
+- `agents/codebase-scout.md` - agent persona definition
+
+### Module Architecture
+Crate-level organization with clear separation of concerns and dependency flow.
+
+**Core Crates**:
+- `g3-core` - Agent engine, streaming, context management, tool execution (5 incoming deps)
+- `g3-cli` - CLI interface with 6 execution modes (uses g3-core, g3-providers, g3-config)
+- `g3-providers` - LLM provider abstraction (5 implementations)
+- `g3-index` - Codebase indexing with semantic search & knowledge graph
+- `g3-config` - Configuration management with hierarchical resolution
+- `g3-execution` - Task execution utilities
+- `g3-lsp` - LSP client integration
+- `g3-planner` - Requirements-driven development mode
+- `g3-computer-control` - Computer control & webdriver integration
+- `g3-ensembles` - Ensemble coordination utilities
+- `g3-console` - Console/UI framework
+- `g3-playground` - Testing/experiments
+- `g3-studio` - Multi-agent workspace manager
+
+**Dependency Flow**:
+- Leaf crates (zero outgoing deps): g3-config, g3-providers, g3-execution, g3-computer-control
+- Hub crate (high incoming deps): g3-core (5 incoming deps)
+- Consumer crate: g3-cli (uses g3-core, g3-providers, g3-config)
+- Isolated crate: studio (no internal g3 dependencies)
+
+See analysis/deps/graph.summary.md for full dependency graph analysis.
+
+### Codebase Scout Agent
+Purpose: Quick orientation for developers new to the g3 codebase.
+
+- `crates/g3-core/src/tools/codebase_scout.rs` - tool that spawns scout agents
+- `agents/codebase-scout.md` - agent persona definition
+
+### Architecture Documentation in Memory
+The Workspace Memory in `analysis/memory.md` contains comprehensive documentation of the g3 codebase structure, patterns, and key locations:
+
+- `crates/g3-core/src/lib.rs` - Main Agent struct and orchestration (~3400 lines total)
+- `crates/g3-providers/src/lib.rs` - LLMProvider trait definition with 5+ implementations
+- `crates/g3-core/src/tool_definitions.rs` - 42 tools defined with ToolConfig builder pattern
+- `crates/g3-core/src/context_window.rs` - ContextWindow struct with thinning at 50-80%
+- `crates/g3-cli/src/lib.rs` - CLI mode dispatch with 6 execution modes
+- `crates/g3-core/src/streaming.rs` - MAX_ITERATIONS constant (400) prevents runaway loops
+
+### Dependency Architecture
+Crate-level coupling pattern with clear separation:
+
+- **Leaf crates** (zero outgoing deps): g3-config, g3-providers, g3-execution, g3-computer-control
+- **Hub crate** (high incoming deps): g3-core (5 incoming deps from other crates)
+- **Consumer crate**: g3-cli (uses g3-core, g3-providers, g3-config)
+- **Isolated crate**: studio (no internal g3 dependencies)
+
+See analysis/deps/graph.summary.md for full dependency graph analysis.
+
+## Codebase Scout Tool Issues
+
+### Issue 1: Memory Update Race Condition
+The `execute_codebase_scout()` tool DOES update memory, but asynchronously in a background task, causing potential timing issues.
+
+- `crates/g3-core/src/tools/codebase_scout.rs:73-83`
+  - `tokio::spawn()` background task updates memory via `update_memory()`
+  - If task fails or doesn't complete, memory update silently fails
+  - No await/verify mechanism for memory update completion
+  - Only logs errors, doesn't fail the tool call
+
+### Issue 2: Scout Agent Outputs Unstructured Content
+The codebase scout agent produces one big prompt rather than the required structured sections.
+
+- `crates/g3-core/src/tools/research.rs:945-977` - `extract_report_from_output()` requires `---SCOUT_REPORT_START---`/`---SCOUT_REPORT_END---` markers
+- `agents/codebase-scout.md` - Agent prompt doesn't enforce the 5 required sections (Directory Structure, Core Abstractions, Architectural Patterns, Key Data Flows, Hot Spots)
+- `crates/g3-core/src/tools/codebase_scout.rs:150-175` - `condense_report_for_memory()` expects the report format but receives unstructured content
+
+### Problem Flow
+1. Agent runs `g3 --agent codebase-scout` with query
+2. Agent explores codebase and outputs natural language exploration
+3. Agent wraps output in `---SCOUT_REPORT_START---`/`---SCOUT_REPORT_END---`
+4. Background task extracts report (works if markers present)
+5. Background task calls `update_memory()` (asynchronous, may not complete)
+6. Memory may not get updated due to async timing or scout output format mismatch
+
+### Codebase Scout Memory Update
+- `crates/g3-core/src/tools/codebase_scout.rs` [88..103] - `execute_codebase_scout()` - async tool that spawns scout agent, updates workspace memory on success
+  - Uses `condense_report_for_memory()` to create memory content
+  - Uses `update_memory()` with error handling
+  - Properly logs success/failure to tracing
+
+### Codebase Scout Agent (g3's Codebase Exploration System)
+
+Purpose: Quick orientation for developers new to the g3 codebase. Produces compressed structural overview.
+
+- `agents/codebase-scout.md` - Agent persona definition with exploration strategy
+- `crates/g3-core/src/tools/codebase_scout.rs` - Tool that spawns scout agents
+- `analysis/deps/` - Static analysis artifacts (graph.json, graph.summary.md, hotspots.md, layers.observed.md, sccs.md, limitations.md)
+
+**Exploration Strategy** (must follow this order):
+1. Top-level directory structure (crates/, analysis/, agents/, docs/, specs/, examples/, scripts/, prompts/)
+2. Core abstractions (use code_intelligence, graph_find_symbol, graph_file_symbols)
+3. Data flows and dependencies (callers, references, graph traversal)
+4. Hot spots and complexity (complexity_metrics, analysis/deps/hotspots.md)
+5. Final report with ---SCOUT_REPORT_START---/---SCOUT_REPORT_END--- markers
+
+**Analysis Artifacts** (generated by euler agent):
+- graph.json - Canonical dependency graph with nodes (crates, files) and edges (imports)
+- graph.summary.md - One-page overview with metrics, entrypoints, top fan-in/fan-out
+- sccs.md - Strongly connected components (dependency cycles) analysis
+- layers.observed.md - Observed layering structure derived from dependency direction
+- hotspots.md - Files with disproportionate coupling (high fan-in or fan-out)
+- limitations.md - What could not be observed and what may invalidate conclusions
+
+### g3's Layered Architecture (Crate-Level)
+
+**Layer 0 (Foundation/Leaf)**: g3-config, g3-execution, g3-computer-control, g3-providers
+- Zero outgoing dependencies
+- Provide foundational abstractions (config, execution, computer control, LLM providers)
+
+**Layer 1 (Core Engine)**: g3-core
+- 4 outgoing deps (g3-providers, g3-config, g3-execution, g3-computer-control)
+- 18 incoming deps (highest fan-in)
+- Contains: Agent struct, streaming completion loop, context window, tool system
+
+**Layer 2 (Orchestration)**: g3-planner
+- 3 outgoing deps (g3-providers, g3-core, g3-config)
+- Requirements-driven development mode
+
+**Layer 3 (CLI/Application)**: g3-cli
+- 5 outgoing deps (g3-core, g3-config, g3-planner, g3-computer-control, g3-providers)
+- 6 execution modes: interactive, autonomous, accumulative, planning, agent mode, studio
+
+**Layer 4 (Binary Entry)**: g3 root binary
+- Single dependency on g3-cli
+- Minimal entry point that delegates to g3-cli
+
+**Separate**: studio (standalone multi-agent workspace manager)
+- Zero g3 crate dependencies
+- Isolated from g3 crate ecosystem
+- May interact via filesystem/process boundaries
+
+**Directionality**: All dependencies flow downward (higher layer → lower layer). No upward violations detected.
+
+### g3's 10 Core Abstractions
+
+| Name | Kind | File | Purpose | Key Relationships |
+|------|------|------|---------|-------------------|
+| `Agent<W>` | struct | `crates/g3-core/src/lib.rs:124` | Main agent orchestrating context, provider, tools | Used by g3-cli for all operations |
+| `LLMProvider` | trait | `crates/g3-providers/src/lib.rs:14` | Unified interface for all LLM providers | Implemented by Anthropic, OpenAI, Gemini, Databricks, Embedded, Mock |
+| `ContextWindow` | struct | `crates/g3-core/src/context_window.rs:75` | Token tracking and message history | Used by Agent for context management |
+| `ToolConfig` | struct | `crates/g3-core/src/tool_definitions.rs:12` | Configurable tool set builder | Used by create_tool_definitions() to generate 42 tools |
+| `Message` | struct | `crates/g3-providers/src/lib.rs:102` | Conversation message with cache control | Core data type for provider communication |
+| `CompletionRequest` | struct | `crates/g3-providers/src/lib.rs:51` | LLM completion request parameters | Used by stream_completion_with_tools() |
+| `ToolCall` | struct | `crates/g3-core/src/lib.rs:82` | Tool execution request | Core data type for tool system |
+| `StreamingState` | struct | `crates/g3-core/src/streaming.rs:16` | Cross-iteration streaming state | Used by stream_completion_with_tools() |
+| `UiWriter` | trait | `crates/g3-core/src/ui_writer.rs` | Output abstraction for tools | Implemented by ConsoleUiWriter, NullUiWriter |
+| `ProviderRegistry` | struct | `crates/g3-providers/src/lib.rs:357` | Dynamic provider management | Used by Agent to select LLM provider |
+
+**Key Traits**:
+- `LLMProvider`: `Send + Sync` for async runtime compatibility
+- `UiWriter`: Output abstraction for all tool implementations
+
+### g3's 6 Execution Modes
+
+1. **Interactive** (default): `g3` - REPL-style conversation with real-time tool execution
+2. **Autonomous**: `g3 --autonomous` - Coach-player feedback loop with automatic continuation
+3. **Accumulative**: Default interactive with autonomous runs - Evolutionary requirements
+4. **Planning**: `g3 --planning` - Requirements-driven development with codepath prompt
+5. **Agent Mode**: `g3 --agent <name>` - Specialized agent personas (carmack, hopper, euler, etc.)
+6. **Studio**: `studio run` - Multi-agent workspace manager with git worktrees
+
+**CLI Entry Points**:
+- `crates/g3-cli/src/interactive.rs` - Interactive mode
+- `crates/g3-cli/src/autonomous.rs` - Autonomous mode (coach-player loop)
+- `crates/g3-cli/src/agent_mode.rs` - Agent mode with custom prompts
+- `crates/g3-cli/src/accumulative.rs` - Accumulative mode
+- `crates/g3-planner/src/lib.rs` - Planning mode (g3-planner crate)
+
+**Key Feature**: Mode selection menu appears when running `g3` without arguments
+
+### g3's Tool System (42 Tools)
+
+**Core Tools** (22): shell, write_file, str_replace, read_file, preview_file, list_directory, list_files, scan_folder, complexity_metrics, pattern_search, code_intelligence, code_search, rg, switch_mode, final_output, plan_read, plan_write, plan_approve, plan_verify, todo_read, todo_write, remember
+
+**Webdriver Tools** (10): webdriver_start, webdriver_navigate, webdriver_get_url, webdriver_get_title, webdriver_find_element, webdriver_find_elements, webdriver_click, webdriver_send_keys, webdriver_execute_script, webdriver_screenshot
+
+**Beads Tools** (10): beads_ready, beads_create, beads_update, beads_close, beads_list, beads_show, beads_sync, beads_prime, beads_formula_list, beads_mol_pour
+
+**MCP Tools** (4): mcp_web_search, mcp_web_reader, mcp_search_doc, mcp_get_repo_structure
+
+**Key Components**:
+- `ToolConfig` builder pattern with `with_*` methods (with_mcp_tools, with_index_tools, with_lsp_tools, without_beads_tools)
+- `create_tool_definitions()` generates full tool set from config
+- `ToolDispatch` routes tool calls to implementations
+- 8-minute default timeout, 20 minutes for research
+
+**Discovery**: Tool system uses builder pattern with `ToolConfig::new(webdriver, computer_control, zai_tools, index_tools)` and fluent `with_*` methods
+
+### Plan Mode Dependency Analysis
+Plan mode supports dependency tracking via `blocked_by` field in plan items.
+
+**Usage:**
+- Add `blocked_by: [I1, I3]` to items that depend on other items
+- Items with `blocked_by` are shown as "blocked" in status
+- Use `plan_read` to view current plan with dependencies
+
+**Dependency Rules:**
+- Items with no `blocked_by` can be worked on immediately
+- Items with `blocked_by` must wait until all blockers are done
+- Multiple items can be worked on in parallel if they have no dependencies
+
+**Current Plan State (rev 4):**
+- I2 (Qdrant retry logic) - No dependencies, ready to start
+- I3 (enhance index_status) - No dependencies, can work in parallel
+- I8 (index_status tool) - Already done
+- I1 (IndexClient init) - Blocked by I2
+- I4, I5 - Blocked by I1
+- I6, I7 - Blocked by I1, I3
+
+**Execution Order:**
+1. I2 - Add Qdrant retry logic
+2. I3 - Enhance index_status tool
+3. I1 - Add IndexClient initialization
+4. I4, I5 - Add logging, update semantic_search
+5. I6, I7 - Add unit and integration tests
+
+### File Locations
+- `crates/g3-core/src/index_client.rs` - I2: Add retry logic in `IndexClient::new()`
+- `crates/g3-core/src/tools/index.rs` - I3: Enhance `execute_index_status()`
+- `crates/g3-core/src/lib.rs` - I1: Add initialization in `build_agent()`
+- `crates/g3-core/src/tools/index.rs` - I5: Update `execute_semantic_search()`
+- `crates/g3-core/tests/` - I6: Unit tests, I7: Integration tests
+
+### Qdrant Retry Logic in IndexClient
+Retry logic implemented with exponential backoff (100ms, 200ms, 400ms) for Qdrant connections.
+
+- `crates/g3-core/src/index_client.rs` [93..155] - `IndexClient::new()` with retry logic
+  - `MAX_RETRIES = 3` - constant (3 attempts)
+  - `INITIAL_DELAY_MS = 100` - constant (base delay)
+  - `'outer` label break pattern for value return from async block
+  - `last_error = Some(format!("{}", e))` - captures error as string for final message
+
+**Implementation pattern**:
+```rust
+let client = 'outer: {
+    for attempt in 1..=MAX_RETRIES {
+        match QdrantClient::from_config(&qdrant_config).await {
+            Ok(c) => {
+                info!("Connected on attempt {}/{}", attempt, MAX_RETRIES);
+                break 'outer c;
+            }
+            Err(e) => {
+                last_error = Some(format!("{}", e));
+                if attempt < MAX_RETRIES {
+                    let delay_ms = INITIAL_DELAY_MS * (1 << (attempt - 1));
+                    warn!("Connection failed, retrying in {}ms: {}", delay_ms, e);
+                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                }
+            }
+        }
+    }
+    return Err(anyhow::anyhow!("Connection failed after {} attempts: {}", MAX_RETRIES, last_error.unwrap()));
+};
+```
+
+**Key gotcha**: Use `'outer` label break pattern with `break 'outer c` to return value from async block, not `let client = 'retry: for ... { break 'retry c; } client` which doesn't work correctly.
+
+### Plan Mode Dependency Tracking
+Plan mode supports dependency tracking via `blocked_by` field.
+
+**Usage**:
+- Add `blocked_by: [I1, I3]` to items that depend on other items
+- Items with `blocked_by` are blocked until all blockers are done
+- Multiple items can be worked on in parallel if they have no dependencies
+
+**Current Plan State (rev 6)**:
+- I2 (Qdrant retry logic) - **DONE** - No dependencies, completed
+- I3 (enhance index_status) - Ready to start - No dependencies
+- I1 (IndexClient init) - Ready to start - Was blocked by I2 (now done)
+- I4, I5 - Blocked by I1
+- I6, I7 - Blocked by I1, I3
+- I8 (index_status tool) - Already done
+
+**Execution Order**:
+1. I2 - Add Qdrant retry logic (DONE)
+2. I3 - Enhance index_status tool (can work in parallel with I1)
+3. I1 - Add IndexClient initialization
+4. I4, I5 - Add logging, update semantic_search
+5. I6, I7 - Add unit and integration tests

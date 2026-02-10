@@ -300,26 +300,134 @@ impl QueryPlanner {
         self
     }
 
-    /// Analyze a query and determine the optimal search strategy.
+    /// Analyze a query and determine the optimal search strategy with adaptive weights.
     pub fn plan_query(&self, query: &str) -> QueryPlan {
         let query_lower = query.to_lowercase();
 
         // Check for graph-style queries (callers, callees, dependencies)
         if Self::is_graph_query(&query_lower) {
-            return QueryPlan::GraphOnly;
+            return QueryPlan {
+                strategy: QueryStrategy::GraphOnly,
+                vector_weight: 0.0,
+                bm25_weight: 0.0,
+            };
         }
 
         // Check for AST pattern queries (code snippets, syntax patterns)
         if Self::is_ast_query(&query_lower) {
-            return QueryPlan::AstOnly;
+            return QueryPlan {
+                strategy: QueryStrategy::AstOnly,
+                vector_weight: 0.0,
+                bm25_weight: 0.0,
+            };
         }
 
-        // Default to hybrid search
+        // Default to hybrid search with adaptive weights
         if self.hybrid_enabled {
-            QueryPlan::Hybrid
+            let (vector_weight, bm25_weight) = Self::classify_query_weights(query);
+            QueryPlan {
+                strategy: QueryStrategy::Hybrid,
+                vector_weight,
+                bm25_weight,
+            }
         } else {
-            QueryPlan::VectorOnly
+            QueryPlan {
+                strategy: QueryStrategy::VectorOnly,
+                vector_weight: 1.0,
+                bm25_weight: 0.0,
+            }
         }
+    }
+
+    /// Classify a query and return adaptive (vector_weight, bm25_weight) based on characteristics.
+    ///
+    /// - **Identifier-like** (contains `::`, `_` mid-word, camelCase, single token) → favor BM25
+    /// - **Natural language** (multiple words, question words, conceptual) → favor vector
+    /// - **Mixed/default** → balanced with slight vector preference
+    fn classify_query_weights(query: &str) -> (f32, f32) {
+        let trimmed = query.trim();
+
+        // Identifier-like: contains ::, has snake_case, camelCase, or is a single token
+        if Self::is_identifier_like(trimmed) {
+            debug!(query = trimmed, "Query classified as identifier-like (bm25=0.7, vector=0.3)");
+            return (0.3, 0.7);
+        }
+
+        // Natural language: multiple words with question/conceptual patterns
+        if Self::is_natural_language(trimmed) {
+            debug!(query = trimmed, "Query classified as natural language (bm25=0.2, vector=0.8)");
+            return (0.8, 0.2);
+        }
+
+        // Default/mixed
+        debug!(query = trimmed, "Query classified as mixed (bm25=0.3, vector=0.7)");
+        (0.7, 0.3)
+    }
+
+    /// Check if query looks like a code identifier.
+    fn is_identifier_like(query: &str) -> bool {
+        // Contains path separator (e.g., "std::collections::HashMap")
+        if query.contains("::") {
+            return true;
+        }
+
+        // Single token (no spaces) with underscore in middle (snake_case)
+        let words: Vec<&str> = query.split_whitespace().collect();
+        if words.len() == 1 {
+            let word = words[0];
+            // snake_case: has underscore not at start/end
+            if word.contains('_') && !word.starts_with('_') && !word.ends_with('_') {
+                return true;
+            }
+            // camelCase or PascalCase: has lowercase followed by uppercase
+            let chars: Vec<char> = word.chars().collect();
+            for i in 1..chars.len() {
+                if chars[i - 1].is_lowercase() && chars[i].is_uppercase() {
+                    return true;
+                }
+            }
+            // Single identifier-like token (all alphanumeric, no spaces)
+            if word.len() > 1 && word.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return true;
+            }
+        }
+
+        // Two tokens where one contains :: or _ (e.g., "impl Foo_bar")
+        if words.len() == 2 {
+            if words.iter().any(|w| w.contains("::") || (w.contains('_') && w.len() > 2)) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Check if query looks like natural language.
+    fn is_natural_language(query: &str) -> bool {
+        let lower = query.to_lowercase();
+        let words: Vec<&str> = lower.split_whitespace().collect();
+
+        // Must have multiple words
+        if words.len() < 3 {
+            return false;
+        }
+
+        // Question words or conceptual patterns
+        let question_words = ["how", "what", "where", "find", "show", "list", "which", "why", "when", "explain", "describe"];
+        if let Some(&first_word) = words.first() {
+            if question_words.contains(&first_word) {
+                return true;
+            }
+        }
+
+        // Conceptual phrases with common natural language verbs/prepositions
+        let nl_indicators = ["does", "the", "is", "are", "for", "with", "that", "this", "implement", "handle", "manage", "work"];
+        let nl_count = words.iter().filter(|w| nl_indicators.contains(w)).count();
+        if nl_count >= 2 {
+            return true;
+        }
+
+        false
     }
 
     /// Check if query is likely a graph-style query.
@@ -355,9 +463,9 @@ impl QueryPlanner {
     }
 }
 
-/// Plan for executing a query.
+/// Search strategy type for query execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QueryPlan {
+pub enum QueryStrategy {
     /// Use graph-only search
     GraphOnly,
     /// Use AST-only search
@@ -370,25 +478,36 @@ pub enum QueryPlan {
     All,
 }
 
+/// Plan for executing a query, including strategy and adaptive weights.
+#[derive(Debug, Clone)]
+pub struct QueryPlan {
+    /// The search strategy to use
+    pub strategy: QueryStrategy,
+    /// Weight for vector similarity in RRF fusion (0.0 to 1.0)
+    pub vector_weight: f32,
+    /// Weight for BM25 keyword matching in RRF fusion (0.0 to 1.0)
+    pub bm25_weight: f32,
+}
+
 impl QueryPlan {
     /// Returns true if this plan includes graph search.
     pub fn includes_graph(&self) -> bool {
-        matches!(self, QueryPlan::GraphOnly | QueryPlan::All)
+        matches!(self.strategy, QueryStrategy::GraphOnly | QueryStrategy::All)
     }
 
     /// Returns true if this plan includes AST search.
     pub fn includes_ast(&self) -> bool {
-        matches!(self, QueryPlan::AstOnly | QueryPlan::All)
+        matches!(self.strategy, QueryStrategy::AstOnly | QueryStrategy::All)
     }
 
     /// Returns true if this plan includes semantic (vector) search.
     pub fn includes_semantic(&self) -> bool {
-        matches!(self, QueryPlan::Hybrid | QueryPlan::VectorOnly | QueryPlan::All)
+        matches!(self.strategy, QueryStrategy::Hybrid | QueryStrategy::VectorOnly | QueryStrategy::All)
     }
 
     /// Returns true if this plan includes lexical (BM25) search.
     pub fn includes_lexical(&self) -> bool {
-        matches!(self, QueryPlan::Hybrid | QueryPlan::All)
+        matches!(self.strategy, QueryStrategy::Hybrid | QueryStrategy::All)
     }
 }
 
@@ -881,9 +1000,51 @@ mod tests {
     fn test_query_planner_plan_query() {
         let planner = QueryPlanner::new();
 
-        assert!(matches!(planner.plan_query("callers of foo"), QueryPlan::GraphOnly));
-        assert!(matches!(planner.plan_query("fn hello() {}"), QueryPlan::AstOnly));
-        assert!(matches!(planner.plan_query("find similar code"), QueryPlan::Hybrid));
+        assert!(matches!(planner.plan_query("callers of foo").strategy, QueryStrategy::GraphOnly));
+        assert!(matches!(planner.plan_query("fn hello() {}").strategy, QueryStrategy::AstOnly));
+        assert!(matches!(planner.plan_query("find similar code").strategy, QueryStrategy::Hybrid));
+    }
+
+    #[test]
+    fn test_query_classification_identifier() {
+        let planner = QueryPlanner::new();
+
+        // snake_case identifier
+        let plan = planner.plan_query("parse_config");
+        assert!((plan.bm25_weight - 0.7).abs() < f32::EPSILON);
+        assert!((plan.vector_weight - 0.3).abs() < f32::EPSILON);
+
+        // Path-style identifier
+        let plan = planner.plan_query("std::collections::HashMap");
+        assert!((plan.bm25_weight - 0.7).abs() < f32::EPSILON);
+
+        // camelCase
+        let plan = planner.plan_query("parseConfig");
+        assert!((plan.bm25_weight - 0.7).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_query_classification_natural_language() {
+        let planner = QueryPlanner::new();
+
+        // Question-style query
+        let plan = planner.plan_query("how does authentication work in this codebase");
+        assert!((plan.vector_weight - 0.8).abs() < f32::EPSILON);
+        assert!((plan.bm25_weight - 0.2).abs() < f32::EPSILON);
+
+        // Conceptual query with NL indicators
+        let plan = planner.plan_query("where is the code that handles error logging");
+        assert!((plan.vector_weight - 0.8).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_query_classification_mixed() {
+        let planner = QueryPlanner::new();
+
+        // Short mixed query
+        let plan = planner.plan_query("search results");
+        assert!((plan.vector_weight - 0.7).abs() < f32::EPSILON);
+        assert!((plan.bm25_weight - 0.3).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -929,14 +1090,14 @@ mod tests {
 
     #[test]
     fn test_query_plan_includes_methods() {
-        let plan = QueryPlan::All;
+        let plan = QueryPlan { strategy: QueryStrategy::All, vector_weight: 0.7, bm25_weight: 0.3 };
 
         assert!(plan.includes_graph());
         assert!(plan.includes_ast());
         assert!(plan.includes_semantic());
         assert!(plan.includes_lexical());
 
-        let graph_plan = QueryPlan::GraphOnly;
+        let graph_plan = QueryPlan { strategy: QueryStrategy::GraphOnly, vector_weight: 0.0, bm25_weight: 0.0 };
         assert!(graph_plan.includes_graph());
         assert!(!graph_plan.includes_ast());
         assert!(!graph_plan.includes_semantic());

@@ -1,0 +1,8 @@
+{
+  "session_id": "50e83ebf-4bed-44d2-8930-67a3a3163ece",
+  "prompts": [
+    "what is the rg tool in the codebase?",
+    "how is it different from the grep tool?",
+    "why isn't it named ripgrepthen?"
+  ]
+}

@@ -31,6 +31,30 @@ fn format_size(chars: usize) -> String {
     }
 }
 
+/// Update workspace memory programmatically (no ToolCall needed).
+/// Used by codebase scout to persist stats after a scan.
+pub fn update_memory(notes: &str, working_dir: Option<&str>) -> Result<()> {
+    let memory_path = get_memory_path(working_dir);
+
+    if let Some(parent) = memory_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let existing = if memory_path.exists() {
+        std::fs::read_to_string(&memory_path)?
+    } else {
+        String::new()
+    };
+
+    let updated = merge_memory(&existing, notes);
+    let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let size = format_size(updated.len());
+    let final_content = update_header(&updated, &timestamp, &size);
+
+    std::fs::write(&memory_path, &final_content)?;
+    Ok(())
+}
+
 /// Execute the remember tool.
 /// Merges new notes with existing memory and saves to file.
 pub async fn execute_remember<W: UiWriter>(
