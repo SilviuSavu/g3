@@ -1236,6 +1236,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "fibonacci-rs"
+version = "0.1.0"
+
+[[package]]
 name = "filetime"
 version = "0.2.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
