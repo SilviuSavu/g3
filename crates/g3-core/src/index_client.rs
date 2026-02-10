@@ -90,14 +90,64 @@ impl IndexClient {
             dimensions: config.embeddings.dimensions,
         };
 
-        // Connect to Qdrant (create two clients - one for indexer, one for searcher)
-        let qdrant_for_indexer = QdrantClient::from_config(&qdrant_config)
-            .await
-            .context("Failed to connect to Qdrant for indexer")?;
+// Connect to Qdrant with retry logic (create two clients - one for indexer, one for searcher)
+        // Retry with exponential backoff: 100ms, 200ms, 400ms (3 attempts total)
+        const MAX_RETRIES: u32 = 3;
+        const INITIAL_DELAY_MS: u64 = 100;
 
-        let qdrant_for_searcher = QdrantClient::from_config(&qdrant_config)
-            .await
-            .context("Failed to connect to Qdrant for searcher")?;
+        let qdrant_for_indexer = {
+            let mut last_error = None;
+            let client = 'outer: {
+                for attempt in 1..=MAX_RETRIES {
+                    match QdrantClient::from_config(&qdrant_config).await {
+                        Ok(c) => {
+                            info!("Connected to Qdrant for indexer on attempt {}/{}", attempt, MAX_RETRIES);
+                            break 'outer c;
+                        }
+                        Err(e) => {
+                            last_error = Some(format!("{}", e));
+                            if attempt < MAX_RETRIES {
+                                let delay_ms = INITIAL_DELAY_MS * (1 << (attempt - 1)); // 100, 200, 400
+                                warn!(
+                                    "Qdrant connection attempt {}/{} failed (retrying in {}ms): {}",
+                                    attempt, MAX_RETRIES, delay_ms, e
+                                );
+                                tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                            }
+                        }
+                    }
+                }
+                return Err(anyhow::anyhow!("Qdrant connection failed after {} attempts: {}", MAX_RETRIES, last_error.unwrap()));
+            };
+            client
+        };
+
+        let qdrant_for_searcher = {
+            let mut last_error = None;
+            let client = 'outer: {
+                for attempt in 1..=MAX_RETRIES {
+                    match QdrantClient::from_config(&qdrant_config).await {
+                        Ok(c) => {
+                            info!("Connected to Qdrant for searcher on attempt {}/{}", attempt, MAX_RETRIES);
+                            break 'outer c;
+                        }
+                        Err(e) => {
+                            last_error = Some(format!("{}", e));
+                            if attempt < MAX_RETRIES {
+                                let delay_ms = INITIAL_DELAY_MS * (1 << (attempt - 1)); // 100, 200, 400
+                                warn!(
+                                    "Qdrant connection attempt {}/{} failed (retrying in {}ms): {}",
+                                    attempt, MAX_RETRIES, delay_ms, e
+                                );
+                                tokio::time::sleep(tokio::time::Duration::from_millis(delay_ms)).await;
+                            }
+                        }
+                    }
+                }
+                return Err(anyhow::anyhow!("Qdrant connection failed after {} attempts: {}", MAX_RETRIES, last_error.unwrap()));
+            };
+            client
+        };
 
         // Set up state directory
         let state_dir = working_dir.join(STATE_DIR_NAME);
