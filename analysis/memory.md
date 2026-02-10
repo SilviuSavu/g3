@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-10T23:19:24Z | Size: 79.6k chars
+> Updated: 2026-02-10T23:27:30Z | Size: 81.2k chars
 
 ### Final Output Test
 Test for the final_output tool with TEST_SUCCESS success indicator.
@@ -1765,6 +1765,43 @@ Automatic reminders to save discovered code locations at session end.
    - Existing Plan Mode has dependency tracking via `blocked_by`
 
 **Files Referenced**:
+- `crates/g3-core/src/tools/todo.rs` - Current todo implementation
+- `crates/g3-core/src/session_continuation.rs` - Session continuation with todo_snapshot
+- `crates/g3-core/src/tools/plan.rs` - Plan Mode with dependency tracking
+
+### g3 Todo Tools Investigation - Parallel Execution Grouping (February 2026)
+
+**Key Discovery**: Claude Code Tasks uses **parallel execution grouping** inspired by Beads.
+
+**How It Works**:
+1. Tasks ranked by priority (P0-P4)
+2. Dependency analysis: which tasks can run in parallel vs need to wait
+3. Auto-batching: independent tasks grouped into batches that run simultaneously
+4. Sequential execution: batch N+1 waits for batch N to complete
+
+**Beads Comparison**:
+
+| Feature | Beads | Claude Code Tasks |
+|---------|-------|-------------------|
+| Task ranking | Priority (P0-P4) | Priority (P0-P4) |
+| Dependency tracking | `blocked_by` field | `blocked_by` field |
+| Parallel execution | Manual batching | **Auto-batching** |
+| Session persistence | Git-backed | Spec files |
+
+**Claude Code Tasks Evolution**:
+- Upgraded from "Todos" to "Tasks" on January 23, 2025
+- Shifted from simple checklists to proper project management
+- Enables parallel execution with dependency management
+- Hydration pattern bridges sessions
+- **Inspired by Beads** (Claude Code took the idea from Beads)
+
+**g3 Implementation Path**:
+- Phase 1: Persistent storage (project-level + session-level)
+- Phase 2: Task dependencies via `blocked_by` field
+- Phase 3: **Parallel execution batching** (auto-batch independent tasks)
+- Phase 4: Multi-session collaboration (export/import)
+
+**Files**:
 - `crates/g3-core/src/tools/todo.rs` - Current todo implementation
 - `crates/g3-core/src/session_continuation.rs` - Session continuation with todo_snapshot
 - `crates/g3-core/src/tools/plan.rs` - Plan Mode with dependency tracking
