@@ -3382,6 +3382,14 @@ Skip if nothing new. Be brief."#;
 
         Ok(result)
     }
+    
+    /// Get the IndexClient for testing
+    /// 
+    /// Returns a cloned Arc of the RwLock-wrapped Option<IndexClient>
+    #[cfg(test)]
+    pub fn get_index_client(&self) -> std::sync::Arc<tokio::sync::RwLock<Option<std::sync::Arc<index_client::IndexClient>>>> {
+        self.index_client.clone()
+    }
 }
 
 // Re-export utility functions
