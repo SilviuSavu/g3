@@ -439,6 +439,14 @@ pub async fn execute_semantic_search<W: UiWriter>(
         }).to_string());
     }
 
+    // Check if index_client is None and we can't auto-initialize
+    if ctx.index_client.is_none() {
+        return Ok(json!({
+            "status": "error",
+            "message": "Index client not initialized. Run `index_codebase` to build the index, or set `index.auto_init = true` in your config to enable auto-initialization."
+        }).to_string());
+    }
+
     debug!(
         "Semantic search: query='{}', limit={}, filter={:?}",
         query, limit, file_filter
