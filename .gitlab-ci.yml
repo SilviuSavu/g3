@@ -1,0 +1,5 @@
+# CI/CD configuration using shared template
+include:
+  - project: "root/ci-template"
+    ref: main
+    file: ".gitlab-ci-ai-review.yml"
