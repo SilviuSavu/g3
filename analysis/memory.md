@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-10T17:16:21Z | Size: 72.3k chars
+> Updated: 2026-02-10T17:29:37Z | Size: 74.3k chars
 
 ### Final Output Test
 Test for the final_output tool with TEST_SUCCESS success indicator.
@@ -1611,3 +1611,47 @@ Plan mode supports dependency tracking via `blocked_by` field.
 - Health logging evidence (lines 581-609)
 - Semantic_search error handling evidence (lines 443-451)
 - Test helper method evidence (lines 3385-3392)
+
+### Codebase Indexing Features (February 2026)
+
+**Purpose**: Full-stack codebase indexing with semantic search, vector embeddings, and knowledge graph queries.
+
+**Components**:
+- `crates/g3-index/` - Core indexing library with Qdrant, BM25, and graph search
+- `crates/g3-core/src/index_client.rs` - High-level IndexClient with auto-initialization
+- `crates/g3-core/src/tools/index.rs` - 10+ index-related tools (index_status, index_codebase, semantic_search, graph_find_*)
+- `crates/g3-core/src/lib.rs` - Agent creates IndexClient on startup
+
+**Key Features**:
+1. **Auto-initialization**: IndexClient created automatically in Agent::build_agent() with retry logic
+2. **Health Status**: index_status tool shows Qdrant connection, embeddings status, graph availability
+3. **Persistent State**: Index state persisted to `.g3-index/` directory (manifest, BM25 index)
+4. **Semantic Search**: Vector embeddings via Qdrant + Qwen3-Embedding-8B for meaning-based search
+5. **Lexical Search**: BM25 index for keyword search
+6. **Graph Queries**: Knowledge graph for dependencies, callers, references, callees
+
+**Configuration** (config.toml):
+```toml
+[index]
+enabled = true
+qdrant_url = "http://localhost:6334"
+collection_name = "g3-codebase"
+
+[index.embeddings]
+provider = "openrouter"
+api_key = "${OPENROUTER_API_KEY}"
+model = "qwen/qwen3-embedding-8b"
+dimensions = 4096
+```
+
+**Tools**:
+- `index_status` - Check health and configuration
+- `index_codebase path="."` - Build/rebuild index
+- `semantic_search query="..." limit=5` - Find code by meaning
+- `graph_find_symbol name="..."` - Find functions/types by name
+- `graph_find_callers symbol_id="..."` - Find function callers
+- `graph_find_references symbol_id="..."` - Find symbol references
+- `graph_file_symbols file_path="..."` - List symbols in file
+- `graph_stats` - Show graph statistics
+
+**Test Results**: All 328 tests pass for g3-core and g3-index with no breaking changes.
