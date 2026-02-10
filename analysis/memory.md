@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-10T21:26:48Z | Size: 75.2k chars
+> Updated: 2026-02-10T23:19:24Z | Size: 79.6k chars
 
 ### Final Output Test
 Test for the final_output tool with TEST_SUCCESS success indicator.
@@ -1679,3 +1679,92 @@ No open issues - all features tracked in beads closed.
 
 ### Known Artifacts:
 - `crates/g3-ensembles/src/dytopo/` - Incomplete module from previous session, not causing issues
+
+### g3 Plan Mode
+Structured task planning with cognitive forcing - requires happy/negative/boundary checks and evidence-based verification.
+
+- `crates/g3-core/src/tools/plan.rs` [0..1184]
+  - `PlanItem` [110..145] - task item with id, description, state, touches, checks, evidence, notes
+  - `PlanState` [25..45] - enum: Todo, Doing, Done, Blocked
+  - `Checks` [90..105] - happy, negative, boundary checks
+  - `execute_plan_write()` [425..490] - validates and saves plan, auto-approves in autonomous mode
+  - `execute_plan_approve()` [495..530] - approves plan revision
+  - `execute_plan_read()` [395..420] - reads current plan from session
+  - `plan_verify()` [659..700] - verifies evidence for completed items
+  - `verify_code_location()` [443..495] - checks file exists, line numbers valid
+  - `verify_test_reference()` [496..554] - checks test function exists in file
+  - `parse_evidence()` [390..428] - parses evidence strings (file:line, file:line-range, file::test)
+  - `format_verification_results()` [703..745] - formats verification output with emoji warnings
+
+### g3 Todo System
+Simple markdown-based task tracking using checkboxes for single-session use.
+
+- `crates/g3-core/src/tools/todo.rs` [0..500]
+  - `execute_todo_write()` - creates/replaces todo list with markdown checkboxes
+  - `execute_todo_read()` - reads current todo list content
+  - `get_todo_path()` - returns session todo file path
+  - Uses `- [ ]` for pending, `- [x]` for completed
+  - Stores to `.g3/sessions/<id>/todo.g3.md`
+
+### g3 vs Claude Code Tool Performance
+Performance comparison showing g3 tools are ~2-5x slower than Claude Code but have caching infrastructure.
+
+- `analysis/memory.md` [4300..4800]
+  - **grep**: Claude Code ~10-20ms, g3 before ~50-100ms, g3 after same but caching-ready
+  - **glob**: Claude Code ~5-15ms, g3 before ~20-50ms, g3 after same but caching-ready
+  - **Bottleneck**: Shell process spawn overhead (~20ms per call), no caching between calls
+  - **Improvements**: DirectoryCache, DirectoryCacheManager, FsService with 60s expiry
+  - **Future**: tokio::fs for async I/O, FS daemon to eliminate spawn overhead
+
+### Plan Mode Tool Names (IMPORTANT)
+Tool names use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0-9_-]{1,128}$`).
+
+- `crates/g3-core/src/lib.rs` [1500..1600]
+  - `plan_read` - Read current plan
+  - `plan_write` - Create/update plan  
+  - `plan_approve` - Approve plan revision
+  - `plan_verify` - Verify evidence for completed items (called automatically when plan complete)
+
+### Memory Checkpoint System
+Automatic reminders to save discovered code locations at session end.
+
+- `crates/g3-core/src/lib.rs` [1451..1454] - `set_auto_memory()` - enable/disable system
+  - `tool_calls_this_turn` [116] - tracks tools per turn
+  - `send_auto_memory_reminder()` [47800..48800] - MEMORY CHECKPOINT prompt trigger
+  - Called at start of each tool iteration and before user prompt in interactive mode
+  - System triggers when tool_calls_this_turn > 0 and auto_memory enabled
+
+### g3 Todo Tools Investigation (February 2026)
+
+**Purpose**: Investigate how to improve g3's todo_write/todo_read tools to match Claude Code /tasks feature.
+
+**Key Findings**:
+
+1. **Current g3 TODO System**:
+   - Session-scoped markdown files at `.g3/sessions/<id>/todo.g3.md`
+   - Simple markdown checklist format: `- [ ]` / `- [x]`
+   - No persistence across sessions
+   - No dependency support
+
+2. **Claude Code /tasks Features** (from Spillwave article):
+   - Session-scoped tasks with persistent specification files
+   - Enables parallel execution and complex dependency management
+   - Hydration pattern bridges sessions
+   - Multi-session collaboration support
+   - Runtime checklists for validation
+
+3. **Enhanced g3 TODO Design**:
+   - **Phase 1**: Persistent storage (project-level + session-level)
+   - **Phase 2**: Task dependencies (blocked_by field)
+   - **Phase 3**: Validation & checks (happy/negative/boundary)
+   - **Phase 4**: Multi-session collaboration (export/import)
+
+4. **Integration Points**:
+   - `SessionContinuation` already stores `todo_snapshot`
+   - Can leverage existing session continuation mechanism
+   - Existing Plan Mode has dependency tracking via `blocked_by`
+
+**Files Referenced**:
+- `crates/g3-core/src/tools/todo.rs` - Current todo implementation
+- `crates/g3-core/src/session_continuation.rs` - Session continuation with todo_snapshot
+- `crates/g3-core/src/tools/plan.rs` - Plan Mode with dependency tracking
