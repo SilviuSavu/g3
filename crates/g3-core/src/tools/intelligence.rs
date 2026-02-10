@@ -10,10 +10,26 @@
 use anyhow::Result;
 use serde_json::json;
 use tracing::info;
+use std::sync::Arc;
 
+use crate::index_client::IndexClient;
 use crate::tools::executor::ToolContext;
+use crate::tools::index::get_or_init_client;
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
+
+/// Try to get the index client, returning a JSON error string on failure.
+async fn require_client<W: UiWriter>(
+    ctx: &mut ToolContext<'_, W>,
+) -> std::result::Result<Arc<IndexClient>, String> {
+    get_or_init_client(ctx).await.map_err(|e| {
+        json!({
+            "status": "error",
+            "message": format!("{}", e)
+        })
+        .to_string()
+    })
+}
 
 /// Execute the code_intelligence tool.
 /// This is a multipurpose tool with subcommands for various intelligence operations.
@@ -57,7 +73,6 @@ pub async fn execute_code_intelligence<W: UiWriter>(
 }
 
 /// Execute the find_definition subcommand.
-/// Finds the definition of a symbol using indexed search.
 async fn execute_find_definition<W: UiWriter>(
     _tool_call: &ToolCall,
     ctx: &mut ToolContext<'_, W>,
@@ -72,43 +87,39 @@ async fn execute_find_definition<W: UiWriter>(
 
     info!("Finding definition for: {}", symbol);
 
-    match &ctx.index_client {
-        Some(client) => {
-            match client.find_symbols_by_name(symbol).await {
-                Ok(results) => {
-                    let formatted: Vec<_> = results
-                        .into_iter()
-                        .map(|s| json!({
-                            "id": s.id,
-                            "name": s.name,
-                            "kind": s.kind,
-                            "file_id": s.file_id,
-                            "line_start": s.line_start,
-                            "line_end": s.line_end
-                        }))
-                        .collect();
-                    Ok(json!({
-                        "status": "success",
-                        "source": "indexed",
-                        "results": formatted,
-                        "count": formatted.len()
-                    }).to_string())
-                }
-                Err(e) => Ok(json!({
-                    "status": "error",
-                    "message": format!("Indexed search failed: {}", e)
-                }).to_string()),
-            }
+    let client = match require_client(ctx).await {
+        Ok(c) => c,
+        Err(e) => return Ok(e),
+    };
+
+    match client.find_symbols_by_name(symbol).await {
+        Ok(results) => {
+            let formatted: Vec<_> = results
+                .into_iter()
+                .map(|s| json!({
+                    "id": s.id,
+                    "name": s.name,
+                    "kind": s.kind,
+                    "file_id": s.file_id,
+                    "line_start": s.line_start,
+                    "line_end": s.line_end
+                }))
+                .collect();
+            Ok(json!({
+                "status": "success",
+                "source": "indexed",
+                "results": formatted,
+                "count": formatted.len()
+            }).to_string())
         }
-        None => Ok(json!({
+        Err(e) => Ok(json!({
             "status": "error",
-            "message": "No index client available. Run index_codebase first."
+            "message": format!("Indexed search failed: {}", e)
         }).to_string()),
     }
 }
 
 /// Execute the find_references subcommand.
-/// Finds all references/uses of a symbol.
 async fn execute_find_references<W: UiWriter>(
     _tool_call: &ToolCall,
     ctx: &mut ToolContext<'_, W>,
@@ -123,41 +134,37 @@ async fn execute_find_references<W: UiWriter>(
 
     info!("Finding references for: {}", symbol);
 
-    match &ctx.index_client {
-        Some(client) => {
-            match client.find_references(symbol).await {
-                Ok(results) => {
-                    let formatted: Vec<_> = results
-                        .into_iter()
-                        .map(|r| json!({
-                            "source": r.source,
-                            "target": r.target,
-                            "file": r.file,
-                            "line": r.line
-                        }))
-                        .collect();
-                    Ok(json!({
-                        "status": "success",
-                        "source": "indexed",
-                        "results": formatted,
-                        "count": formatted.len()
-                    }).to_string())
-                }
-                Err(e) => Ok(json!({
-                    "status": "error",
-                    "message": format!("Indexed search failed: {}", e)
-                }).to_string()),
-            }
+    let client = match require_client(ctx).await {
+        Ok(c) => c,
+        Err(e) => return Ok(e),
+    };
+
+    match client.find_references(symbol).await {
+        Ok(results) => {
+            let formatted: Vec<_> = results
+                .into_iter()
+                .map(|r| json!({
+                    "source": r.source,
+                    "target": r.target,
+                    "file": r.file,
+                    "line": r.line
+                }))
+                .collect();
+            Ok(json!({
+                "status": "success",
+                "source": "indexed",
+                "results": formatted,
+                "count": formatted.len()
+            }).to_string())
         }
-        None => Ok(json!({
+        Err(e) => Ok(json!({
             "status": "error",
-            "message": "No index client available. Run index_codebase first."
+            "message": format!("Indexed search failed: {}", e)
         }).to_string()),
     }
 }
 
 /// Execute the find_callers subcommand.
-/// Finds functions that call the given symbol.
 async fn execute_find_callers<W: UiWriter>(
     _tool_call: &ToolCall,
     ctx: &mut ToolContext<'_, W>,
@@ -173,54 +180,50 @@ async fn execute_find_callers<W: UiWriter>(
 
     info!("Finding callers for: {} (depth={})", symbol, depth);
 
-    match &ctx.index_client {
-        Some(client) => {
-            match client.find_symbols_by_name(symbol).await {
-                Ok(symbols) => {
-                    let mut all_callers = Vec::new();
+    let client = match require_client(ctx).await {
+        Ok(c) => c,
+        Err(e) => return Ok(e),
+    };
 
-                    for sym in symbols.iter().take(5) {
-                        match client.find_callers(&sym.id).await {
-                            Ok(callers) => {
-                                for caller_id in callers {
-                                    all_callers.push(json!({
-                                        "caller_id": caller_id,
-                                        "depth": 1
-                                    }));
-                                }
-                            }
-                            Err(e) => {
-                                return Ok(json!({
-                                    "status": "error",
-                                    "message": format!("Failed to find callers: {}", e)
-                                }).to_string());
-                            }
+    match client.find_symbols_by_name(symbol).await {
+        Ok(symbols) => {
+            let mut all_callers = Vec::new();
+
+            for sym in symbols.iter().take(5) {
+                match client.find_callers(&sym.id).await {
+                    Ok(callers) => {
+                        for caller_id in callers {
+                            all_callers.push(json!({
+                                "caller_id": caller_id,
+                                "depth": 1
+                            }));
                         }
                     }
-
-                    Ok(json!({
-                        "status": "success",
-                        "source": "graph",
-                        "symbol": symbol,
-                        "callers": all_callers,
-                        "count": all_callers.len()
-                    }).to_string())
+                    Err(e) => {
+                        return Ok(json!({
+                            "status": "error",
+                            "message": format!("Failed to find callers: {}", e)
+                        }).to_string());
+                    }
                 }
-                Err(e) => Ok(json!({
-                    "status": "error",
-                    "message": format!("Failed to find symbol: {}", e)
-                }).to_string()),
             }
+
+            Ok(json!({
+                "status": "success",
+                "source": "graph",
+                "symbol": symbol,
+                "callers": all_callers,
+                "count": all_callers.len()
+            }).to_string())
         }
-        None => Ok(json!({
+        Err(e) => Ok(json!({
             "status": "error",
-            "message": "No index client available. Run index_codebase first."
+            "message": format!("Failed to find symbol: {}", e)
         }).to_string()),
     }
 }
 
 /// Execute the find_callees subcommand.
-/// Finds functions called by the given symbol.
 async fn execute_find_callees<W: UiWriter>(
     _tool_call: &ToolCall,
     ctx: &mut ToolContext<'_, W>,
@@ -236,54 +239,50 @@ async fn execute_find_callees<W: UiWriter>(
 
     info!("Finding callees for: {} (depth={})", symbol, depth);
 
-    match &ctx.index_client {
-        Some(client) => {
-            match client.find_symbols_by_name(symbol).await {
-                Ok(symbols) => {
-                    let mut all_callees = Vec::new();
+    let client = match require_client(ctx).await {
+        Ok(c) => c,
+        Err(e) => return Ok(e),
+    };
 
-                    for sym in symbols.iter().take(5) {
-                        match client.find_callees(&sym.id).await {
-                            Ok(callees) => {
-                                for callee_id in callees {
-                                    all_callees.push(json!({
-                                        "callee_id": callee_id,
-                                        "depth": 1
-                                    }));
-                                }
-                            }
-                            Err(e) => {
-                                return Ok(json!({
-                                    "status": "error",
-                                    "message": format!("Failed to find callees: {}", e)
-                                }).to_string());
-                            }
+    match client.find_symbols_by_name(symbol).await {
+        Ok(symbols) => {
+            let mut all_callees = Vec::new();
+
+            for sym in symbols.iter().take(5) {
+                match client.find_callees(&sym.id).await {
+                    Ok(callees) => {
+                        for callee_id in callees {
+                            all_callees.push(json!({
+                                "callee_id": callee_id,
+                                "depth": 1
+                            }));
                         }
                     }
-
-                    Ok(json!({
-                        "status": "success",
-                        "source": "graph",
-                        "symbol": symbol,
-                        "callees": all_callees,
-                        "count": all_callees.len()
-                    }).to_string())
+                    Err(e) => {
+                        return Ok(json!({
+                            "status": "error",
+                            "message": format!("Failed to find callees: {}", e)
+                        }).to_string());
+                    }
                 }
-                Err(e) => Ok(json!({
-                    "status": "error",
-                    "message": format!("Failed to find symbol: {}", e)
-                }).to_string()),
             }
+
+            Ok(json!({
+                "status": "success",
+                "source": "graph",
+                "symbol": symbol,
+                "callees": all_callees,
+                "count": all_callees.len()
+            }).to_string())
         }
-        None => Ok(json!({
+        Err(e) => Ok(json!({
             "status": "error",
-            "message": "No index client available. Run index_codebase first."
+            "message": format!("Failed to find symbol: {}", e)
         }).to_string()),
     }
 }
 
 /// Execute the find_similar subcommand.
-/// Finds similar code patterns using semantic search.
 async fn execute_find_similar<W: UiWriter>(
     _tool_call: &ToolCall,
     ctx: &mut ToolContext<'_, W>,
@@ -298,49 +297,44 @@ async fn execute_find_similar<W: UiWriter>(
 
     info!("Finding similar code for: {}", query);
 
-    match &ctx.index_client {
-        Some(client) => {
-            // Use semantic search via the search method (limit 10, no file filter)
-            match client.search(query, 10, None).await {
-                Ok(results) => {
-                    let formatted: Vec<_> = results
-                        .into_iter()
-                        .map(|r| json!({
-                            "id": r.id,
-                            "file_path": r.file_path,
-                            "start_line": r.start_line,
-                            "end_line": r.end_line,
-                            "content": r.content,
-                            "kind": r.kind,
-                            "name": r.name,
-                            "signature": r.signature,
-                            "score": r.score
-                        }))
-                        .collect();
+    let client = match require_client(ctx).await {
+        Ok(c) => c,
+        Err(e) => return Ok(e),
+    };
 
-                    Ok(json!({
-                        "status": "success",
-                        "source": "semantic",
-                        "query": query,
-                        "results": formatted,
-                        "count": formatted.len()
-                    }).to_string())
-                }
-                Err(e) => Ok(json!({
-                    "status": "error",
-                    "message": format!("Semantic search failed: {}", e)
-                }).to_string()),
-            }
+    match client.search(query, 10, None).await {
+        Ok(results) => {
+            let formatted: Vec<_> = results
+                .into_iter()
+                .map(|r| json!({
+                    "id": r.id,
+                    "file_path": r.file_path,
+                    "start_line": r.start_line,
+                    "end_line": r.end_line,
+                    "content": r.content,
+                    "kind": r.kind,
+                    "name": r.name,
+                    "signature": r.signature,
+                    "score": r.score
+                }))
+                .collect();
+
+            Ok(json!({
+                "status": "success",
+                "source": "semantic",
+                "query": query,
+                "results": formatted,
+                "count": formatted.len()
+            }).to_string())
         }
-        None => Ok(json!({
+        Err(e) => Ok(json!({
             "status": "error",
-            "message": "No index client available. Run index_codebase first."
+            "message": format!("Semantic search failed: {}", e)
         }).to_string()),
     }
 }
 
 /// Execute the explore_graph subcommand.
-/// Explores the dependency graph starting from a symbol.
 async fn execute_explore_graph<W: UiWriter>(
     _tool_call: &ToolCall,
     ctx: &mut ToolContext<'_, W>,
@@ -356,66 +350,60 @@ async fn execute_explore_graph<W: UiWriter>(
 
     info!("Exploring graph for: {} (depth={})", symbol, depth);
 
-    match &ctx.index_client {
-        Some(client) => {
-            match client.find_symbols_by_name(symbol).await {
-                Ok(symbols) => {
-                    let mut traversal_results = Vec::new();
+    let client = match require_client(ctx).await {
+        Ok(c) => c,
+        Err(e) => return Ok(e),
+    };
 
-                    for sym in symbols.iter().take(3) {
-                        // Get callers (parents in call graph)
-                        match client.find_callers(&sym.id).await {
-                            Ok(callers) => {
-                                for caller_id in callers.iter().take(10) {
-                                    traversal_results.push(json!({
-                                        "node_id": caller_id,
-                                        "type": "caller",
-                                        "relation": "calls"
-                                    }));
-                                }
-                            }
-                            Err(_) => {}
-                        }
+    match client.find_symbols_by_name(symbol).await {
+        Ok(symbols) => {
+            let mut traversal_results = Vec::new();
 
-                        // Get references to this symbol
-                        match client.find_references(&sym.id).await {
-                            Ok(refs) => {
-                                for r in refs.iter().take(10) {
-                                    traversal_results.push(json!({
-                                        "node_id": r.source,
-                                        "type": "reference",
-                                        "line": r.line
-                                    }));
-                                }
-                            }
-                            Err(_) => {}
+            for sym in symbols.iter().take(3) {
+                match client.find_callers(&sym.id).await {
+                    Ok(callers) => {
+                        for caller_id in callers.iter().take(10) {
+                            traversal_results.push(json!({
+                                "node_id": caller_id,
+                                "type": "caller",
+                                "relation": "calls"
+                            }));
                         }
                     }
-
-                    Ok(json!({
-                        "status": "success",
-                        "source": "graph",
-                        "symbol": symbol,
-                        "depth": depth,
-                        "traversal": traversal_results,
-                        "count": traversal_results.len()
-                    }).to_string())
+                    Err(_) => {}
                 }
-                Err(e) => Ok(json!({
-                    "status": "error",
-                    "message": format!("Failed to find symbol: {}", e)
-                }).to_string()),
+
+                match client.find_references(&sym.id).await {
+                    Ok(refs) => {
+                        for r in refs.iter().take(10) {
+                            traversal_results.push(json!({
+                                "node_id": r.source,
+                                "type": "reference",
+                                "line": r.line
+                            }));
+                        }
+                    }
+                    Err(_) => {}
+                }
             }
+
+            Ok(json!({
+                "status": "success",
+                "source": "graph",
+                "symbol": symbol,
+                "depth": depth,
+                "traversal": traversal_results,
+                "count": traversal_results.len()
+            }).to_string())
         }
-        None => Ok(json!({
+        Err(e) => Ok(json!({
             "status": "error",
-            "message": "No index client available. Run index_codebase first."
+            "message": format!("Failed to find symbol: {}", e)
         }).to_string()),
     }
 }
 
 /// Execute the graph_query subcommand.
-/// Queries the knowledge graph with various query types.
 async fn execute_graph_query<W: UiWriter>(
     _tool_call: &ToolCall,
     ctx: &mut ToolContext<'_, W>,
@@ -431,57 +419,52 @@ async fn execute_graph_query<W: UiWriter>(
 
     info!("Graph query for: {} (depth={})", symbol, depth);
 
-    match &ctx.index_client {
-        Some(client) => {
-            match client.find_symbols_by_name(symbol).await {
-                Ok(symbols) => {
-                    let mut callers_list = Vec::new();
-                    let mut references_list = Vec::new();
+    let client = match require_client(ctx).await {
+        Ok(c) => c,
+        Err(e) => return Ok(e),
+    };
 
-                    for sym in symbols.iter().take(3) {
-                        // Get callers
-                        match client.find_callers(&sym.id).await {
-                            Ok(callers) => {
-                                for caller_id in callers.iter().take(10) {
-                                    callers_list.push(json!({
-                                        "id": caller_id
-                                    }));
-                                }
-                            }
-                            Err(_) => {}
-                        }
+    match client.find_symbols_by_name(symbol).await {
+        Ok(symbols) => {
+            let mut callers_list = Vec::new();
+            let mut references_list = Vec::new();
 
-                        // Get references
-                        match client.find_references(&sym.id).await {
-                            Ok(refs) => {
-                                for r in refs.iter().take(10) {
-                                    references_list.push(json!({
-                                        "file": r.file,
-                                        "line": r.line
-                                    }));
-                                }
-                            }
-                            Err(_) => {}
+            for sym in symbols.iter().take(3) {
+                match client.find_callers(&sym.id).await {
+                    Ok(callers) => {
+                        for caller_id in callers.iter().take(10) {
+                            callers_list.push(json!({
+                                "id": caller_id
+                            }));
                         }
                     }
-
-                    Ok(json!({
-                        "status": "success",
-                        "source": "graph",
-                        "symbol": symbol,
-                        "callers": callers_list,
-                        "references": references_list
-                    }).to_string())
+                    Err(_) => {}
                 }
-                Err(e) => Ok(json!({
-                    "status": "error",
-                    "message": format!("Failed to find symbol: {}", e)
-                }).to_string()),
+
+                match client.find_references(&sym.id).await {
+                    Ok(refs) => {
+                        for r in refs.iter().take(10) {
+                            references_list.push(json!({
+                                "file": r.file,
+                                "line": r.line
+                            }));
+                        }
+                    }
+                    Err(_) => {}
+                }
             }
+
+            Ok(json!({
+                "status": "success",
+                "source": "graph",
+                "symbol": symbol,
+                "callers": callers_list,
+                "references": references_list
+            }).to_string())
         }
-        None => Ok(json!({
+        Err(e) => Ok(json!({
             "status": "error",
-            "message": "No index client available. Run index_codebase first."
+            "message": format!("Failed to find symbol: {}", e)
         }).to_string()),
     }
 }

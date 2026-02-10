@@ -444,23 +444,14 @@ pub async fn execute_semantic_search<W: UiWriter>(
         query, limit, file_filter
     );
 
-    // Get index client - must be initialized first via index_codebase
-    let client = match &ctx.index_client {
-        Some(client) => client.clone(),
-        None => {
-            // Try to initialize from working directory
-            let work_dir = ctx.working_dir.unwrap_or(".");
-            let work_path = Path::new(work_dir);
-
-            match IndexClient::new(&ctx.config.index, work_path).await {
-                Ok(client) => Arc::new(client),
-                Err(e) => {
-                    return Ok(json!({
-                        "status": "error",
-                        "message": format!("Index not initialized. Run `index_codebase` first. Error: {}", e)
-                    }).to_string());
-                }
-            }
+    // Get index client with caching
+    let client = match get_or_init_client(ctx).await {
+        Ok(client) => client,
+        Err(e) => {
+            return Ok(json!({
+                "status": "error",
+                "message": format!("{}", e)
+            }).to_string());
         }
     };
 
@@ -1314,7 +1305,7 @@ fn search_logging_patterns(target_path: &Path) -> Result<Vec<serde_json::Value>,
 }
 
 /// Helper to get or initialize the index client.
-async fn get_or_init_client<W: UiWriter>(
+pub(crate) async fn get_or_init_client<W: UiWriter>(
     ctx: &mut ToolContext<'_, W>,
 ) -> Result<Arc<IndexClient>> {
     match &ctx.index_client {
@@ -1324,7 +1315,11 @@ async fn get_or_init_client<W: UiWriter>(
             let work_path = Path::new(work_dir);
 
             match IndexClient::new(&ctx.config.index, work_path).await {
-                Ok(client) => Ok(Arc::new(client)),
+                Ok(client) => {
+                    let client = Arc::new(client);
+                    ctx.index_client = Some(client.clone());
+                    Ok(client)
+                }
                 Err(e) => anyhow::bail!(
                     "Index not initialized. Run `index_codebase` first. Error: {}",
                     e

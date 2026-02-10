@@ -3326,6 +3326,14 @@ Skip if nothing new. Be brief."#;
         // Dispatch to the appropriate tool handler
         let result = tool_dispatch::dispatch_tool(tool_call, &mut ctx).await?;
 
+        // Persist index client back if it was initialized during this tool call
+        if ctx.index_client.is_some() {
+            let mut guard = self.index_client.write().await;
+            if guard.is_none() {
+                *guard = ctx.index_client;
+            }
+        }
+
         Ok(result)
     }
 }
