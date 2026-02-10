@@ -3,5 +3,21 @@ include:
   - project: 'root/ci-template'
     ref: main
     file: '.gitlab-ci-ai-review.yml'
-    rules:
-      - when: always
+
+# Override rules for all jobs to trigger on every push
+.override_rules: &override_rules
+  rules:
+    - when: on_success
+
+# Apply to key jobs (add more as needed)
+fmt:
+  <<: *override_rules
+
+clippy:
+  <<: *override_rules
+
+test:
+  <<: *override_rules
+
+claude-code-review:
+  <<: *override_rules
