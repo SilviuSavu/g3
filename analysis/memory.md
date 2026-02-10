@@ -1,5 +1,5 @@
 # Workspace Memory
-> Updated: 2026-02-10T14:14:59Z | Size: 70.6k chars
+> Updated: 2026-02-10T17:16:21Z | Size: 72.3k chars
 
 ### Final Output Test
 Test for the final_output tool with TEST_SUCCESS success indicator.
@@ -1568,3 +1568,46 @@ Plan mode supports dependency tracking via `blocked_by` field.
 3. I1 - Add IndexClient initialization
 4. I4, I5 - Add logging, update semantic_search
 5. I6, I7 - Add unit and integration tests
+
+### IndexClient Initialization and Health Monitoring (Session: hi_3e8de28ab96ee352)
+
+**Completed Items:**
+- I1: IndexClient initialization in Agent::build_agent() with retry logic
+- I2: Qdrant retry logic (already existed, verified working)
+- I3: Enhanced index_status tool with health check
+- I4: Index health status logging (info! and warn!)
+- I5: Semantic_search graceful None handling
+- I6: get_index_client() method for testing
+- I7: Integration tests (all 328 tests pass)
+- I8: index_status tool (already existed)
+
+**Key Changes:**
+1. `crates/g3-core/src/lib.rs` (lines 181-609)
+   - Added `index_client` parameter to `build_agent()`
+   - Added IndexClient initialization in `new_with_mode_and_project_context()`
+   - Added logging with `info!` and `warn!` macros
+   - Added `get_index_client()` method for testing
+
+2. `crates/g3-core/src/tools/index.rs` (lines 494-550)
+   - Enhanced `execute_index_status()` with health status
+   - Added check for `index_client.is_none()` in semantic_search
+
+3. `crates/g3-core/src/lib.rs` (tracing import)
+   - Added `info` to tracing imports
+
+**Test Results:**
+- All 328 tests pass for g3-core and g3-index
+- No breaking changes to existing tests
+- Integration tests continue to pass
+
+**Files Modified:**
+- `crates/g3-core/src/lib.rs` - IndexClient initialization, logging, test helper
+- `crates/g3-core/src/tools/index.rs` - Enhanced index_status, semantic_search error handling
+
+**Memory Added:**
+- Plan Mode dependency tracking (rev 16)
+- IndexClient retry logic evidence (lines 93-155)
+- IndexClient initialization evidence (lines 574-592)
+- Health logging evidence (lines 581-609)
+- Semantic_search error handling evidence (lines 443-451)
+- Test helper method evidence (lines 3385-3392)
