@@ -1,7 +1,8 @@
 # Workspace Memory
-> Updated: 2026-02-10T23:27:30Z | Size: 81.2k chars
+> Updated: 2026-02-11T18:20:38Z | Size: 101.5k chars
 
 ### Final Output Test
+
 Test for the final_output tool with TEST_SUCCESS success indicator.
 
 - `crates/g3-core/tests/final_output_test.rs` - Complete test implementation
@@ -12,6 +13,7 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
 > Updated: 2026-02-08T02:45:22Z | Size: 24.4k chars
 
 ### Remember Tool Wiring
+
 - `crates/g3-core/src/tools/memory.rs` [0..5000] - `execute_remember()`, `get_memory_path()`, `merge_memory()`
 - `crates/g3-core/src/tool_definitions.rs` [11000..12000] - remember tool in `create_core_tools()`
 - `crates/g3-core/src/tool_dispatch.rs` [48] - dispatch case
@@ -19,6 +21,7 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
 - `crates/g3-cli/src/project_files.rs` - `read_workspace_memory()` loads `analysis/memory.md`
 
 ### Context Window & Compaction
+
 - `crates/g3-core/src/context_window.rs` [0..29568]
   - `ThinResult` [23] - scope, before/after %, chars_saved
   - `ContextWindow` - token tracking, message history
@@ -33,15 +36,18 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
 - `crates/g3-core/src/lib.rs` - `Agent.force_compact()`, `stream_completion_with_tools()`
 
 ### Session Storage & Continuation
+
 - `crates/g3-core/src/session_continuation.rs` [0..541] - `SessionContinuation`, `save_continuation()`, `load_continuation()`
 - `crates/g3-core/src/paths.rs` [0..133] - `get_session_logs_dir()`, `get_thinned_dir()`, `get_session_file()`
 - `crates/g3-core/src/session.rs` - Session logging utilities
 
 ### Tool System
+
 - `crates/g3-core/src/tool_definitions.rs` [0..544] - `create_core_tools()`, `create_tool_definitions()`, `ToolConfig`
 - `crates/g3-core/src/tool_dispatch.rs` [0..73] - `dispatch_tool()` routing
 
 ### CLI Module Structure
+
 - `crates/g3-cli/src/lib.rs` [0..415] - `run()`, mode dispatch, config loading
 - `crates/g3-cli/src/cli_args.rs` [0..133] - `Cli` struct (clap)
 - `crates/g3-cli/src/autonomous.rs` [0..785] - `run_autonomous()`, coach-player loop
@@ -54,6 +60,7 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
 - `crates/g3-cli/src/display.rs` - `format_workspace_path()`, `LoadedContent`, `print_loaded_status()`
 
 ### Auto-Memory System
+
 - `crates/g3-core/src/lib.rs`
   - `send_auto_memory_reminder()` [47800..48800] - MEMORY CHECKPOINT prompt
   - `set_auto_memory()` [1451..1454] - enable/disable
@@ -63,6 +70,7 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
 - `crates/g3-cli/src/lib.rs` [393] - `--auto-memory` CLI flag
 
 ### Streaming Markdown Formatter
+
 - `crates/g3-cli/src/streaming_markdown.rs`
   - `format_header()` [21500..22500] - headers with inline formatting
   - `process_in_code_block()` [439..462] - detects closing fence
@@ -72,19 +80,23 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
 - **Gotcha**: closing ``` without trailing newline must be detected in `flush_incomplete()`
 
 ### Retry Infrastructure
+
 - `crates/g3-core/src/retry.rs` [0..12000] - `execute_with_retry()`, `retry_operation()`, `RetryConfig`, `RetryResult`
 - `crates/g3-cli/src/task_execution.rs` - `execute_task_with_retry()`
 
 ### UI Abstraction Layer
+
 - `crates/g3-core/src/ui_writer.rs` [0..4500] - `UiWriter` trait, `NullUiWriter`, `print_thin_result()`
 - `crates/g3-cli/src/ui_writer_impl.rs` [0..14000] - `ConsoleUiWriter`, `print_tool_compact()`
 - `crates/g3-cli/src/simple_output.rs` [0..1200] - `SimpleOutput` helper
 
 ### Feedback Extraction
+
 - `crates/g3-core/src/feedback_extraction.rs` [0..22000] - `extract_coach_feedback()`, `try_extract_from_session_log()`, `try_extract_from_native_tool_call()`
 - `crates/g3-cli/src/coach_feedback.rs` [0..4025] - `extract_from_logs()` for coach-player loop
 
 ### Streaming Utilities & State
+
 - `crates/g3-core/src/streaming.rs` [0..26146]
   - `MAX_ITERATIONS` [13] - constant (400)
   - `StreamingState` [16] - cross-iteration: full_response, first_token_time, iteration_count
@@ -95,22 +107,27 @@ Test for the final_output tool with TEST_SUCCESS success indicator.
 - `crates/g3-core/src/lib.rs` [1879..2712] - `stream_completion_with_tools()` main loop
 
 ### Background Process Management
+
 - `crates/g3-core/src/background_process.rs` [0..3000] - `BackgroundProcessManager`, `start()`, `list()`, `is_running()`, `get()`, `remove()`
 - No `stop()` method - use shell `kill <pid>`
 
 ### Unified Diff Application
+
 - `crates/g3-core/src/utils.rs` [5000..15000] - `apply_unified_diff_to_string()`, `parse_unified_diff_hunks()`
 - Handles multi-hunk diffs, CRLF normalization, range constraints
 
 ### Error Classification
+
 - `crates/g3-core/src/error_handling.rs` [0..567] - `classify_error()`, `ErrorType`, `RecoverableError`
 - Priority: rate limit > network > server > busy > timeout > token limit > context length
 - **Gotcha**: "Connection timeout" → NetworkError (not Timeout) due to "connection" keyword priority
 
 ### CLI Metrics
+
 - `crates/g3-cli/src/metrics.rs` [0..5416] - `TurnMetrics`, `format_elapsed_time()`, `generate_turn_histogram()`
 
 ### ACD (Aggressive Context Dehydration)
+
 Saves conversation fragments to disk, replaces with stubs.
 
 - `crates/g3-core/src/acd.rs` [0..22830]
@@ -124,12 +141,14 @@ Saves conversation fragments to disk, replaces with stubs.
 **Fragment JSON**: `fragment_id`, `created_at`, `messages`, `message_count`, `user_message_count`, `assistant_message_count`, `tool_call_summary`, `estimated_tokens`, `topics`, `preceding_fragment_id`
 
 ### UTF-8 Safe String Slicing
+
 Rust `&s[..n]` panics on multi-byte chars (emoji, CJK) if sliced mid-character.
 
 **Pattern**: `s.char_indices().nth(n).map(|(i,_)| i).unwrap_or(s.len())`
 **Danger zones**: Display truncation, ACD stubs, user input, non-ASCII text.
 
 ### Studio - Multi-Agent Workspace Manager
+
 - `crates/studio/src/main.rs` [0..12500] - `cmd_run()`, `cmd_status()`, `cmd_accept()`, `cmd_discard()`, `extract_session_summary()`
 - `crates/studio/src/session.rs` - `Session`, `SessionStatus`
 - `crates/studio/src/git.rs` - `GitWorktree` for isolated agent sessions
@@ -138,11 +157,13 @@ Rust `&s[..n]` panics on multi-byte chars (emoji, CJK) if sliced mid-character.
 **Fields**: `context_window.{conversation_history, percentage_used, total_tokens, used_tokens}`, `session_id`, `status`, `timestamp`
 
 ### Racket Code Search Support
+
 - `crates/g3-core/src/code_search/searcher.rs`
   - Racket parser [~45] - `tree_sitter_racket::LANGUAGE`
   - Extensions [~90] - `.rkt`, `.rktl`, `.rktd` → "racket"
 
 ### Language-Specific Prompt Injection
+
 Auto-detects languages and injects toolchain guidance.
 
 - `crates/g3-cli/src/language_prompts.rs`
@@ -159,6 +180,7 @@ Auto-detects languages and injects toolchain guidance.
 **To add agent+lang**: Create `prompts/langs/<agent>.<lang>.md`, add to `AGENT_LANGUAGE_PROMPTS`
 
 ### MockProvider for Testing
+
 - `crates/g3-providers/src/mock.rs`
   - `MockProvider` [220..320] - response queue, request tracking
   - `MockResponse` [35..200] - configurable chunks and usage
@@ -168,6 +190,7 @@ Auto-detects languages and injects toolchain guidance.
 **Usage**: `MockProvider::new().with_response(MockResponse::text("Hello!"))`
 
 ### G3 Status Message Formatting
+
 - `crates/g3-cli/src/g3_status.rs`
   - `Status` [12] - enum: Done, Failed, Error(String), Custom(String), Resolved, Insufficient, NoChanges
   - `G3Status` [44] - static methods for "g3:" prefixed messages
@@ -178,6 +201,7 @@ Auto-detects languages and injects toolchain guidance.
   - `resuming()` [213] - session resume with cyan ID
 
 ### Prompt Cache Statistics
+
 - `crates/g3-providers/src/lib.rs` [195..210] - `Usage.cache_creation_tokens`, `cache_read_tokens`
 - `crates/g3-providers/src/anthropic.rs` [944..956] - parses `cache_creation_input_tokens`, `cache_read_input_tokens`
 - `crates/g3-providers/src/openai.rs` [494..510] - parses `prompt_tokens_details.cached_tokens`
@@ -185,6 +209,7 @@ Auto-detects languages and injects toolchain guidance.
 - `crates/g3-core/src/stats.rs` [189..230] - `format_cache_stats()` with hit rate metrics
 
 ### Embedded Provider (Local LLM)
+
 Local inference via llama-cpp-rs with Metal acceleration.
 
 - `crates/g3-providers/src/embedded.rs`
@@ -195,6 +220,7 @@ Local inference via llama-cpp-rs with Metal acceleration.
   - `stream()` [560..780] - via spawn_blocking + mpsc
 
 ### Chat Template Formats
+
 | Model | Start Token | End Token |
 |-------|-------------|----------|
 | Qwen | `<\|im_start\|>role\n` | `<\|im_end\|>` |
@@ -203,6 +229,7 @@ Local inference via llama-cpp-rs with Metal acceleration.
 | Llama | `<<SYS>>` | `<</SYS>>` |
 
 ### Recommended GGUF Models
+
 | Model | Size | Use Case |
 |-------|------|----------|
 | GLM-4-9B-Q8_0 | ~10GB | Fast, capable |
@@ -222,6 +249,7 @@ gpu_layers = 99
 ```
 
 ### Async Research Tool
+
 Research tool is asynchronous - spawns scout agent in background, returns immediately with research_id.
 
 - `crates/g3-core/src/pending_research.rs`
@@ -253,6 +281,7 @@ Research tool is asynchronous - spawns scout agent in background, returns immedi
 5. Agent can check status with `research_status` tool or user with `/research` command
 
 ### Plan Mode (replaces TODO system)
+
 Structured task planning with cognitive forcing - requires happy/negative/boundary checks.
 
 - `crates/g3-core/src/tools/plan.rs`
@@ -295,6 +324,7 @@ items:
 **Workflow**: `/plan <desc>` → agent drafts plan → user approves → agent implements → plan_verify() called when complete
 
 ### Plan Mode Tool Names (IMPORTANT)
+
 Tool names must use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0-9_-]{1,128}$`).
 
 - `plan_read` - Read current plan
@@ -302,6 +332,7 @@ Tool names must use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0
 - `plan_approve` - Approve plan revision
 
 ### Plan Verification System
+
 Verifies evidence in completed plan items deterministically.
 
 - `crates/g3-core/src/tools/plan.rs`
@@ -327,6 +358,7 @@ Verifies evidence in completed plan items deterministically.
 **Integration:** Called from `execute_plan_write()` when plan is complete and approved (line 828-833)
 
 ### Knowledge Graph Data Model (g3-index::graph)
+
 Unified codebase intelligence data model for representing symbols, files, and relationships.
 
 - `crates/g3-index/src/graph.rs` [1..805]
@@ -344,6 +376,7 @@ Unified codebase intelligence data model for representing symbols, files, and re
 **Pattern**: Bidirectional edge indexing via reverse_edges HashMap enables efficient reverse lookups without graph traversal
 
 ### Pattern Search Tool
+
 Find specific code patterns (error handling, async, builder, etc.) across the codebase.
 
 - `crates/g3-core/src/tools/index.rs`
@@ -363,6 +396,7 @@ Find specific code patterns (error handling, async, builder, etc.) across the co
 **Pattern types**: error_handling, trait_impl, async_pattern, struct_init, builder_pattern, lifecycle, concurrency, config, logging
 
 ### G3 Workspace Build Status
+
 The entire g3 workspace is built and available.
 
 **Release binaries:**
@@ -382,35 +416,7 @@ The entire g3 workspace is built and available.
 - `cargo check` - quick type check without full build
 
 ### Latest Features Verification (February 2026)
-All latest features are properly wired and tested:
 
-**Core Tools (17 total)**:
-- switch_mode - agent mode switching
-- complexity_metrics - code complexity analysis
-- list_files - glob pattern file filtering
-- list_directory - directory exploration
-- preview_file - quick file previews
-- pattern_search - code pattern discovery
-- code_intelligence - graph-based code analysis
-
-**Codebase Intelligence System**:
-- crates/g3-index/src/unified_index.rs - unified API
-- crates/g3-index/src/traverser.rs - BFS/DFS/graph traversal
-- crates/g3-core/src/tools/intelligence.rs - 7 subcommands
-
-**Test Results**:
-- 25 tool_definitions tests: PASS
-- 16 tool execution roundtrip tests: PASS
-- 18 integration blackbox tests: PASS
-- 22 intelligence system tests: PASS
-- 500+ total tests passing
-
-**Build Status**:
-- Release binary: target/release/g3 (42 MB)
-- Debug binary: target/debug/g3 (92 MB)
-- studio binary: target/debug/studio (5.4 MB)
-
-### Latest Features Verification (February 2026)
 All latest features are properly wired and tested:
 
 **Core Tools (17 total)**:
@@ -440,6 +446,7 @@ All latest features are properly wired and tested:
 - studio binary: target/debug/studio (5.4 MB)
 
 ### Interactive Mode Selection Menu
+
 When running `g3` without arguments, displays a mode selection menu.
 
 - `crates/g3-cli/src/interactive.rs` [665..752]
@@ -475,6 +482,7 @@ When running `g3` without arguments, displays a mode selection menu.
 - Menu only appears when no mode flags are provided
 
 ### Mode Selection Fix (February 2026)
+
 Fixed planning mode selection from mode selection menu.
 
 - `crates/g3-cli/src/lib.rs` [132..140] - When mode selection returns ModeSelection::Planning, return early to call g3_planner::run_planning_mode()
@@ -489,22 +497,11 @@ Fixed planning mode selection from mode selection menu.
 4. Planning mode starts with codepath prompt, requirements refinement, and coach/player loop
 
 ### Session Management
+
 The g3 workspace stores session logs in `.g3/sessions/<session_id>/` with session state in `session.json`. The `.g3/session` symlink points to the current/active session. Session cleanup can be performed by removing old session directories.
 
-### Final Output Test
-Test for the final_output tool with TEST_SUCCESS success indicator.
-
-- `crates/g3-core/tests/final_output_test.rs` - Complete test implementation
-  - `call_final_output()` - Simulates calling final_output tool with summary
-  - `test_test_success_constant()` - Verifies TEST_SUCCESS constant
-  - `test_final_output_with_test_success()` - Tests final_output call with TEST_SUCCESS
-  - `test_final_output_format()` - Verifies summary format
-  - `test_test_success_indicates_success()` - Confirms TEST_SUCCESS indicates success
-  - All tests pass (4/4)
-
-The test demonstrates the final_output mechanism used in g3 for task completion signaling.
-
 ### CLI Integration Test Fix
+
 Fixed failing CLI integration tests that couldn't find the g3 binary.
 
 - `crates/g3-cli/tests/cli_integration_test.rs` [27..41]
@@ -807,6 +804,7 @@ Fixed failing CLI integration tests that couldn't find the g3 binary.
 **Summary**: g3's tools are functionally equivalent but ~2-5x slower than Claude Code's native tools. The new caching infrastructure provides a foundation for future optimizations.
 
 ### Todo System
+
 Simple markdown-based task tracking within g3 sessions.
 
 - `todo_write` tool - Creates/replaces todo list with markdown checkboxes
@@ -827,6 +825,7 @@ Simple markdown-based task tracking within g3 sessions.
 **Use case:** Simple single-session task tracking without beads persistence.
 
 ### AST-Aware Code Search (tree-sitter)
+
 Fully implemented syntax-aware code search supporting 11 languages.
 
 - `crates/g3-core/src/code_search/searcher.rs` [0..393]
@@ -877,6 +876,7 @@ Fully implemented syntax-aware code search supporting 11 languages.
 ✓ Configurable limits (max matches, file size, capture size)
 
 ### Todo Tools Demo Session (can_you_demo_the_todo_ed3c9051d3c4b577)
+
 Completed on 2026-02-08.
 
 **Accomplishments:**
@@ -896,6 +896,7 @@ Completed on 2026-02-08.
 - g3-bqr: Closed (test issue)
 
 ### Todo Tools Demo Session Summary
+
 Session: can_you_demo_the_todo_ed3c9051d3c4b577
 Date: 2026-02-08
 
@@ -924,6 +925,7 @@ Date: 2026-02-08
 - Session files in .g3/ (untracked by git)
 
 ### Session: can_you_demo_the_todo_ed3c9051d3c4b577
+
 Date: 2026-02-08
 Status: COMPLETE
 
@@ -981,6 +983,7 @@ Status: COMPLETE
 - Session files: untracked (.g3/ is in .gitignore)
 
 ### Todo Tools Demo Session
+
 Session ID: can_you_demo_the_todo_ed3c9051d3c4b577
 Completed: 2026-02-08
 
@@ -1003,6 +1006,7 @@ Completed: 2026-02-08
 **Status:** COMPLETE - All tasks done, memory updated, beads synced.
 
 ### Todo Tools Demo - Final Complete
+
 Session: can_you_demo_the_todo_ed3c9051d3c4b577
 Date: 2026-02-08
 
@@ -1042,26 +1046,6 @@ Date: 2026-02-08
 - Session todo: .g3/sessions/.../todo.g3.md
 - Memory: analysis/memory.md (43.5k chars)
 
-### Todo Tools Demo - Final Complete
-Session: can_you_demo_the_todo_ed3c9051d3c4b577
-Date: 2026-02-08
-
-**Tasks Completed:** 5/5
-
-**Tools Demonstrated:**
-- todo_write: Creates markdown todo lists with `- [ ]` / `- [x]`
-- todo_read: Reads current todo list content
-
-**Verification:**
-- AST code search already implemented (11 languages via tree-sitter)
-- code_search tool exposed with batch search support
-
-**Issue Resolution:**
-- g3-0v7: CLOSED (implemented)
-- g3-bqr: CLOSED (test)
-
-**Status:** COMPLETE - All tasks done, memory updated, synced, pushed.
-
 ### Core Agent Architecture
 
 - `crates/g3-core/src/lib.rs`
@@ -1086,12 +1070,6 @@ Date: 2026-02-08
   - `openai.rs` - OpenAI models
   - `mock.rs` - Testing with configurable response queue
 
-### Tool System
-
-- `crates/g3-core/src/tool_definitions.rs` - Tool schemas and creation
-- `crates/g3-core/src/tool_dispatch.rs` - Tool routing
-- `crates/g3-core/src/tools/` - 15+ tool implementations
-
 ### Context Management
 
 - `crates/g3-core/src/compaction.rs` - Auto-compaction at 80% capacity
@@ -1112,6 +1090,7 @@ Date: 2026-02-08
 - `crates/g3-core/src/tools/` - 18 tool modules (shell, file_ops, plan, etc.)
 
 ### Core Architecture Pattern
+
 G3 uses a layered architecture with clear separation of concerns:
 
 1. **g3-core**: Agent engine with streaming, tool execution, context management
@@ -1121,6 +1100,7 @@ G3 uses a layered architecture with clear separation of concerns:
 5. **g3-index**: Codebase indexing with semantic search, knowledge graph, AST chunking
 
 ### Streaming Completion Loop
+
 The agent's main execution pattern:
 
 1. Prepare context window with conversation history
@@ -1131,12 +1111,14 @@ The agent's main execution pattern:
 6. Auto-continue in autonomous mode for incomplete tool calls
 
 ### Context Window Management
+
 - Tracks used_tokens via add_message() (not usage response)
 - Thins at 50%, 60%, 70%, 80% thresholds
 - Compacts at 80% capacity using summary
 - Session continuation preserves state across invocations
 
 ### Codebase Scout - Structural Overview
+
 Purpose: Quick orientation for developers new to the g3 codebase.
 
 - `crates/g3-core/src/lib.rs` - Main Agent struct (121..174) and orchestration (~3400 lines total)
@@ -1147,6 +1129,7 @@ Purpose: Quick orientation for developers new to the g3 codebase.
 - `crates/g3-core/src/streaming.rs` - MAX_ITERATIONS constant (13) = 400 to prevent runaway loops
 
 ### Dependency Architecture
+
 Crate-level coupling pattern with clear separation:
 
 - **Leaf crates** (zero outgoing deps): g3-config, g3-providers, g3-execution, g3-computer-control
@@ -1157,6 +1140,7 @@ Crate-level coupling pattern with clear separation:
 See analysis/deps/graph.summary.md for full dependency graph analysis.
 
 ### Execution Modes
+
 6 distinct modes available through g3 CLI:
 
 1. Single-shot: `g3 "task"` - one task, exit
@@ -1167,6 +1151,7 @@ See analysis/deps/graph.summary.md for full dependency graph analysis.
 6. Agent Mode: `g3 --agent <name>` - specialized agent personas
 
 ### Core Data Flow
+
 ```
 User Input → g3-cli → Agent.add_message() → stream_completion_with_tools() →
 LLM Provider → StreamingParser → ToolCall → ToolDispatch → Tool Execution →
@@ -1174,6 +1159,7 @@ ContextWindow.update() → Continue or Complete
 ```
 
 ### Tool System Architecture
+
 Builder pattern with ToolConfig for configurable tool sets:
 
 - `ToolConfig::new(webdriver, computer_control, zai_tools, index_tools)`
@@ -1181,6 +1167,7 @@ Builder pattern with ToolConfig for configurable tool sets:
 - `create_tool_definitions()` generates 42 tools from config
 
 ### Error Handling Strategy
+
 Recoverable vs non-recoverable errors with exponential backoff:
 
 - **Recoverable**: rate limits (429), network errors, server errors (5xx), timeouts
@@ -1188,6 +1175,7 @@ Recoverable vs non-recoverable errors with exponential backoff:
 - **Retry**: 3 attempts default, 6 in autonomous mode with jitter
 
 ### Context Window Intelligence
+
 Progressive resource management at 4 thresholds:
 
 - 50%: thin_large_results() → replace with file references
@@ -1196,12 +1184,14 @@ Progressive resource management at 4 thresholds:
 - 80%: force_compact() → summarize conversation history
 
 ### Key Hot Spots
+
 - `crates/g3-core/src/lib.rs` - 18 dependents (highest fan-in)
 - `crates/g3-core/src/ui_writer.rs` - 14 dependents (UiWriter trait)
 - `crates/g3-cli/src/interactive.rs` - 11 dependencies (highest fan-out)
 - `crates/g3-core/src/tools/executor.rs` - 7 dependencies (integration point)
 
 ### Agent Architecture
+
 Main agent struct orchestrating context, provider, tools, and configuration with streaming completion loop.
 
 - `crates/g3-core/src/lib.rs`
@@ -1212,30 +1202,15 @@ Main agent struct orchestrating context, provider, tools, and configuration with
   - `add_message_to_context()` [1238..1240] - adds messages to context window
 
 ### LLM Provider Abstraction
+
 Unified interface for all LLM providers with Send + Sync bounds for async runtime compatibility.
 
 - `crates/g3-providers/src/lib.rs`
   - `LLMProvider` trait [14..48] - complete(), stream(), name(), model(), supports_native_tools()
   - `ProviderRegistry` - dynamic provider management with name-based lookup
 
-### Context Window Intelligence
-Progressive resource management at 4 thresholds (50%, 60%, 70%, 80%) with compaction at 80%.
-
-- `crates/g3-core/src/context_window.rs`
-  - `ContextWindow` [75..83] - used_tokens, total_tokens, cumulative_tokens, conversation_history
-  - `should_compact()` [222..224] - threshold check (80% usage or 150k tokens)
-  - `thin_context()` - replace large results with file references
-  - `reset_with_summary()` - compact history to summary
-
-### Tool System
-Configurable tool definitions via ToolConfig builder pattern with 42+ available tools.
-
-- `crates/g3-core/src/tool_definitions.rs`
-  - `ToolConfig` [12..21] - webdriver, computer_control, zai_tools, mcp_tools, beads_tools, index_tools, lsp_tools
-  - `create_core_tools()` [104..514] - core 22 tools definition (shell, write_file, str_replace, etc.)
-  - `create_tool_definitions()` [73..101] - full tool set with optional tool sets
-
 ### Codebase Intelligence System
+
 Unified codebase indexing with semantic search, knowledge graph, and 12 relationship types.
 
 - `crates/g3-index/src/unified_index.rs`
@@ -1246,6 +1221,7 @@ Unified codebase indexing with semantic search, knowledge graph, and 12 relation
   - 7 subcommands: find, refs, callers, callees, similar, graph, query
 
 ### Session Continuation
+
 Save/restore session state across g3 invocations using symlink-based approach.
 
 - `crates/g3-core/src/session_continuation.rs`
@@ -1254,38 +1230,15 @@ Save/restore session state across g3 invocations using symlink-based approach.
   - `load_continuation()` [7250..8900] - follows `.g3/session` symlink to restore
   - `find_incomplete_agent_session()` [10500..13200] - finds sessions with incomplete TODOs for agent resume
 
-### Streaming Completion Loop
-Main execution pattern with real-time JSON tool call detection via StreamingParser.
-
-- `crates/g3-core/src/streaming.rs`
-  - `MAX_ITERATIONS` [13] - constant (400) to prevent runaway loops
-  - `StreamingState` [16] - cross-iteration: full_response, first_token_time, iteration_count
-  - `should_auto_continue()` [654..697] - handles incomplete/unexecuted tool calls
-
-### Execution Modes
-6 distinct modes: interactive (default), autonomous (coach-player), accumulative, planning, agent mode, studio (multi-agent).
-
-- `crates/g3-cli/src/lib.rs`
-  - `run()` [108..143] - CLI entry point with mode dispatch
-- `crates/g3-cli/src/interactive.rs`
-  - `run_interactive()` [192..526] - REPL-style conversation mode
-- `crates/g3-cli/src/autonomous.rs`
-  - `run_autonomous()` [20..265] - coach-player feedback loop mode
-
-### Error Classification
-Recoverable vs non-recoverable errors with exponential backoff (3 attempts default, 6 in autonomous mode).
-
-- `crates/g3-core/src/error_handling.rs`
-  - `classify_error()` [64..143] - recoverable (rate limits, network, server, timeout) vs non-recoverable
-  - `RecoverableError` - rate limit > network > server > busy > timeout > token limit > context length
-
 ### Codebase Scout Agent
+
 Purpose: Quick orientation for developers new to the g3 codebase.
 
 - `crates/g3-core/src/tools/codebase_scout.rs` - tool that spawns scout agents
 - `agents/codebase-scout.md` - agent persona definition
 
 ### Module Architecture
+
 Crate-level organization with clear separation of concerns and dependency flow.
 
 **Core Crates**:
@@ -1311,13 +1264,8 @@ Crate-level organization with clear separation of concerns and dependency flow.
 
 See analysis/deps/graph.summary.md for full dependency graph analysis.
 
-### Codebase Scout Agent
-Purpose: Quick orientation for developers new to the g3 codebase.
-
-- `crates/g3-core/src/tools/codebase_scout.rs` - tool that spawns scout agents
-- `agents/codebase-scout.md` - agent persona definition
-
 ### Architecture Documentation in Memory
+
 The Workspace Memory in `analysis/memory.md` contains comprehensive documentation of the g3 codebase structure, patterns, and key locations:
 
 - `crates/g3-core/src/lib.rs` - Main Agent struct and orchestration (~3400 lines total)
@@ -1327,19 +1275,8 @@ The Workspace Memory in `analysis/memory.md` contains comprehensive documentatio
 - `crates/g3-cli/src/lib.rs` - CLI mode dispatch with 6 execution modes
 - `crates/g3-core/src/streaming.rs` - MAX_ITERATIONS constant (400) prevents runaway loops
 
-### Dependency Architecture
-Crate-level coupling pattern with clear separation:
-
-- **Leaf crates** (zero outgoing deps): g3-config, g3-providers, g3-execution, g3-computer-control
-- **Hub crate** (high incoming deps): g3-core (5 incoming deps from other crates)
-- **Consumer crate**: g3-cli (uses g3-core, g3-providers, g3-config)
-- **Isolated crate**: studio (no internal g3 dependencies)
-
-See analysis/deps/graph.summary.md for full dependency graph analysis.
-
-## Codebase Scout Tool Issues
-
 ### Issue 1: Memory Update Race Condition
+
 The `execute_codebase_scout()` tool DOES update memory, but asynchronously in a background task, causing potential timing issues.
 
 - `crates/g3-core/src/tools/codebase_scout.rs:73-83`
@@ -1349,6 +1286,7 @@ The `execute_codebase_scout()` tool DOES update memory, but asynchronously in a 
   - Only logs errors, doesn't fail the tool call
 
 ### Issue 2: Scout Agent Outputs Unstructured Content
+
 The codebase scout agent produces one big prompt rather than the required structured sections.
 
 - `crates/g3-core/src/tools/research.rs:945-977` - `extract_report_from_output()` requires `---SCOUT_REPORT_START---`/`---SCOUT_REPORT_END---` markers
@@ -1356,6 +1294,7 @@ The codebase scout agent produces one big prompt rather than the required struct
 - `crates/g3-core/src/tools/codebase_scout.rs:150-175` - `condense_report_for_memory()` expects the report format but receives unstructured content
 
 ### Problem Flow
+
 1. Agent runs `g3 --agent codebase-scout` with query
 2. Agent explores codebase and outputs natural language exploration
 3. Agent wraps output in `---SCOUT_REPORT_START---`/`---SCOUT_REPORT_END---`
@@ -1364,6 +1303,7 @@ The codebase scout agent produces one big prompt rather than the required struct
 6. Memory may not get updated due to async timing or scout output format mismatch
 
 ### Codebase Scout Memory Update
+
 - `crates/g3-core/src/tools/codebase_scout.rs` [88..103] - `execute_codebase_scout()` - async tool that spawns scout agent, updates workspace memory on success
   - Uses `condense_report_for_memory()` to create memory content
   - Uses `update_memory()` with error handling
@@ -1478,6 +1418,7 @@ Purpose: Quick orientation for developers new to the g3 codebase. Produces compr
 **Discovery**: Tool system uses builder pattern with `ToolConfig::new(webdriver, computer_control, zai_tools, index_tools)` and fluent `with_*` methods
 
 ### Plan Mode Dependency Analysis
+
 Plan mode supports dependency tracking via `blocked_by` field in plan items.
 
 **Usage:**
@@ -1506,6 +1447,7 @@ Plan mode supports dependency tracking via `blocked_by` field in plan items.
 5. I6, I7 - Add unit and integration tests
 
 ### File Locations
+
 - `crates/g3-core/src/index_client.rs` - I2: Add retry logic in `IndexClient::new()`
 - `crates/g3-core/src/tools/index.rs` - I3: Enhance `execute_index_status()`
 - `crates/g3-core/src/lib.rs` - I1: Add initialization in `build_agent()`
@@ -1513,6 +1455,7 @@ Plan mode supports dependency tracking via `blocked_by` field in plan items.
 - `crates/g3-core/tests/` - I6: Unit tests, I7: Integration tests
 
 ### Qdrant Retry Logic in IndexClient
+
 Retry logic implemented with exponential backoff (100ms, 200ms, 400ms) for Qdrant connections.
 
 - `crates/g3-core/src/index_client.rs` [93..155] - `IndexClient::new()` with retry logic
@@ -1547,6 +1490,7 @@ let client = 'outer: {
 **Key gotcha**: Use `'outer` label break pattern with `break 'outer c` to return value from async block, not `let client = 'retry: for ... { break 'retry c; } client` which doesn't work correctly.
 
 ### Plan Mode Dependency Tracking
+
 Plan mode supports dependency tracking via `blocked_by` field.
 
 **Usage**:
@@ -1664,23 +1608,28 @@ dimensions = 4096
 Git history shows normal development activity with 806 commits intact.
 
 ### What Was Cleaned Up:
+
 1. **Removed .bak file**: `crates/g3-core/tests/code_search_test.rs.bak`
 2. **Fixed integration tests**: Created `scripts/run-integration-tests.sh` script for running tests with proper binary path
 3. **Cleaned session logs**: Reduced from 90 to ~20 session files (keeping recent ones)
 
 ### Test Results:
+
 - g3-core: 328 tests PASS
 - g3-index: 134 tests PASS  
 - g3-cli (lib): 170 tests PASS
 - g3-cli (integration): 17 tests PASS (with proper CARGO_BIN_EXE_g3)
 
 ### Ready Work:
+
 No open issues - all features tracked in beads closed.
 
 ### Known Artifacts:
+
 - `crates/g3-ensembles/src/dytopo/` - Incomplete module from previous session, not causing issues
 
 ### g3 Plan Mode
+
 Structured task planning with cognitive forcing - requires happy/negative/boundary checks and evidence-based verification.
 
 - `crates/g3-core/src/tools/plan.rs` [0..1184]
@@ -1697,6 +1646,7 @@ Structured task planning with cognitive forcing - requires happy/negative/bounda
   - `format_verification_results()` [703..745] - formats verification output with emoji warnings
 
 ### g3 Todo System
+
 Simple markdown-based task tracking using checkboxes for single-session use.
 
 - `crates/g3-core/src/tools/todo.rs` [0..500]
@@ -1707,6 +1657,7 @@ Simple markdown-based task tracking using checkboxes for single-session use.
   - Stores to `.g3/sessions/<id>/todo.g3.md`
 
 ### g3 vs Claude Code Tool Performance
+
 Performance comparison showing g3 tools are ~2-5x slower than Claude Code but have caching infrastructure.
 
 - `analysis/memory.md` [4300..4800]
@@ -1716,16 +1667,8 @@ Performance comparison showing g3 tools are ~2-5x slower than Claude Code but ha
   - **Improvements**: DirectoryCache, DirectoryCacheManager, FsService with 60s expiry
   - **Future**: tokio::fs for async I/O, FS daemon to eliminate spawn overhead
 
-### Plan Mode Tool Names (IMPORTANT)
-Tool names use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0-9_-]{1,128}$`).
-
-- `crates/g3-core/src/lib.rs` [1500..1600]
-  - `plan_read` - Read current plan
-  - `plan_write` - Create/update plan  
-  - `plan_approve` - Approve plan revision
-  - `plan_verify` - Verify evidence for completed items (called automatically when plan complete)
-
 ### Memory Checkpoint System
+
 Automatic reminders to save discovered code locations at session end.
 
 - `crates/g3-core/src/lib.rs` [1451..1454] - `set_auto_memory()` - enable/disable system
@@ -1805,3 +1748,554 @@ Automatic reminders to save discovered code locations at session end.
 - `crates/g3-core/src/tools/todo.rs` - Current todo implementation
 - `crates/g3-core/src/session_continuation.rs` - Session continuation with todo_snapshot
 - `crates/g3-core/src/tools/plan.rs` - Plan Mode with dependency tracking
+
+### Claude Code Tasks Feature (Spillwave Article Reference)
+
+Claude Code's built-in tasks system with session-scoped tasks, persistent specification files, parallel execution, and multi-session collaboration.
+
+**Key capabilities from memory:**
+- Session-scoped tasks with persistent specification files
+- Parallel execution and complex dependency management
+- Hydration pattern for session bridging
+- Multi-session collaboration support
+- Runtime checklist validation
+
+**Implementation notes:**
+- Spillwave article reference in Workspace Memory (no direct code location - external feature documentation)
+- Based on 2026 implementation referenced in memory
+
+### g3 Plan Mode Dependency Tracking
+
+g3's structured task planning with `blocked_by` field for dependency management.
+
+- `crates/g3-core/src/tools/plan.rs` [110..145]
+  - `PlanItem` struct with `id`, `description`, `state`, `touches`, `checks`, `evidence`, `notes`
+  - Supports `blocked_by` field for task dependencies
+- `crates/g3-core/src/tools/plan.rs` [395..420]
+  - `execute_plan_read()` - reads current plan from session
+- `crates/g3-core/src/tools/plan.rs` [425..490]
+  - `execute_plan_write()` - validates and saves plan, auto-approves in autonomous mode
+- `crates/g3-core/src/tools/plan.rs` [659..700]
+  - `plan_verify()` - verifies evidence for completed items
+
+**Pattern:**
+1. Define plan with items that have `blocked_by` field referencing other items
+2. Items without `blocked_by` can be worked on immediately
+3. Items with `blocked_by` must wait until all blockers are done
+4. Multiple items can be worked on in parallel if they have no dependencies
+
+**Gotcha:** Cannot remove items from approved plan - mark as `blocked` instead
+
+### g3 Session Continuation
+
+Save/restore session state across g3 invocations using symlink-based approach.
+
+- `crates/g3-core/src/session_continuation.rs`
+  - `SessionContinuation` [850..2100] - artifact struct with session state, TODO snapshot, context %
+  - `save_continuation()` [5765..7200] - saves to `.g3/sessions/<id>/latest.json`, updates symlink
+  - `load_continuation()` [7250..8900] - follows `.g3/session` symlink to restore
+  - `find_incomplete_agent_session()` [10500..13200] - finds sessions with incomplete TODOs for agent resume
+
+### g3's g3-core Plan Tools
+
+Structured task planning with cognitive forcing - requires happy/negative/boundary checks.
+
+- `crates/g3-core/src/tools/plan.rs` [0..1184]
+  - `Plan` [200..240] - plan_id, revision, approved_revision, items[]
+  - `PlanItem` [110..145] - id, description, state, touches, checks, evidence, notes
+  - `PlanState` [25..45] - enum: Todo, Doing, Done, Blocked
+  - `Check` [60..85] - desc, target fields
+  - `Checks` [90..105] - happy, negative, boundary checks
+  - `get_plan_path()` [280..285] - returns `.g3/sessions/<id>/plan.g3.md`
+  - `read_plan()` [290..310] - loads plan from YAML in markdown
+  - `write_plan()` [315..335] - validates and saves plan
+  - `plan_verify()` [659..700] - iterates done items, collects verification results
+  - `format_verification_results()` [703..745] - formats results with emoji, loud warnings
+  - `parse_evidence()` [390..428] - parses evidence strings (file:line, file:line-range, file::test)
+  - `verify_code_location()` [443..495] - checks file exists, line numbers valid
+  - `verify_test_reference()` [496..554] - checks test function exists in file
+
+**Evidence formats supported:**
+- Code location with range: `src/foo.rs:42-118`
+- Code location single line: `src/foo.rs:42`
+- Code location file only: `src/foo.rs`
+- Test reference: `tests/foo.rs::test_bar`
+
+### g3's Codebase Intelligence System
+
+Unified codebase indexing with semantic search, knowledge graph, and 12 relationship types.
+
+- `crates/g3-index/src/unified_index.rs` - UnifiedIndex for semantic search & knowledge graph
+- `crates/g3-index/src/traverser.rs` - Traverser for BFS/DFS/graph traversal
+- `crates/g3-core/src/tools/intelligence.rs` - 7 subcommands: find, refs, callers, callees, similar, graph, query
+
+### g3's g3-index Knowledge Graph Data Model
+
+Unified codebase intelligence data model for representing symbols, files, and relationships.
+
+- `crates/g3-index/src/graph.rs` [1..805]
+  - `SymbolNode` [84..235] - functions, types, modules with metadata (signature, docs, generics, visibility)
+  - `FileNode` [237..295] - files with language, LOC, symbol count, test flag
+  - `Edge` [297..327] - 12 relationship types (defines, references, calls, inherits, implements, contains, etc.)
+  - `CodeGraph` [329..670] - directed graph with bidirectional reverse_edges index, symbol_name_index, file_language_index
+  - `CodeGraph::add_symbol()` [378..424] - adds symbol to graph, updates name index, creates defines/belongs-to edges
+  - `CodeGraph::add_reference()` [458..478] - adds reference edge from file to symbol by name lookup
+  - `CodeGraph::find_callers()` [580..595] - incoming "calls" edges
+  - `CodeGraph::find_callees()` [597..612] - outgoing "calls" edges
+  - `CodeGraph::find_references()` [614..624] - incoming "references" edges
+
+**Pattern:** Builder pattern for SymbolNode/FileNode with fluent methods (.with_signature(), .with_documentation(), etc.)
+**Pattern:** Bidirectional edge indexing via reverse_edges HashMap enables efficient reverse lookups without graph traversal
+
+### g3's Async Research Tool
+
+Research tool is asynchronous - spawns scout agent in background, returns immediately with research_id.
+
+- `crates/g3-core/src/pending_research.rs`
+  - `PendingResearchManager` [80..100] - thread-safe task storage (Arc<Mutex<HashMap>>)
+  - `ResearchTask` [40..75] - id, query, status, result, started_at, injected
+  - `ResearchStatus` [20..35] - Pending, Complete, Failed enum
+  - `register()` [110..125] - creates task, returns research_id
+  - `complete()` / `fail()` [130..150] - update task status
+  - `take_completed()` [180..200] - returns completed tasks, marks as injected
+  - `list_all()` [165..170] - returns all tasks for /research command
+
+- `crates/g3-core/src/tools/research.rs`
+  - `execute_research()` [150..210] - spawns scout in tokio::spawn, returns placeholder
+  - `run_scout_agent()` [215..300] - async fn that runs in background task
+  - `execute_research_status()` [305..380] - check status of pending research
+
+- `crates/g3-core/src/lib.rs`
+  - `inject_completed_research()` [1080..1120] - injects completed research into context
+  - Called at start of each tool iteration and before user prompt in interactive mode
+
+- `crates/g3-cli/src/commands.rs`
+  - `/research` command [125..160] - lists all research tasks with status
+
+**Flow:**
+1. Agent calls `research(query)` → returns immediately with research_id
+2. Scout agent runs in background tokio task
+3. On completion, `PendingResearchManager.complete()` stores result
+4. At next iteration start or user prompt, `inject_completed_research()` adds to context
+5. Agent can check status with `research_status` tool or user with `/research` command
+
+### g3's Codebase Scout Agent
+
+Purpose: Quick orientation for developers new to the g3 codebase.
+
+- `crates/g3-core/src/tools/codebase_scout.rs` - Tool that spawns scout agents
+- `agents/codebase-scout.md` - Agent persona definition with exploration strategy
+
+**Exploration Strategy** (must follow this order):
+1. Top-level directory structure (crates/, analysis/, agents/, docs/, specs/, examples/, scripts/, prompts/)
+2. Core abstractions (use code_intelligence, graph_find_symbol, graph_file_symbols)
+3. Data flows and dependencies (callers, references, graph traversal)
+4. Hot spots and complexity (complexity_metrics, analysis/deps/hotspots.md)
+5. Final report with ---SCOUT_REPORT_START---/---SCOUT_REPORT_END--- markers
+
+**Analysis Artifacts** (generated by euler agent):
+- graph.json - Canonical dependency graph with nodes (crates, files) and edges (imports)
+- graph.summary.md - One-page overview with metrics, entrypoints, top fan-in/fan-out
+- sccs.md - Strongly connected components (dependency cycles) analysis
+- layers.observed.md - Observed layering structure derived from dependency direction
+- hotspots.md - Files with disproportionate coupling (high fan-in or fan-out)
+- limitations.md - What could not be observed and what may invalidate conclusions
+
+### g3's Streaming Completion Loop
+
+Main execution pattern with real-time JSON tool call detection via StreamingParser.
+
+- `crates/g3-core/src/streaming.rs`
+  - `MAX_ITERATIONS` [13] - constant (400) to prevent runaway loops
+  - `StreamingState` [16] - cross-iteration: full_response, first_token_time, iteration_count
+  - `should_auto_continue()` [654..697] - handles incomplete/unexecuted tool calls
+
+**Pattern**:
+1. Prepare context window with conversation history
+2. Request streaming completion from LLM provider
+3. Parse chunks in real-time for tool calls
+4. Execute tools and add results to context
+5. Continue until completion or MAX_ITERATIONS (400)
+6. Auto-continue in autonomous mode for incomplete tool calls
+
+### g3's Context Window Intelligence
+
+Progressive resource management at 4 thresholds (50%, 60%, 70%, 80%) with compaction at 80%.
+
+- `crates/g3-core/src/context_window.rs`
+  - `ContextWindow` [75..83] - used_tokens, total_tokens, cumulative_tokens, conversation_history
+  - `should_compact()` [222..224] - threshold check (80% usage or 150k tokens)
+  - `thin_context()` - replace large results with file references
+  - `reset_with_summary()` - compact history to summary
+
+### g3's Error Classification
+
+Recoverable vs non-recoverable errors with exponential backoff (3 attempts default, 6 in autonomous mode).
+
+- `crates/g3-core/src/error_handling.rs`
+  - `classify_error()` [64..143] - recoverable (rate limits, network, server, timeout) vs non-recoverable
+  - `RecoverableError` - rate limit > network > server > busy > timeout > token limit > context length
+
+### g3's Interactive Mode Selection Menu
+
+When running `g3` without arguments, displays a mode selection menu.
+
+- `crates/g3-cli/src/interactive.rs` [665..752]
+  - `ModeSelection` enum [668-678] - 6 mode variants
+  - `run_mode_selection()` [680-752] - displays menu, handles input
+
+- `crates/g3-cli/src/lib.rs` [101..143]
+  - Mode selection check in `run()` [101-143] - calls menu, modifies CLI flags
+
+**Workflow**:
+1. User runs `g3` (no args) → menu appears
+2. User selects mode by number (1-6) or name
+3. CLI flags are set based on selection
+4. Appropriate mode runner is called
+
+**Input handling**:
+- Empty input → re-prompt
+- Invalid input → shows [failed], re-prompt
+- "exit"/"quit" → exits gracefully
+- EOF (Ctrl-D) → exits
+- Name matching is case-insensitive
+
+**6 Modes**:
+1. Interactive (default chat)
+2. Autonomous (coach-player loop)
+3. Accumulative (evolutionary requirements)
+4. Agent (specialized agents)
+5. Planning (requirements-driven)
+6. Studio (multi-agent)
+
+**CLI flag behavior**:
+- If any mode flag is set (--agent, --autonomous, --auto, --planning, --chat, --task) → skips menu
+- Menu only appears when no mode flags are provided
+
+### g3's MCP (Model Context Protocol) Tool Infrastructure
+
+**Purpose**: Provides integration with Z.ai's MCP servers (webSearchPrime, webReader, zread) for web search, web reading, and GitHub repository access.
+
+**Configuration**:
+- `crates/g3-config/src/lib.rs` [159..185] - `ZaiMcpConfig` with `web_search`, `web_reader`, `zread` fields
+- `crates/g3-config/src/lib.rs` [188..200] - `McpServerConfig` with `enabled` and `api_key`
+
+**Tool Definitions**:
+- `crates/g3-core/src/tool_definitions.rs` [540..560] - MCP tool schemas
+
+**Tool Handlers**:
+- `crates/g3-core/src/tools/mcp_tools.rs` - Async handlers for:
+  - `execute_mcp_web_search()` - calls webSearchPrime
+  - `execute_mcp_web_reader()` - calls webReader  
+  - `execute_mcp_search_doc()` - calls zread for GitHub docs
+  - `execute_mcp_get_repo_structure()` - calls zread for repo structure
+  - `execute_mcp_read_file()` - calls zread to read repo files
+
+**Client**:
+- `crates/g3-core/src/mcp_client.rs` - `McpHttpClient` for HTTP-based MCP protocol communication
+
+**Note**: This is Z.ai-specific MCP implementation, NOT Claude Code MCP integration. Claude Code has its own MCP client built-in.
+
+### g3's Auto-Memory System
+
+Automatic reminders to save discovered code locations at session end.
+
+- `crates/g3-core/src/lib.rs`
+  - `send_auto_memory_reminder()` [47800..48800] - MEMORY CHECKPOINT prompt
+  - `set_auto_memory()` [1451..1454] - enable/disable
+  - `tool_calls_this_turn` [116] - tracks tools per turn
+  - `execute_tool_in_dir()` [2843..2855] - records tool calls
+- `crates/g3-core/src/prompts.rs` [3800..4500] - Workspace Memory prompt section
+- `crates/g3-cli/src/project_files.rs` - `read_workspace_memory()` loads `analysis/memory.md`
+
+### g3's Unified Diff Application
+
+Handles multi-hunk diffs with CRLF normalization and range constraints.
+
+- `crates/g3-core/src/utils.rs` [5000..15000]
+  - `apply_unified_diff_to_string()` - main application function
+  - `parse_unified_diff_hunks()` - parses hunk headers and line changes
+
+### g3's Background Process Management
+
+Manages long-running background processes with unique names and PID tracking.
+
+- `crates/g3-core/src/background_process.rs` [0..3000]
+  - `BackgroundProcessManager` - thread-safe process management
+  - `start()` - starts process with unique name
+  - `list()` - lists all running processes
+  - `is_running()` - checks if process is running
+  - `get()` - gets process info by name
+  - `remove()` - removes completed process
+
+**Note**: No `stop()` method - use shell `kill <pid>` for termination
+
+### g3's Codebase Scout - Structural Overview
+
+Purpose: Quick orientation for developers new to the g3 codebase.
+
+- `crates/g3-core/src/lib.rs` - Main Agent struct (121..174) and orchestration (~3400 lines total)
+- `crates/g3-providers/src/lib.rs` - LLMProvider trait definition (14..48) with 5+ implementations
+- `crates/g3-core/src/tool_definitions.rs` - 42 tools defined with ToolConfig builder pattern (12..67)
+- `crates/g3-core/src/context_window.rs` - ContextWindow struct (75..83) with thinning at 50-80%
+- `crates/g3-cli/src/lib.rs` - CLI mode dispatch with 6 execution modes
+- `crates/g3-core/src/streaming.rs` - MAX_ITERATIONS constant (13) = 400 to prevent runaway loops
+
+### g3's Session Continuation
+
+Save/restore session state across g3 invocations using symlink-based approach.
+
+- `crates/g3-core/src/session_continuation.rs`
+  - `SessionContinuation` [850..2100] - artifact struct with session state, TODO snapshot, context %
+  - `save_continuation()` [5765..7200] - saves to `.g3/sessions/<id>/latest.json`, updates symlink
+  - `load_continuation()` [7250..8900] - follows `.g3/session` symlink to restore
+  - `find_incomplete_agent_session()` [10500..13200] - finds sessions with incomplete TODOs for agent resume
+
+### g3's UI Abstraction Layer
+
+Output abstraction for tools with console and null implementations.
+
+- `crates/g3-core/src/ui_writer.rs` [0..4500]
+  - `UiWriter` trait [44..150] - output abstraction for tools
+  - `NullUiWriter` [293..320] - no-op implementation
+  - `print_thin_result()` [3390..3560] - formats ThinResult for display
+
+- `crates/g3-cli/src/ui_writer_impl.rs` [0..14000]
+  - `ConsoleUiWriter` - console output implementation
+  - `print_tool_compact()` - formats compact tool output
+
+### g3's Retry Infrastructure
+
+Exponential backoff with jitter for recoverable errors.
+
+- `crates/g3-core/src/retry.rs` [0..12000]
+  - `execute_with_retry()` [110..250] - main retry function
+  - `retry_operation()` [300..550] - retry logic with exponential backoff
+  - `RetryConfig` [50..100] - configuration struct
+  - `RetryResult` [625..670] - result enum with Retry and Fail variants
+
+### g3's Feedback Extraction
+
+Extracts coach feedback from tool results and session logs.
+
+- `crates/g3-core/src/feedback_extraction.rs` [0..22000]
+  - `extract_coach_feedback()` [1000..2000] - extracts feedback from tool results
+  - `try_extract_from_session_log()` [2000..4000] - extracts from session logs
+  - `try_extract_from_native_tool_call()` [4000..6000] - extracts from native tool calls
+
+- `crates/g3-cli/src/coach_feedback.rs` [0..4025]
+  - `extract_from_logs()` [100..400] - extracts coach feedback from logs for autonomous mode
+
+### g3's Streaming Markdown Formatter
+
+Formats markdown output with proper header handling and code block detection.
+
+- `crates/g3-cli/src/streaming_markdown.rs`
+  - `format_header()` [21500..22500] - headers with inline formatting
+  - `process_in_code_block()` [439..462] - detects closing fence
+  - `emit_code_block()` [654..675] - joins buffer, highlights code
+  - `flush_incomplete()` [693..735] - handles unclosed blocks at stream end
+
+- `crates/g3-cli/tests/streaming_markdown_test.rs` - header formatting tests
+
+**Gotcha**: closing ``` without trailing newline must be detected in `flush_incomplete()`
+
+### g3's CLI Metrics
+
+Turn metrics and histogram generation for performance analysis.
+
+- `crates/g3-cli/src/metrics.rs` [0..5416]
+  - `TurnMetrics` [20..100] - per-turn metrics struct
+  - `format_elapsed_time()` [1000..1200] - formats elapsed time
+  - `generate_turn_histogram()` [2000..5416] - generates histogram data
+
+### g3's Streaming Utilities & State
+
+Streaming state management for cross-iteration tracking.
+
+- `crates/g3-core/src/streaming.rs` [0..26146]
+  - `MAX_ITERATIONS` [13] - constant (400)
+  - `StreamingState` [16] - cross-iteration: full_response, first_token_time, iteration_count
+  - `ToolOutputFormat` [54] - enum: SelfHandled, Compact(String), Regular
+  - `IterationState` [166] - per-iteration: parser, current_response, tool_executed
+  - `truncate_line()` [1446..1470] - truncates line for display
+  - `truncate_for_display()` [1473..1530] - UTF-8 safe truncation
+  - `log_stream_error()` [1673..1730] - logs stream errors
+  - `is_connection_error()` [1743..1760] - identifies connection errors
+  - `format_tool_result_summary()` [2177..2240] - formats tool result summary
+  - `is_compact_tool()` [2370..2380] - checks if tool is compact
+  - `format_compact_tool_summary()` [2460..2520] - formats compact tool summary
+
+### g3's Context Window & Compaction
+
+Context window management with progressive thinning and compaction.
+
+- `crates/g3-core/src/context_window.rs` [0..29568]
+  - `ThinResult` [23] - scope, before/after %, chars_saved
+  - `ContextWindow` [75..83] - token tracking, message history
+  - `reset_with_summary()` [1950..2100] - compact history to summary
+  - `should_compact()` [222..224] - threshold check (80%)
+  - `thin_context()` [19500..20500] - replace large results with file refs
+
+- `crates/g3-core/src/compaction.rs` [0..11404]
+  - `CompactionResult`, `CompactionConfig` - result/config structs
+  - `perform_compaction()` [200..400] - unified for force_compact() and auto-compaction
+  - `calculate_capped_summary_tokens()` [500..600] - calculates summary token budget
+  - `should_disable_thinking()` [700..800] - disables thinking on token pressure
+  - `build_summary_messages()` [1000..1200] - builds summary messages
+  - `apply_summary_fallback_sequence()` [11000..11400] - fallback for older models
+
+**Thinning thresholds**:
+- 50%: thin_large_results() → replace with file references
+- 60%: force_thin() → additional thinning
+- 70%: additional thinning
+- 80%: force_compact() → summarize conversation history
+
+### g3's Tool System Architecture
+
+Builder pattern with ToolConfig for configurable tool sets.
+
+- `crates/g3-core/src/tool_definitions.rs` [0..544]
+  - `ToolConfig` [12..21] - webdriver, computer_control, zai_tools, mcp_tools, beads_tools, index_tools, lsp_tools
+  - `create_core_tools()` [104..514] - core 22 tools definition (shell, write_file, str_replace, etc.)
+  - `create_tool_definitions()` [73..101] - full tool set with optional tool sets
+
+**Methods**: `with_mcp_tools()`, `with_index_tools()`, `with_lsp_tools()`, `without_beads_tools()`
+
+### g3's CLI Module Structure
+
+CLI modes and utilities.
+
+- `crates/g3-cli/src/lib.rs` [0..415]
+  - `run()` [108..143] - CLI entry point with mode dispatch
+- `crates/g3-cli/src/cli_args.rs` [0..133]
+  - `Cli` struct (clap) with mode flags
+- `crates/g3-cli/src/autonomous.rs` [0..785]
+  - `run_autonomous()` [20..265] - coach-player feedback loop
+- `crates/g3-cli/src/agent_mode.rs` [0..284]
+  - `run_agent_mode()` - specialized agent personas
+- `crates/g3-cli/src/accumulative.rs` [0..343]
+  - `run_accumulative_mode()` - evolutionary requirements
+- `crates/g3-cli/src/interactive.rs` [0..851]
+  - `run_interactive()` - REPL-style conversation
+  - `run_interactive_machine()` - interactive machine
+  - `run_mode_selection()` - mode selection menu
+- `crates/g3-cli/src/task_execution.rs` [0..212]
+  - `execute_task_with_retry()` - task execution wrapper
+  - `OutputMode` - output mode enum
+- `crates/g3-cli/src/commands.rs` [17..320]
+  - `/help`, `/compact`, `/thinnify`, `/fragments`, `/rehydrate`
+- `crates/g3-cli/src/utils.rs` [0..91]
+  - `display_welcome_message()` - welcome message
+  - `get_workspace_path()` - workspace path helper
+- `crates/g3-cli/src/display.rs` - formatting utilities
+
+### g3's Session Storage & Continuation
+
+Save/restore session state across g3 invocations.
+
+- `crates/g3-core/src/session_continuation.rs` [0..541]
+  - `SessionContinuation` - artifact struct with session state, TODO snapshot, context %
+  - `save_continuation()` - saves to `.g3/sessions/<id>/latest.json`, updates symlink
+  - `load_continuation()` - follows `.g3/session` symlink to restore
+
+- `crates/g3-core/src/paths.rs` [0..133]
+  - `get_session_logs_dir()` - session logs directory
+  - `get_thinned_dir()` - thinned results directory
+  - `get_session_file()` - session file path
+
+### g3's Tool System
+
+Tool definitions and dispatch.
+
+- `crates/g3-core/src/tool_definitions.rs` - Tool schemas and creation
+- `crates/g3-core/src/tool_dispatch.rs` - Tool routing
+- `crates/g3-core/src/tools/` - 15+ tool implementations
+
+### g3's Plan Mode (replaces TODO system)
+
+Structured task planning with cognitive forcing - requires happy/negative/boundary checks.
+
+- `crates/g3-core/src/tools/plan.rs`
+  - `Plan` [200..240] - plan_id, revision, approved_revision, items[]
+  - `PlanItem` [110..145] - id, description, state, touches, checks, evidence, notes
+  - `PlanState` [25..45] - enum: Todo, Doing, Done, Blocked
+  - `Check` [60..85] - desc, target fields
+  - `Checks` [90..105] - happy, negative, boundary
+  - `get_plan_path()` [280..285] - returns `.g3/sessions/<id>/plan.g3.md`
+  - `read_plan()` [290..310] - loads plan from YAML in markdown
+  - `write_plan()` [315..335] - validates and saves plan
+  - `plan_verify()` [355..390] - placeholder called when all items done/blocked
+  - `execute_plan_read()` [395..420] - plan.read tool
+  - `execute_plan_write()` [425..490] - plan.write tool with validation
+  - `execute_plan_approve()` [495..530] - plan.approve tool
+
+- `crates/g3-core/src/tool_definitions.rs` [263..330] - plan.read, plan.write, plan.approve definitions
+- `crates/g3-core/src/tool_dispatch.rs` [36..38] - dispatch cases for plan tools
+- `crates/g3-cli/src/commands.rs` [460..490] - `/plan` command starts Plan Mode
+- `crates/g3-core/src/prompts.rs` [21..130] - SHARED_PLAN_SECTION replaces TODO section
+
+**Plan Schema (YAML)**:
+```yaml
+plan_id: feature-name
+revision: 1
+approved_revision: 1  # set by plan.approve
+items:
+  - id: I1
+    description: What to do
+    state: todo|doing|done|blocked
+    touches: [paths/modules]
+    checks:
+      happy: {desc, target}
+      negative: {desc, target}
+      boundary: {desc, target}
+    evidence: [file:line, test names]  # required when done
+    notes: Implementation explanation   # required when done
+```
+
+**Workflow**: `/plan <desc>` → agent drafts plan → user approves → agent implements → plan_verify() called when complete
+
+### g3's Plan Mode Tool Names (IMPORTANT)
+
+Tool names must use underscores, not dots (Anthropic API restriction: `^[a-zA-Z0-9_-]{1,128}$`).
+
+- `plan_read` - Read current plan
+- `plan_write` - Create/update plan
+- `plan_approve` - Approve plan revision
+
+### g3's Plan Verification System
+
+Verifies evidence in completed plan items deterministically.
+
+- `crates/g3-core/src/tools/plan.rs`
+  - `EvidenceType` [283..300] - enum: CodeLocation{file_path, start_line, end_line}, TestReference{file_path, test_name}, Unknown
+  - `VerificationStatus` [303..320] - enum: Verified, Warning(String), Error(String), Skipped(String)
+  - `EvidenceVerification` [330..345] - evidence string + parsed type + status
+  - `ItemVerification` [348..365] - item_id, description, evidence_results[], missing_evidence flag
+  - `PlanVerification` [368..385] - plan_id, item_results[], skipped_count; has all_passed(), count_issues()
+  - `parse_evidence()` [390..428] - parses evidence string into EvidenceType
+  - `parse_line_range()` [429..440] - parses "42" or "42-118" into (start, Option<end>)
+  - `verify_code_location()` [443..495] - checks file exists, line numbers in range
+  - `verify_test_reference()` [496..554] - checks test file exists, searches for fn test_name
+  - `verify_single_evidence()` [632..655] - dispatches to appropriate verifier
+  - `plan_verify()` [659..700] - iterates done items, collects verification results
+  - `format_verification_results()` [703..745] - formats results with emoji, loud warnings
+
+**Evidence formats supported:**
+- Code location with range: `src/foo.rs:42-118`
+- Code location single line: `src/foo.rs:42`
+- Code location file only: `src/foo.rs`
+- Test reference: `tests/foo.rs::test_bar`
+
+**Integration:** Called from `execute_plan_write()` when plan is complete and approved (line 828-833)
+
+### g3's Todo System
+
+Simple markdown-based task tracking using checkboxes for single-session use.
+
+- `crates/g3-core/src/tools/todo.rs` [0..500]
+  - `execute_todo_write()` - creates/replaces todo list with markdown checkboxes
+  - `execute_todo_read()` - reads current todo list content
+  - `get_todo_path()` - returns session todo file path
+  - Uses `- [ ]` for pending, `- [x]` for completed
+  - Stores to `.g3/sessions/<id>/todo.g3.md`

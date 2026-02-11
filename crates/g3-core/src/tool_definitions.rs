@@ -473,6 +473,17 @@ Rules:
         }),
     });
 
+    // Memory compact tool - deduplicates and cleans memory
+    tools.push(Tool {
+        name: "memory_compact".to_string(),
+        description: "Compact workspace memory by removing duplicate sections. Use when memory gets too large (>50KB). Keeps the first occurrence of each section.".to_string(),
+        input_schema: json!({
+            "type": "object",
+            "properties": {},
+            "required": []
+        }),
+    });
+
     // TODO tools
     tools.push(Tool {
         name: "todo_read".to_string(),
@@ -1844,9 +1855,10 @@ mod tests {
         // Core tools: shell, background_process, read_file, read_image,
         // write_file, str_replace, screenshot, coverage, code_search,
         // research, research_status, codebase_scout, codebase_scout_status,
-        // remember, plan_read, plan_write, plan_approve,
+        // remember, memory_compact, plan_read, plan_write, plan_approve,
         // todo_read, todo_write, rehydrate, switch_mode, rg (22 total)
-        assert_eq!(tools.len(), 22);
+        // Now 23 total with memory_compact
+        assert_eq!(tools.len(), 23);
     }
 
     #[test]
@@ -1875,23 +1887,23 @@ mod tests {
         let config = ToolConfig::default();
         let tools = create_tool_definitions(config);
         // Default config has beads_tools: false (from derive Default)
-        assert_eq!(tools.len(), 22);
+        assert_eq!(tools.len(), 23);
     }
 
     #[test]
     fn test_create_tool_definitions_all_enabled() {
         let config = ToolConfig::new(true, true, true, false);
         let tools = create_tool_definitions(config);
-        // 22 core + 15 webdriver + 3 zai + 15 beads = 55
-        assert_eq!(tools.len(), 55);
+        // 23 core + 15 webdriver + 3 zai + 15 beads = 56
+        assert_eq!(tools.len(), 56);
     }
 
     #[test]
     fn test_create_tool_definitions_with_zai_tools() {
         let config = ToolConfig::new(false, false, true, false);
         let tools = create_tool_definitions(config);
-        // 22 core + 3 zai + 15 beads = 40
-        assert_eq!(tools.len(), 40);
+        // 23 core + 3 zai + 15 beads = 40
+        assert_eq!(tools.len(), 41);
 
         // Verify Z.ai tools are present
         assert!(tools.iter().any(|t| t.name == "zai_web_search"));
@@ -1924,8 +1936,8 @@ mod tests {
         let tools_with_research = create_core_tools(false);
         let tools_without_research = create_core_tools(true);
 
-        assert_eq!(tools_with_research.len(), 22);
-        assert_eq!(tools_without_research.len(), 18);  // research, research_status, codebase_scout, codebase_scout_status all excluded
+        assert_eq!(tools_with_research.len(), 23);
+        assert_eq!(tools_without_research.len(), 19);  // research, research_status, codebase_scout, codebase_scout_status all excluded
 
         assert!(tools_with_research.iter().any(|t| t.name == "research"));
         assert!(!tools_without_research.iter().any(|t| t.name == "research"));
@@ -1942,8 +1954,8 @@ mod tests {
     fn test_create_tool_definitions_with_mcp_tools() {
         let config = ToolConfig::default().with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 22 core + 5 mcp = 27 (default has beads_tools: false)
-        assert_eq!(tools.len(), 27);
+        // 23 core + 5 mcp = 27 (default has beads_tools: false)
+        assert_eq!(tools.len(), 28);
 
         // Verify MCP tools are present
         assert!(tools.iter().any(|t| t.name == "mcp_web_search"));
@@ -1967,8 +1979,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_mcp() {
         let config = ToolConfig::new(true, true, true, false).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 22 core + 15 webdriver + 3 zai + 5 mcp + 15 beads = 60
-        assert_eq!(tools.len(), 60);
+        // 23 core + 15 webdriver + 3 zai + 5 mcp + 15 beads = 60
+        assert_eq!(tools.len(), 61);
     }
 
     #[test]
@@ -1992,8 +2004,8 @@ mod tests {
     fn test_create_tool_definitions_with_beads_tools() {
         let config = ToolConfig::new(false, false, false, false);
         let tools = create_tool_definitions(config);
-        // 22 core + 15 beads = 37
-        assert_eq!(tools.len(), 37);
+        // 23 core + 15 beads = 37
+        assert_eq!(tools.len(), 38);
 
         // Verify Beads tools are present
         assert!(tools.iter().any(|t| t.name == "beads_ready"));
@@ -2005,8 +2017,8 @@ mod tests {
     fn test_create_tool_definitions_without_beads_tools() {
         let config = ToolConfig::new(false, false, false, false).without_beads_tools();
         let tools = create_tool_definitions(config);
-        // 22 core only (beads disabled)
-        assert_eq!(tools.len(), 22);
+        // 23 core only (beads disabled)
+        assert_eq!(tools.len(), 23);
 
         // Verify Beads tools are NOT present
         assert!(!tools.iter().any(|t| t.name == "beads_ready"));
@@ -2033,8 +2045,8 @@ mod tests {
     fn test_create_tool_definitions_with_index_tools() {
         let config = ToolConfig::new(false, false, false, true);
         let tools = create_tool_definitions(config);
-        // 22 core + 15 beads + 15 index = 52
-        assert_eq!(tools.len(), 52);
+        // 23 core + 15 beads + 15 index = 52
+        assert_eq!(tools.len(), 53);
 
         // Verify index tools are present
         assert!(tools.iter().any(|t| t.name == "index_codebase"));
@@ -2056,8 +2068,8 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_index() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools();
         let tools = create_tool_definitions(config);
-        // 22 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 15 index = 75
-        assert_eq!(tools.len(), 75);
+        // 23 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 15 index = 75
+        assert_eq!(tools.len(), 76);
     }
 
     #[test]
@@ -2082,8 +2094,8 @@ mod tests {
     fn test_create_tool_definitions_with_lsp_tools() {
         let config = ToolConfig::default().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 22 core + 9 lsp = 31 (default has beads_tools: false)
-        assert_eq!(tools.len(), 31);
+        // 23 core + 9 lsp = 31 (default has beads_tools: false)
+        assert_eq!(tools.len(), 32);
 
         // Verify LSP tools are present
         assert!(tools.iter().any(|t| t.name == "lsp_goto_definition"));
@@ -2101,7 +2113,7 @@ mod tests {
     fn test_create_tool_definitions_all_enabled_with_lsp() {
         let config = ToolConfig::new(true, true, true, true).with_mcp_tools().with_lsp_tools();
         let tools = create_tool_definitions(config);
-        // 22 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 15 index + 9 lsp = 84
-        assert_eq!(tools.len(), 84);
+        // 23 core + 15 webdriver + 3 zai + 5 mcp + 15 beads + 15 index + 9 lsp = 84
+        assert_eq!(tools.len(), 85);
     }
 }

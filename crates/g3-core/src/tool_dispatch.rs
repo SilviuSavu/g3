@@ -89,6 +89,7 @@ pub async fn dispatch_tool<W: UiWriter>(
 
         // Workspace memory tools
         "remember" => memory::execute_remember(tool_call, ctx).await,
+        "memory_compact" => memory::execute_memory_compact(tool_call, ctx).await,
 
         // ACD (Aggressive Context Dehydration) tools
         "rehydrate" => acd::execute_rehydrate(tool_call, ctx).await,
