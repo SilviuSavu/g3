@@ -2901,6 +2901,7 @@ Skip if nothing new. Be brief."#;
                             iter.tool_executed = true;
                             state.any_tool_executed = true; // Track across all iterations
                             state.consecutive_text_only_responses = 0; // Reset: tools ran this iteration
+                            state.consecutive_error_recoveries = 0; // Reset: tool executed successfully
 
                             // Track tool signature for repetitive call detection
                             state.recent_tool_signatures.push(
@@ -3228,6 +3229,7 @@ Skip if nothing new. Be brief."#;
                     was_truncated_by_max_tokens,
                     state.consecutive_text_only_responses,
                     iter.stream_stop_reason.as_deref(),
+                    state.consecutive_error_recoveries,
                 );
 
                 if let Some(ref reason) = auto_continue {
@@ -3281,6 +3283,17 @@ Skip if nothing new. Be brief."#;
 
                     // Ensure context capacity before continuing
                     self.ensure_context_capacity(&mut request).await?;
+
+                    // Track error-recovery retries separately
+                    match reason {
+                        streaming::AutoContinueReason::IncompleteToolCall
+                        | streaming::AutoContinueReason::UnexecutedToolCall => {
+                            state.consecutive_error_recoveries += 1;
+                        }
+                        _ => {
+                            state.consecutive_error_recoveries = 0;
+                        }
+                    }
 
                     // Increment AFTER the check so first text-only response sees counter=0
                     state.consecutive_text_only_responses += 1;
