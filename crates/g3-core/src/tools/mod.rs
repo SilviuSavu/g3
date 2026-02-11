@@ -14,6 +14,8 @@
 //! - `mcp_tools` - MCP (Model Context Protocol) tools for Z.ai servers
 //! - `zai_tools` - Z.ai standalone tools (web search, web reader, OCR)
 //! - `index` - Codebase indexing and semantic search
+//! - `team_management` - Team lifecycle management (create, delete, spawn, shutdown)
+//! - `team_messaging` - Team inter-agent communication (send/receive messages)
 
 pub mod executor;
 pub mod acd;
@@ -29,6 +31,9 @@ pub mod misc;
 pub mod plan;
 pub mod research;
 pub mod shell;
+pub mod team_management;
+pub mod team_messaging;
+pub mod team_tasks;
 pub mod todo;
 pub mod webdriver;
 pub mod zai_tools;

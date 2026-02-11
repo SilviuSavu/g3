@@ -181,6 +181,18 @@ pub struct Cli {
     /// Launch the TUI (Text User Interface) instead of the CLI
     #[arg(long)]
     pub tui: bool,
+
+    /// Join a team (enables team task/messaging tools)
+    #[arg(long, value_name = "NAME")]
+    pub team: Option<String>,
+
+    /// Agent's name within the team
+    #[arg(long, value_name = "NAME")]
+    pub team_role: Option<String>,
+
+    /// This agent is the team lead (gets management tools: spawn, shutdown, create, delete)
+    #[arg(long)]
+    pub team_lead: bool,
 }
 
 impl Cli {

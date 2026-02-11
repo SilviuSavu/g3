@@ -7,7 +7,7 @@ use anyhow::Result;
 use tracing::{debug, warn};
 
 use crate::tools::executor::ToolContext;
-use crate::tools::{acd, beads, codebase_scout, file_ops, index, intelligence, lsp, mcp_tools, memory, misc, plan, research, shell, todo, webdriver, zai_tools};
+use crate::tools::{acd, beads, codebase_scout, file_ops, index, intelligence, lsp, mcp_tools, memory, misc, plan, research, shell, team_management, team_messaging, team_tasks, todo, webdriver, zai_tools};
 use crate::ui_writer::UiWriter;
 use crate::ToolCall;
 
@@ -181,6 +181,22 @@ pub async fn dispatch_tool<W: UiWriter>(
         // TODO tools
         "todo_read" => todo::execute_todo_read(tool_call, ctx).await,
         "todo_write" => todo::execute_todo_write(tool_call, ctx).await,
+
+        // Team task tools
+        "team_task_create" => team_tasks::execute_team_task_create(tool_call, ctx).await,
+        "team_task_list" => team_tasks::execute_team_task_list(tool_call, ctx).await,
+        "team_task_get" => team_tasks::execute_team_task_get(tool_call, ctx).await,
+        "team_task_update" => team_tasks::execute_team_task_update(tool_call, ctx).await,
+
+        // Team messaging tools
+        "team_send_message" => team_messaging::execute_team_send_message(tool_call, ctx).await,
+        "team_read_messages" => team_messaging::execute_team_read_messages(tool_call, ctx).await,
+
+        // Team management tools
+        "team_create" => team_management::execute_team_create(tool_call, ctx).await,
+        "team_delete" => team_management::execute_team_delete(tool_call, ctx).await,
+        "team_spawn_teammate" => team_management::execute_team_spawn_teammate(tool_call, ctx).await,
+        "team_shutdown_teammate" => team_management::execute_team_shutdown_teammate(tool_call, ctx).await,
 
         // rg tool - wrapper for ripgrep
         "rg" => shell::execute_rg(tool_call, ctx).await,

@@ -176,6 +176,12 @@ pub struct Agent<W: UiWriter> {
     beads_context_injected: bool,
     /// Active persona data from agent front matter (for scope enforcement and tool overrides)
     active_persona: Option<persona::PersonaData>,
+    /// Team name (set via --team flag)
+    team_name: Option<String>,
+    /// Agent's role name within the team (set via --team-role flag)
+    team_role: Option<String>,
+    /// Whether this agent is the team lead (gets management tools)
+    is_team_lead: bool,
 }
 
 impl<W: UiWriter> Agent<W> {
@@ -241,6 +247,9 @@ impl<W: UiWriter> Agent<W> {
             lsp_manager,
             beads_context_injected,
             active_persona: None,
+            team_name: None,
+            team_role: None,
+            is_team_lead: false,
         }
     }
 
@@ -1849,7 +1858,43 @@ impl<W: UiWriter> Agent<W> {
         if self.config.lsp.enabled {
             tool_config = tool_config.with_lsp_tools();
         }
+        if self.team_name.is_some() {
+            tool_config = tool_config.with_team_tools();
+        }
+        if self.is_team_lead {
+            tool_config = tool_config.with_team_lead_tools();
+        }
         tool_config
+    }
+
+    /// Configure team context for multi-agent coordination.
+    /// Sets env vars so team tools can find their directories.
+    /// Injects team context into the system prompt.
+    pub fn set_team_context(&mut self, team_name: String, team_role: String, is_lead: bool) {
+        debug!("Setting team context: team={}, role={}, lead={}", team_name, team_role, is_lead);
+
+        // Set env vars for team tools to discover context
+        std::env::set_var("G3_TEAM_NAME", &team_name);
+        std::env::set_var("G3_TEAM_ROLE", &team_role);
+
+        // Inject team context as system message
+        let lead_note = if is_lead {
+            "You are the TEAM LEAD. You have extra tools: team_create, team_delete, team_spawn_teammate, team_shutdown_teammate. Coordinate work by creating tasks, spawning teammates, and assigning tasks."
+        } else {
+            "You are a TEAM MEMBER. Check team_task_list for available work, claim tasks with team_task_update (set owner to your name), and mark them completed when done."
+        };
+
+        let team_prompt = format!(
+            "\n## Team Context\nYou are agent '{}' in team '{}'. {}\n\nAvailable team tools:\n- team_task_create/list/get/update: Shared task list for coordination\n- team_send_message: Send messages to teammates (DM, broadcast, shutdown)\n- team_read_messages: Check your inbox for messages from teammates\n\nWorkflow: Check tasks -> claim available work -> do the work -> mark complete -> check for more tasks.",
+            team_role, team_name, lead_note
+        );
+
+        let team_message = g3_providers::Message::new(g3_providers::MessageRole::System, team_prompt);
+        self.context_window.add_message(team_message);
+
+        self.team_name = Some(team_name);
+        self.team_role = Some(team_role);
+        self.is_team_lead = is_lead;
     }
 
     /// Enable auto-memory reminders after turns with tool calls

@@ -249,6 +249,15 @@ async fn run_console_mode(
         agent.set_acd_enabled(true);
     }
 
+    // Set team context if --team flag was specified
+    if let Some(ref team_name) = cli.team {
+        let team_role = cli.team_role.clone().unwrap_or_else(|| "agent".to_string());
+        agent.set_team_context(team_name.clone(), team_role.clone(), cli.team_lead);
+        println!();
+        println!("Team mode: {} (role: {}{})", team_name, team_role, if cli.team_lead { ", lead" } else { "" });
+        println!();
+    }
+
     // Load CLI project if --project flag was specified
     let initial_project: Option<project::Project> = if let Some(ref project_path) = cli.project {
         match load_and_validate_project(&project_path.to_string_lossy(), &workspace_dir) {

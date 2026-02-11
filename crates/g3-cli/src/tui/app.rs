@@ -2,6 +2,7 @@
 
 use crate::tui::events::has_minimum_size;
 use crate::tui::subagent_monitor::SubagentEntry;
+use crate::tui::team_monitor::TeamState;
 use crate::tui::tui_ui_writer::TuiEvent;
 use crate::tui::ui::{self, Colors};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers, MouseEvent, MouseEventKind};
@@ -144,12 +145,15 @@ pub struct App {
     pub split_ratio: f32,
     pub subagent_entries: Vec<SubagentEntry>,
     pub subagent_scroll: usize,
+    pub team_state: Option<TeamState>,
+    pub team_scroll: usize,
     pub model_name: String,
     pub cost_dollars: f64,
     pub is_thinking: bool,
     agent_input_tx: mpsc::UnboundedSender<String>,
     tui_event_rx: mpsc::UnboundedReceiver<TuiEvent>,
     subagent_rx: mpsc::UnboundedReceiver<Vec<SubagentEntry>>,
+    team_rx: Option<mpsc::UnboundedReceiver<TeamState>>,
     /// Accumulator for verbose tool output lines
     verbose_tool_lines: Vec<String>,
     verbose_tool_name: String,
@@ -161,6 +165,15 @@ impl App {
         agent_input_tx: mpsc::UnboundedSender<String>,
         tui_event_rx: mpsc::UnboundedReceiver<TuiEvent>,
         subagent_rx: mpsc::UnboundedReceiver<Vec<SubagentEntry>>,
+    ) -> anyhow::Result<Self> {
+        Self::new_with_team(agent_input_tx, tui_event_rx, subagent_rx, None)
+    }
+
+    pub fn new_with_team(
+        agent_input_tx: mpsc::UnboundedSender<String>,
+        tui_event_rx: mpsc::UnboundedReceiver<TuiEvent>,
+        subagent_rx: mpsc::UnboundedReceiver<Vec<SubagentEntry>>,
+        team_rx: Option<mpsc::UnboundedReceiver<TeamState>>,
     ) -> anyhow::Result<Self> {
         if !has_minimum_size(80, 24) {
             anyhow::bail!("Terminal too small. Minimum required: 80x24");
@@ -184,12 +197,15 @@ impl App {
             split_ratio: 0.7,
             subagent_entries: Vec::new(),
             subagent_scroll: 0,
+            team_state: None,
+            team_scroll: 0,
             model_name: String::new(),
             cost_dollars: 0.0,
             is_thinking: false,
             agent_input_tx,
             tui_event_rx,
             subagent_rx,
+            team_rx,
             verbose_tool_lines: Vec::new(),
             verbose_tool_name: String::new(),
             verbose_tool_path: String::new(),
@@ -229,7 +245,8 @@ impl App {
             // Check for agent/subagent events (non-blocking)
             let had_tui_events = self.process_tui_events();
             let had_subagent_events = self.process_subagent_events();
-            if had_tui_events || had_subagent_events {
+            let had_team_events = self.process_team_events();
+            if had_tui_events || had_subagent_events || had_team_events {
                 dirty = true;
             }
 
@@ -266,6 +283,8 @@ impl App {
         let split_ratio = self.split_ratio;
         let subagent_entries = self.subagent_entries.clone();
         let subagent_scroll = self.subagent_scroll;
+        let team_state = self.team_state.clone();
+        let team_scroll = self.team_scroll;
         let model_name = self.model_name.clone();
         let cost_dollars = self.cost_dollars;
         let is_thinking = self.is_thinking;
@@ -285,6 +304,8 @@ impl App {
                 split_ratio,
                 subagent_entries: &subagent_entries,
                 subagent_scroll,
+                team_state: &team_state,
+                team_scroll,
                 model_name: &model_name,
                 cost_dollars,
                 is_thinking,
@@ -435,6 +456,19 @@ impl App {
         let mut changed = false;
         while let Ok(entries) = self.subagent_rx.try_recv() {
             self.subagent_entries = entries;
+            changed = true;
+        }
+        changed
+    }
+
+    fn process_team_events(&mut self) -> bool {
+        let rx = match &mut self.team_rx {
+            Some(rx) => rx,
+            None => return false,
+        };
+        let mut changed = false;
+        while let Ok(state) = rx.try_recv() {
+            self.team_state = Some(state);
             changed = true;
         }
         changed

@@ -5,6 +5,8 @@ pub mod events;
 pub mod markdown;
 pub mod subagent_monitor;
 pub mod subagent_panel;
+pub mod team_monitor;
+pub mod team_panel;
 pub mod tool_display;
 pub mod tui_ui_writer;
 pub mod ui;
@@ -12,6 +14,7 @@ pub mod ui;
 pub use ui::Colors;
 
 use subagent_monitor::SubagentMonitor;
+use team_monitor::TeamMonitor;
 use tui_ui_writer::TuiUiWriter;
 
 /// Run the TUI application.
@@ -44,8 +47,25 @@ pub fn run_tui() -> anyhow::Result<()> {
         rt.block_on(monitor.run(subagent_tx));
     });
 
+    // Spawn team monitor if team context is active
+    let team_rx = if let Ok(team_name) = std::env::var("G3_TEAM_NAME") {
+        let (team_tx, team_rx) =
+            tokio::sync::mpsc::unbounded_channel::<team_monitor::TeamState>();
+        let team_mon = TeamMonitor::new(team_name);
+        std::thread::spawn(move || {
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt,
+                Err(_) => return,
+            };
+            rt.block_on(team_mon.run(team_tx));
+        });
+        Some(team_rx)
+    } else {
+        None
+    };
+
     // Run the TUI on the main thread
-    let mut app = app::App::new(agent_input_tx, tui_event_rx, subagent_rx)?;
+    let mut app = app::App::new_with_team(agent_input_tx, tui_event_rx, subagent_rx, team_rx)?;
     let result = app.run();
 
     // TUI exited - the agent and monitor threads will terminate when their channels close

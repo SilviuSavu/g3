@@ -12,6 +12,8 @@ use crate::tui::app::{ChatContent, ChatMessage, MessageRole, Pane, PendingPrompt
 use crate::tui::markdown;
 use crate::tui::subagent_monitor::SubagentEntry;
 use crate::tui::subagent_panel;
+use crate::tui::team_monitor::TeamState;
+use crate::tui::team_panel;
 use crate::tui::tool_display;
 
 /// Color palette for the TUI.
@@ -59,6 +61,8 @@ pub struct AppView<'a> {
     pub split_ratio: f32,
     pub subagent_entries: &'a [SubagentEntry],
     pub subagent_scroll: usize,
+    pub team_state: &'a Option<TeamState>,
+    pub team_scroll: usize,
     pub model_name: &'a str,
     pub cost_dollars: f64,
     pub is_thinking: bool,
@@ -68,8 +72,10 @@ pub struct AppView<'a> {
 pub fn render(frame: &mut Frame, app: &AppView) {
     let size = frame.area();
 
-    // Responsive: split layout if wide enough and subagents exist
-    if size.width >= 120 && !app.subagent_entries.is_empty() {
+    // Determine if right panel should show
+    let has_right_panel = app.team_state.is_some() || !app.subagent_entries.is_empty();
+
+    if size.width >= 120 && has_right_panel {
         let left_pct = (app.split_ratio * 100.0) as u16;
         let right_pct = 100 - left_pct;
         let horizontal = Layout::default()
@@ -81,13 +87,25 @@ pub fn render(frame: &mut Frame, app: &AppView) {
             .split(size);
 
         render_main_pane(frame, horizontal[0], app);
-        subagent_panel::render_subagent_panel(
-            frame,
-            horizontal[1],
-            app.subagent_entries,
-            *app.active_pane == Pane::Subagent,
-            app.subagent_scroll,
-        );
+
+        // Team panel takes priority over subagent panel
+        if let Some(ref team_state) = app.team_state {
+            team_panel::render_team_panel(
+                frame,
+                horizontal[1],
+                team_state,
+                *app.active_pane == Pane::Subagent,
+                app.team_scroll,
+            );
+        } else {
+            subagent_panel::render_subagent_panel(
+                frame,
+                horizontal[1],
+                app.subagent_entries,
+                *app.active_pane == Pane::Subagent,
+                app.subagent_scroll,
+            );
+        }
     } else {
         render_main_pane(frame, size, app);
     }
@@ -327,6 +345,18 @@ fn render_context_bar(frame: &mut Frame, area: Rect, app: &AppView, colors: &Col
             format!("● {}", tool),
             Style::default().fg(colors.tool),
         ));
+    }
+
+    // Add team info in narrow mode
+    if area.width < 120 {
+        if let Some(ref ts) = app.team_state {
+            let active_tasks = ts.tasks.iter().filter(|t| t.status == "in_progress").count();
+            spans.push(Span::styled(" | ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled(
+                format!("Team:{} {}T", ts.team_name, active_tasks),
+                Style::default().fg(Color::Magenta),
+            ));
+        }
     }
 
     // Add subagent count in narrow mode

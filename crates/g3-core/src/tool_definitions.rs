@@ -18,6 +18,8 @@ pub struct ToolConfig {
     pub beads_tools: bool,
     pub index_tools: bool,
     pub lsp_tools: bool,
+    pub team_tools: bool,
+    pub team_lead_tools: bool,
 }
 
 impl ToolConfig {
@@ -31,6 +33,8 @@ impl ToolConfig {
             beads_tools: true,  // enabled by default
             index_tools,
             lsp_tools: false,
+            team_tools: false,
+            team_lead_tools: false,
         }
     }
 
@@ -64,6 +68,19 @@ impl ToolConfig {
         self.lsp_tools = true;
         self
     }
+
+    /// Create a config with team tools enabled (for team members).
+    pub fn with_team_tools(mut self) -> Self {
+        self.team_tools = true;
+        self
+    }
+
+    /// Create a config with team lead tools enabled (management + member tools).
+    pub fn with_team_lead_tools(mut self) -> Self {
+        self.team_tools = true;
+        self.team_lead_tools = true;
+        self
+    }
 }
 
 /// Create tool definitions for native tool calling providers.
@@ -95,6 +112,14 @@ pub fn create_tool_definitions(config: ToolConfig) -> Vec<Tool> {
 
     if config.lsp_tools {
         tools.extend(create_lsp_tools());
+    }
+
+    if config.team_tools {
+        tools.extend(create_team_tools());
+    }
+
+    if config.team_lead_tools {
+        tools.extend(create_team_lead_tools());
     }
 
     tools
@@ -1670,6 +1695,140 @@ pub fn create_beads_tools() -> Vec<Tool> {
                     }
                 },
                 "required": ["id"]
+            }),
+        },
+    ]
+}
+
+/// Create team member tools (task list + messaging)
+fn create_team_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "team_task_create".to_string(),
+            description: "Create a new task in the shared team task list.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "subject": { "type": "string", "description": "Brief task title" },
+                    "description": { "type": "string", "description": "Detailed description" },
+                    "activeForm": { "type": "string", "description": "Present continuous form shown when in_progress (e.g., 'Running tests')" }
+                },
+                "required": ["subject", "description"]
+            }),
+        },
+        Tool {
+            name: "team_task_list".to_string(),
+            description: "List all tasks in the shared team task list with status, owner, and dependencies.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "team_task_get".to_string(),
+            description: "Get full details of a specific task by ID.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "taskId": { "type": "string", "description": "The task ID to retrieve" }
+                },
+                "required": ["taskId"]
+            }),
+        },
+        Tool {
+            name: "team_task_update".to_string(),
+            description: "Update a task's status, owner, description, or dependencies.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "taskId": { "type": "string", "description": "The task ID to update" },
+                    "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "deleted"], "description": "New status" },
+                    "subject": { "type": "string", "description": "New subject" },
+                    "description": { "type": "string", "description": "New description" },
+                    "owner": { "type": "string", "description": "Agent name to assign" },
+                    "activeForm": { "type": "string", "description": "Present continuous form" },
+                    "addBlocks": { "type": "array", "items": { "type": "string" }, "description": "Task IDs this task blocks" },
+                    "addBlockedBy": { "type": "array", "items": { "type": "string" }, "description": "Task IDs blocking this task" },
+                    "metadata": { "type": "object", "description": "Metadata keys to merge (null to delete)" }
+                },
+                "required": ["taskId"]
+            }),
+        },
+        Tool {
+            name: "team_send_message".to_string(),
+            description: "Send a message to a teammate or broadcast to all. Types: 'message' (DM), 'broadcast' (all), 'shutdown_request', 'shutdown_response'.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "type": { "type": "string", "enum": ["message", "broadcast", "shutdown_request", "shutdown_response"], "description": "Message type" },
+                    "recipient": { "type": "string", "description": "Recipient agent name (for message/shutdown_request)" },
+                    "content": { "type": "string", "description": "Message content" },
+                    "summary": { "type": "string", "description": "Brief summary for UI preview" },
+                    "request_id": { "type": "string", "description": "Request ID (for shutdown_response)" },
+                    "approve": { "type": "boolean", "description": "Approve shutdown (for shutdown_response)" }
+                },
+                "required": ["type"]
+            }),
+        },
+        Tool {
+            name: "team_read_messages".to_string(),
+            description: "Read and consume all messages in your inbox.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+    ]
+}
+
+/// Create team lead tools (spawn/shutdown teammates, create/delete teams)
+fn create_team_lead_tools() -> Vec<Tool> {
+    vec![
+        Tool {
+            name: "team_create".to_string(),
+            description: "Create a new team with a shared task list and messaging.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "team_name": { "type": "string", "description": "Name for the team" },
+                    "description": { "type": "string", "description": "Team description" }
+                },
+                "required": ["team_name"]
+            }),
+        },
+        Tool {
+            name: "team_delete".to_string(),
+            description: "Delete the current team and clean up all directories.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "team_spawn_teammate".to_string(),
+            description: "Spawn a new g3 agent as a teammate in the current team.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Agent name within the team" },
+                    "agent_type": { "type": "string", "description": "Optional agent persona to use" },
+                    "task": { "type": "string", "description": "Initial task prompt for the teammate" }
+                },
+                "required": ["name"]
+            }),
+        },
+        Tool {
+            name: "team_shutdown_teammate".to_string(),
+            description: "Request a teammate to gracefully shut down.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Name of the teammate to shut down" }
+                },
+                "required": ["name"]
             }),
         },
     ]
