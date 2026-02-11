@@ -206,17 +206,17 @@ mod auto_continue_characterization {
     #[test]
     fn interactive_continues_once_after_tools() {
         // First text-only response after tools, stop_reason = "tool_use" → continue
-        let result = should_auto_continue(false, true, false, false, false, 0, Some("tool_use"), 0);
+        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "Interactive mode should continue once after tool execution");
 
         // No stop_reason (None) → natural end, don't continue
-        let result = should_auto_continue(false, true, false, false, false, 0, None, 0);
+        let result = should_auto_continue(false, true, false, false, false, false, 0, None, 0);
         assert!(result.is_none(),
             "No stop_reason means natural end, should not continue");
 
         // Second text-only response → stop
-        let result = should_auto_continue(false, true, false, false, false, 1, Some("tool_use"), 0);
+        let result = should_auto_continue(false, true, false, false, false, false, 1, Some("tool_use"), 0);
         assert!(result.is_none(),
             "Interactive mode should stop after second consecutive text-only response");
     }
@@ -224,13 +224,13 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: end_turn stops session - LLM intentionally finished
     #[test]
     fn end_turn_stops_session() {
-        // Autonomous mode with end_turn → stop
-        let result = should_auto_continue(true, true, false, false, false, 0, Some("end_turn"), 0);
-        assert!(result.is_none(),
-            "end_turn should stop session even in autonomous mode");
+        // NEW BEHAVIOR: Autonomous mode with end_turn + tools_executed_this_iter → CONTINUES
+        let result = should_auto_continue(true, true, true, false, false, false, 0, Some("end_turn"), 0);
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "Autonomous mode with tools executed this iter ignores stop_reason and continues");
 
         // Interactive mode with end_turn → stop
-        let result = should_auto_continue(false, true, false, false, false, 0, Some("end_turn"), 0);
+        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("end_turn"), 0);
         assert!(result.is_none(),
             "end_turn should stop session in interactive mode");
     }
@@ -239,15 +239,15 @@ mod auto_continue_characterization {
     #[test]
     fn end_turn_still_recovers_errors() {
         assert_eq!(
-            should_auto_continue(true, false, true, false, false, 0, Some("end_turn"), 0),
+            should_auto_continue(true, false, false, true, false, false, 0, Some("end_turn"), 0),
             Some(AutoContinueReason::IncompleteToolCall),
         );
         assert_eq!(
-            should_auto_continue(true, false, false, true, false, 0, Some("end_turn"), 0),
+            should_auto_continue(true, false, false, false, true, false, 0, Some("end_turn"), 0),
             Some(AutoContinueReason::UnexecutedToolCall),
         );
         assert_eq!(
-            should_auto_continue(true, false, false, false, true, 0, Some("end_turn"), 0),
+            should_auto_continue(true, false, false, false, false, true, 0, Some("end_turn"), 0),
             Some(AutoContinueReason::MaxTokensTruncation),
         );
     }
@@ -256,15 +256,15 @@ mod auto_continue_characterization {
     #[test]
     fn interactive_always_continues_for_errors() {
         assert_eq!(
-            should_auto_continue(false, false, true, false, false, 5, None, 0),
+            should_auto_continue(false, false, false, true, false, false, 5, None, 0),
             Some(AutoContinueReason::IncompleteToolCall),
         );
         assert_eq!(
-            should_auto_continue(false, false, false, true, false, 5, None, 0),
+            should_auto_continue(false, false, false, false, true, false, 5, None, 0),
             Some(AutoContinueReason::UnexecutedToolCall),
         );
         assert_eq!(
-            should_auto_continue(false, false, false, false, true, 5, None, 0),
+            should_auto_continue(false, false, false, false, false, true, 5, None, 0),
             Some(AutoContinueReason::MaxTokensTruncation),
         );
     }
@@ -272,18 +272,18 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: Autonomous mode continues after tool execution (no stop_reason)
     #[test]
     fn autonomous_continues_after_tools() {
-        // stop_reason = "tool_use" → continue
-        let result = should_auto_continue(true, true, false, false, false, 0, Some("tool_use"), 0);
+        // stop_reason = "tool_use" + tools_executed_this_iter → continue
+        let result = should_auto_continue(true, true, true, false, false, false, 0, Some("tool_use"), 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "Should continue after tool execution when stop_reason is tool_use");
 
-        // No stop_reason (None) → natural end, don't continue
-        let result = should_auto_continue(true, true, false, false, false, 0, None, 0);
+        // No stop_reason (None) + no tools this iter → natural end, don't continue
+        let result = should_auto_continue(true, true, false, false, false, false, 0, None, 0);
         assert!(result.is_none(),
             "No stop_reason means natural end, should not continue");
 
-        // Autonomous ignores the counter when stop_reason is tool_use
-        let result = should_auto_continue(true, true, false, false, false, 10, Some("tool_use"), 0);
+        // Autonomous ignores the counter when tools_executed_this_iter and stop_reason is tool_use
+        let result = should_auto_continue(true, true, true, false, false, false, 10, Some("tool_use"), 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "Autonomous should continue regardless of counter when stop_reason is tool_use");
     }
@@ -291,7 +291,7 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: Incomplete tool call triggers continue
     #[test]
     fn incomplete_tool_triggers_continue() {
-        let result = should_auto_continue(true, false, true, false, false, 0, None, 0);
+        let result = should_auto_continue(true, false, false, true, false, false, 0, None, 0);
         assert_eq!(result, Some(AutoContinueReason::IncompleteToolCall),
             "Should continue on incomplete tool call");
     }
@@ -299,7 +299,7 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: Unexecuted tool call triggers continue
     #[test]
     fn unexecuted_tool_triggers_continue() {
-        let result = should_auto_continue(true, false, false, true, false, 0, None, 0);
+        let result = should_auto_continue(true, false, false, false, true, false, 0, None, 0);
         assert_eq!(result, Some(AutoContinueReason::UnexecutedToolCall),
             "Should continue on unexecuted tool call");
     }
@@ -307,7 +307,7 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: Max tokens truncation triggers continue
     #[test]
     fn truncation_triggers_continue() {
-        let result = should_auto_continue(true, false, false, false, true, 0, None, 0);
+        let result = should_auto_continue(true, false, false, false, false, true, 0, None, 0);
         assert_eq!(result, Some(AutoContinueReason::MaxTokensTruncation),
             "Should continue on truncation");
     }
@@ -316,7 +316,7 @@ mod auto_continue_characterization {
     #[test]
     fn priority_order_incomplete_first() {
         // Incomplete tool call has highest priority
-        let result = should_auto_continue(true, true, true, true, true, 0, None, 0);
+        let result = should_auto_continue(true, true, true, true, true, true, 0, None, 0);
         assert_eq!(result, Some(AutoContinueReason::IncompleteToolCall),
             "Incomplete tool call should have highest priority");
     }
@@ -324,7 +324,7 @@ mod auto_continue_characterization {
     /// CHARACTERIZATION: No conditions means no continue
     #[test]
     fn no_conditions_no_continue() {
-        let result = should_auto_continue(true, false, false, false, false, 0, None, 0);
+        let result = should_auto_continue(true, false, false, false, false, false, 0, None, 0);
         assert!(result.is_none(), "Should not continue when no conditions met");
     }
 }

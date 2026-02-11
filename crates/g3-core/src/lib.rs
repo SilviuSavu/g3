@@ -3223,7 +3223,8 @@ Skip if nothing new. Be brief."#;
                 // was truncated or tool calls were incomplete/unexecuted.
                 let auto_continue = streaming::should_auto_continue(
                     self.is_autonomous,
-                    state.any_tool_executed, // tools ran in earlier iterations
+                    state.any_tool_executed, // tools ran in any iteration
+                    iter.tool_executed,      // tools ran THIS iteration
                     has_incomplete_tool_call,
                     has_unexecuted_tool_call,
                     was_truncated_by_max_tokens,
