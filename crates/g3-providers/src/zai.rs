@@ -74,7 +74,10 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error};
 
 use crate::{
-    streaming::{decode_utf8_streaming, make_final_chunk_full, make_text_chunk, make_tool_chunk},
+    streaming::{
+        decode_utf8_streaming, make_final_chunk_full, make_text_chunk, make_tool_chunk,
+        make_tool_streaming_active, make_tool_streaming_hint,
+    },
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Tool, ToolCall, Usage,
 };
@@ -397,11 +400,25 @@ impl ZaiProvider {
                                                     if let Some(function) = &delta_tool_call.function
                                                     {
                                                         if let Some(name) = &function.name {
+                                                            // Send streaming hint when we first learn the tool name
+                                                            if tool_call.name.is_none() {
+                                                                let hint = make_tool_streaming_hint(name.clone());
+                                                                if tx.send(Ok(hint)).await.is_err() {
+                                                                    debug!("Receiver dropped, stopping stream");
+                                                                    return accumulated_usage;
+                                                                }
+                                                            }
                                                             tool_call.name = Some(name.clone());
                                                         }
                                                         if let Some(arguments) = &function.arguments
                                                         {
                                                             tool_call.arguments.push_str(arguments);
+                                                            // Send activity hint as args accumulate
+                                                            let active = make_tool_streaming_active();
+                                                            if tx.send(Ok(active)).await.is_err() {
+                                                                debug!("Receiver dropped, stopping stream");
+                                                                return accumulated_usage;
+                                                            }
                                                         }
                                                     }
 
