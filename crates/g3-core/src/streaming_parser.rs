@@ -234,6 +234,18 @@ fn is_on_own_line(text: &str, pos: usize) -> bool {
     text[line_start..pos].chars().all(|c| c.is_whitespace())
 }
 
+/// True if the JSON object at `pos..=end` occupies its own line:
+/// no non-whitespace before it on the line and no non-whitespace after it on the line.
+fn is_json_on_own_line(text: &str, pos: usize, end: usize) -> bool {
+    if !is_on_own_line(text, pos) {
+        return false;
+    }
+    // Check nothing meaningful follows on the same line
+    let after = &text[end + 1..];
+    let rest_of_line = after.split('\n').next().unwrap_or("");
+    rest_of_line.chars().all(|c| c.is_whitespace())
+}
+
 fn find_first_tool_call_start(text: &str) -> Option<usize> {
     find_tool_call_start(text, false)
 }
@@ -463,8 +475,8 @@ impl StreamingToolParser {
         while search_start < self.text_buffer.len() {
             let search_text = &self.text_buffer[search_start..];
 
-            // At stream end, use relaxed matching (no own-line requirement).
-            // False positives are prevented by JSON validation + prose fragment check.
+            // At stream end, use relaxed pattern matching to find candidates,
+            // then validate with own-line check to reject inline examples.
             let Some(relative_pos) = find_first_tool_call_start_relaxed(search_text) else {
                 break;
             };
@@ -482,13 +494,21 @@ impl StreamingToolParser {
                 break; // Incomplete JSON, stop searching
             };
 
+            let abs_end = abs_start + end_pos;
+
+            // Reject JSON that has prose on the same line (inline examples)
+            if !is_json_on_own_line(&self.text_buffer, abs_start, abs_end) {
+                search_start = abs_end + 1;
+                continue;
+            }
+
             let json_str = &json_text[..=end_pos];
             if let Some(tool_call) = self.try_parse_tool_call_json(json_str) {
                 debug!("Found tool call at position {}: {:?}", abs_start, tool_call.tool);
                 tool_calls.push(tool_call);
             }
 
-            search_start = abs_start + end_pos + 1;
+            search_start = abs_end + 1;
         }
 
         tool_calls
@@ -529,9 +549,17 @@ impl StreamingToolParser {
                 break;
             };
 
+            let abs_end = abs_start + end_pos;
+
+            // Only strip tool calls that are on their own line
+            if !is_json_on_own_line(&self.text_buffer, abs_start, abs_end) {
+                search_start = abs_end + 1;
+                continue;
+            }
+
             let json_str = &json_text[..=end_pos];
             if self.try_parse_tool_call_json(json_str).is_some() {
-                ranges_to_remove.push((abs_start, abs_start + end_pos + 1));
+                ranges_to_remove.push((abs_start, abs_end + 1));
             }
             search_start = abs_start + end_pos + 1;
         }
@@ -584,7 +612,6 @@ impl StreamingToolParser {
 
     pub fn has_unexecuted_tool_call(&self) -> bool {
         let unchecked_buffer = &self.text_buffer[self.last_consumed_position..];
-        // Use relaxed matching so inline tool calls (e.g. "text:{"tool":...}") are detected
         let Some(start_pos) = find_last_tool_call_start_relaxed(unchecked_buffer) else {
             return false;
         };
@@ -593,6 +620,11 @@ impl StreamingToolParser {
         let Some(json_end) = find_json_object_end(json_text) else {
             return false;
         };
+
+        // Reject inline examples (prose before or after on same line)
+        if !is_json_on_own_line(unchecked_buffer, start_pos, start_pos + json_end) {
+            return false;
+        }
 
         let json_only = &json_text[..=json_end];
         serde_json::from_str::<serde_json::Value>(json_only).is_ok()
@@ -887,8 +919,8 @@ Some text after"#;
     }
 
     #[test]
-    fn test_inline_tool_call_detected_at_stream_end() {
-        // Models like glm-5 output tool calls inline with prose
+    fn test_inline_tool_call_rejected_at_stream_end() {
+        // Inline JSON with prose prefix should NOT be detected (false positive)
         let mut parser = StreamingToolParser::new();
 
         let content = r#"Now the executor:{"tool": "shell", "args": {"command": "ls"}}"#;
@@ -904,8 +936,7 @@ Some text after"#;
         };
 
         let tools = parser.process_chunk(&chunk);
-        assert_eq!(tools.len(), 1, "Inline tool call should be detected at stream end");
-        assert_eq!(tools[0].args["command"], "ls");
+        assert!(tools.is_empty(), "Inline tool call with prose prefix should not be detected");
     }
 
     #[test]
@@ -929,19 +960,28 @@ Some text after"#;
     }
 
     #[test]
-    fn test_has_unexecuted_tool_call_inline() {
+    fn test_has_unexecuted_tool_call_inline_rejected() {
+        // Inline JSON with prose prefix should NOT be flagged as unexecuted
         let mut parser = StreamingToolParser::new();
         parser.text_buffer = r#"prefix:{"tool": "shell", "args": {"command": "ls"}}"#.to_string();
-        assert!(parser.has_unexecuted_tool_call(), "Should detect inline unexecuted tool call");
+        assert!(!parser.has_unexecuted_tool_call(), "Inline JSON with prose prefix should not be flagged");
     }
 
     #[test]
-    fn test_get_text_without_tool_calls_inline() {
+    fn test_has_unexecuted_tool_call_own_line() {
+        // JSON on its own line SHOULD be flagged as unexecuted
+        let mut parser = StreamingToolParser::new();
+        parser.text_buffer = "some text\n{\"tool\": \"shell\", \"args\": {\"command\": \"ls\"}}".to_string();
+        assert!(parser.has_unexecuted_tool_call(), "JSON on own line should be flagged as unexecuted");
+    }
+
+    #[test]
+    fn test_get_text_without_tool_calls_inline_preserved() {
+        // Inline JSON should NOT be stripped (it's prose, not a real tool call)
         let mut parser = StreamingToolParser::new();
         parser.text_buffer = r#"All tests pass. Let me run:{"tool": "shell", "args": {"command": "ls"}} done"#.to_string();
         let cleaned = parser.get_text_without_tool_calls();
-        assert_eq!(cleaned, "All tests pass. Let me run: done");
-        assert!(!cleaned.contains("tool"));
+        assert_eq!(cleaned, parser.text_buffer, "Inline JSON should be preserved as prose");
     }
 
     #[test]
