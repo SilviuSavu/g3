@@ -695,13 +695,17 @@ pub fn should_auto_continue(
         return Some(AutoContinueReason::ToolsExecuted);
     }
 
-    // If tools were executed in ANY previous iteration and this is the FIRST
-    // text-only response, allow ONE auto-continue. This handles the case where
-    // the LLM emits a planning message ("Let me do X next") without tool calls
-    // before issuing the actual tool calls in the next iteration.
+    // If tools were executed in ANY previous iteration and we haven't seen too
+    // many consecutive text-only responses, allow auto-continue. This handles:
+    // 1. LLM emits a planning message ("Let me do X next") before tool calls
+    // 2. LLM emits inline JSON that fails parsing, needs another chance
+    // 3. Context compaction/thinning causes the LLM to need a few iterations
+    //    to get back on track
+    // We allow up to 2 text-only continuations (counter 0 and 1) before stopping.
     // We don't gate on stop_reason because some providers (ZAI, Gemini, some
     // OpenAI-compatible) return "end_turn"/None even after tool use.
-    if any_tool_executed && consecutive_text_only_responses == 0 {
+    const MAX_TEXT_ONLY_GRACE: usize = 2;
+    if any_tool_executed && consecutive_text_only_responses < MAX_TEXT_ONLY_GRACE {
         return Some(AutoContinueReason::ToolsExecuted);
     }
 
@@ -853,18 +857,19 @@ mod tests {
     }
 
     #[test]
-    fn test_should_auto_continue_first_text_only_after_tools() {
+    fn test_should_auto_continue_text_only_grace_after_tools() {
         use AutoContinueReason::*;
 
-        // any_tool_executed=true, tools_this_iter=false, first text-only (counter=0) → continue once
+        // any_tool_executed=true, tools_this_iter=false, counter < 2 → continue (grace period)
         assert_eq!(should_auto_continue(true, true, false, false, false, false, 0, None, 0), Some(ToolsExecuted));
         assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, None, 0), Some(ToolsExecuted));
         assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, Some("end_turn"), 0), Some(ToolsExecuted));
-        assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(true, true, false, false, false, false, 1, None, 0), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(false, true, false, false, false, false, 1, Some("tool_use"), 0), Some(ToolsExecuted));
 
-        // Second text-only response (counter=1) → stop
-        assert_eq!(should_auto_continue(true, true, false, false, false, false, 1, None, 0), None);
-        assert_eq!(should_auto_continue(false, true, false, false, false, false, 1, None, 0), None);
+        // counter >= 2 → stop (grace period exhausted)
+        assert_eq!(should_auto_continue(true, true, false, false, false, false, 2, None, 0), None);
+        assert_eq!(should_auto_continue(false, true, false, false, false, false, 2, None, 0), None);
         assert_eq!(should_auto_continue(false, true, false, false, false, false, 5, None, 0), None);
     }
 

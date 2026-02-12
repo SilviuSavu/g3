@@ -140,8 +140,8 @@ fn test_auto_continue_tools_executed_this_iter() {
 }
 
 #[test]
-fn test_auto_continue_first_text_only_after_tools() {
-    // any_tool_executed=true, tools_this_iter=false, first text-only (counter=0) → continue once
+fn test_auto_continue_text_only_grace_after_tools() {
+    // any_tool_executed=true, tools_this_iter=false, counter < 2 → continue (grace)
     assert_eq!(
         should_auto_continue(true, true, false, false, false, false, 0, None, 0),
         Some(AutoContinueReason::ToolsExecuted),
@@ -151,17 +151,17 @@ fn test_auto_continue_first_text_only_after_tools() {
         Some(AutoContinueReason::ToolsExecuted),
     );
     assert_eq!(
-        should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0),
+        should_auto_continue(false, true, false, false, false, false, 1, Some("tool_use"), 0),
         Some(AutoContinueReason::ToolsExecuted),
     );
 
-    // Second text-only response (counter >= 1) → stop
+    // counter >= 2 → stop (grace exhausted)
     assert_eq!(
-        should_auto_continue(true, true, false, false, false, false, 1, None, 0),
+        should_auto_continue(true, true, false, false, false, false, 2, None, 0),
         None,
     );
     assert_eq!(
-        should_auto_continue(false, true, false, false, false, false, 1, None, 0),
+        should_auto_continue(false, true, false, false, false, false, 2, None, 0),
         None,
     );
 }

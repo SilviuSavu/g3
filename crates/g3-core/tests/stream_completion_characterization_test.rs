@@ -215,26 +215,23 @@ mod auto_continue_characterization {
             "tools_executed_this_iter=true ignores stop_reason");
     }
 
-    /// CHARACTERIZATION: First text-only response after tools gets ONE grace continuation
+    /// CHARACTERIZATION: Text-only responses after tools get a grace period (up to 2)
     #[test]
-    fn first_text_only_after_tools_continues_once() {
-        // any_tool_executed=true, first text-only (counter=0) → continue once
+    fn text_only_after_tools_grace_period() {
+        // counter=0 → continue
         let result = should_auto_continue(false, true, false, false, false, false, 0, None, 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "First text-only after tools should continue once");
+            "First text-only after tools should continue");
 
-        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0);
-        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "First text-only after tools continues regardless of stop_reason");
-
-        // Second text-only (counter=1) → stop
+        // counter=1 → still continue (grace period)
         let result = should_auto_continue(false, true, false, false, false, false, 1, Some("tool_use"), 0);
-        assert!(result.is_none(),
-            "Second text-only after tools should stop");
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "Second text-only after tools should still continue (grace period)");
 
-        let result = should_auto_continue(false, true, false, false, false, false, 1, None, 0);
+        // counter=2 → stop (grace exhausted)
+        let result = should_auto_continue(false, true, false, false, false, false, 2, None, 0);
         assert!(result.is_none(),
-            "Second text-only after tools should stop");
+            "Third text-only after tools should stop (grace exhausted)");
     }
 
     /// CHARACTERIZATION: end_turn does NOT override error-recovery reasons
@@ -279,15 +276,19 @@ mod auto_continue_characterization {
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "Should continue after tool execution");
 
-        // tools_executed_this_iter=false, any_tool_executed=true, counter=0 → grace continue
+        // tools_executed_this_iter=false, any_tool_executed=true, counter < 2 → grace continue
         let result = should_auto_continue(true, true, false, false, false, false, 0, None, 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "First text-only after tools should get grace continue");
 
-        // tools_executed_this_iter=false, any_tool_executed=true, counter=1 → stop
         let result = should_auto_continue(true, true, false, false, false, false, 1, None, 0);
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "Second text-only after tools should still get grace continue");
+
+        // counter >= 2 → stop
+        let result = should_auto_continue(true, true, false, false, false, false, 2, None, 0);
         assert!(result.is_none(),
-            "Second text-only after tools should stop");
+            "Third text-only after tools should stop (grace exhausted)");
 
         // Counter is irrelevant when tools_executed_this_iter=true
         let result = should_auto_continue(true, true, true, false, false, false, 10, Some("tool_use"), 0);
