@@ -119,29 +119,32 @@ fn test_max_auto_summary_attempts_is_reasonable() {
 use g3_core::streaming::{should_auto_continue, AutoContinueReason};
 
 #[test]
-fn test_auto_continue_autonomous_tool_executed() {
-    // Autonomous mode, tools executed this iteration, stop_reason = "tool_use" → continue
+fn test_auto_continue_tools_executed_this_iter() {
+    // tools_executed_this_iter=true → always continue (regardless of mode or stop_reason)
     assert_eq!(
         should_auto_continue(true, true, true, false, false, false, 0, Some("tool_use"), 0),
         Some(AutoContinueReason::ToolsExecuted),
     );
-    // No stop_reason (None) but tools executed this iter → still continue in autonomous
+    assert_eq!(
+        should_auto_continue(true, true, true, false, false, false, 0, None, 0),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+    assert_eq!(
+        should_auto_continue(false, true, true, false, false, false, 0, None, 0),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+    assert_eq!(
+        should_auto_continue(false, true, true, false, false, false, 0, Some("end_turn"), 0),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+
+    // tools_executed_this_iter=false → no ToolsExecuted
     assert_eq!(
         should_auto_continue(true, true, false, false, false, false, 0, None, 0),
         None,
     );
-}
-
-#[test]
-fn test_auto_continue_end_turn_stops_session() {
-    // NEW BEHAVIOR: autonomous + tools_executed_this_iter=true ignores stop_reason → CONTINUES
     assert_eq!(
-        should_auto_continue(true, true, true, false, false, false, 0, Some("end_turn"), 0),
-        Some(AutoContinueReason::ToolsExecuted),
-    );
-    // Interactive mode with end_turn → stops
-    assert_eq!(
-        should_auto_continue(false, true, false, false, false, false, 0, Some("end_turn"), 0),
+        should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0),
         None,
     );
 }
@@ -164,22 +167,16 @@ fn test_auto_continue_end_turn_still_recovers_errors() {
 }
 
 #[test]
-fn test_auto_continue_interactive_first_text_only() {
-    // Interactive mode, tools executed, first text-only response, stop_reason = "tool_use" → continue
+fn test_auto_continue_no_tools_this_iter_stops() {
+    // No tools executed this iteration → no ToolsExecuted (regardless of mode, stop_reason, counter)
     assert_eq!(
         should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0),
-        Some(AutoContinueReason::ToolsExecuted),
+        None,
     );
-    // No stop_reason (None) → treat as natural end, don't continue
     assert_eq!(
         should_auto_continue(false, true, false, false, false, false, 0, None, 0),
         None,
     );
-}
-
-#[test]
-fn test_auto_continue_interactive_second_text_only() {
-    // Interactive mode, tools executed, second text-only → stop
     assert_eq!(
         should_auto_continue(false, true, false, false, false, false, 1, None, 0),
         None,

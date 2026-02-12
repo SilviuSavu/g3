@@ -105,6 +105,29 @@ pub fn make_final_chunk_with_reason(tool_calls: Vec<ToolCall>, usage: Option<Usa
     }
 }
 
+/// Create a final completion chunk with stop reason AND reasoning content.
+/// Used by providers that support both thinking/reasoning and proper stop_reason forwarding.
+pub fn make_final_chunk_full(
+    tool_calls: Vec<ToolCall>,
+    usage: Option<Usage>,
+    stop_reason: Option<String>,
+    reasoning_content: Option<String>,
+) -> CompletionChunk {
+    CompletionChunk {
+        content: String::new(),
+        finished: true,
+        usage,
+        tool_calls: if tool_calls.is_empty() {
+            None
+        } else {
+            Some(tool_calls)
+        },
+        stop_reason,
+        tool_call_streaming: None,
+        reasoning_content,
+    }
+}
+
 /// Create a text content chunk (not finished).
 pub fn make_text_chunk(content: String) -> CompletionChunk {
     CompletionChunk {

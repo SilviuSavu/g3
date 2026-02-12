@@ -73,7 +73,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error};
 
 use crate::{
-    streaming::{decode_utf8_streaming, make_final_chunk_with_reasoning, make_text_chunk, make_tool_chunk},
+    streaming::{decode_utf8_streaming, make_final_chunk_full, make_text_chunk, make_tool_chunk},
     CompletionChunk, CompletionRequest, CompletionResponse, CompletionStream, LLMProvider, Message,
     MessageRole, Tool, ToolCall, Usage,
 };
@@ -280,6 +280,7 @@ impl ZaiProvider {
         let mut accumulated_usage: Option<Usage> = None;
         let mut current_tool_calls: Vec<ZaiStreamingToolCall> = Vec::new();
         let mut accumulated_reasoning = String::new();
+        let mut last_finish_reason: Option<String> = None;
 
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
@@ -323,9 +324,11 @@ impl ZaiProvider {
                                     Some(accumulated_reasoning.clone())
                                 };
 
-                                let final_chunk = make_final_chunk_with_reasoning(
+                                let stop_reason = convert_finish_reason(last_finish_reason.as_deref());
+                                let final_chunk = make_final_chunk_full(
                                     tool_calls,
                                     accumulated_usage.clone(),
+                                    stop_reason,
                                     reasoning,
                                 );
                                 let _ = tx.send(Ok(final_chunk)).await;
@@ -392,6 +395,11 @@ impl ZaiProvider {
                                             }
                                         }
 
+                                        // Capture finish_reason for the final chunk
+                                        if let Some(ref reason) = choice.finish_reason {
+                                            last_finish_reason = Some(reason.clone());
+                                        }
+
                                         // Check for finish_reason to send tool calls
                                         if choice.finish_reason.is_some()
                                             && !current_tool_calls.is_empty()
@@ -450,7 +458,8 @@ impl ZaiProvider {
             Some(accumulated_reasoning)
         };
 
-        let final_chunk = make_final_chunk_with_reasoning(tool_calls, accumulated_usage.clone(), reasoning);
+        let stop_reason = convert_finish_reason(last_finish_reason.as_deref());
+        let final_chunk = make_final_chunk_full(tool_calls, accumulated_usage.clone(), stop_reason, reasoning);
         let _ = tx.send(Ok(final_chunk)).await;
 
         accumulated_usage
@@ -614,6 +623,16 @@ impl LLMProvider for ZaiProvider {
 // ─────────────────────────────────────────────────────────────────────────────
 // Message and Tool Conversion
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Convert OpenAI-style finish_reason to internal stop_reason format.
+fn convert_finish_reason(reason: Option<&str>) -> Option<String> {
+    reason.map(|r| match r {
+        "stop" => "end_turn".to_string(),
+        "tool_calls" => "tool_use".to_string(),
+        "length" => "max_tokens".to_string(),
+        other => other.to_string(),
+    })
+}
 
 /// Convert g3 messages to Z.ai message format (OpenAI-compatible).
 fn convert_messages(messages: &[Message]) -> Vec<serde_json::Value> {

@@ -202,37 +202,30 @@ mod streaming_parser_characterization {
 mod auto_continue_characterization {
     use g3_core::streaming::{should_auto_continue, AutoContinueReason};
 
-    /// CHARACTERIZATION: Interactive mode allows ONE auto-continue after tools, then stops
+    /// CHARACTERIZATION: Auto-continue is driven by tools_executed_this_iter only
     #[test]
-    fn interactive_continues_once_after_tools() {
-        // First text-only response after tools, stop_reason = "tool_use" → continue
-        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0);
+    fn tools_executed_this_iter_drives_continue() {
+        // tools_executed_this_iter=true → always continue (regardless of mode or stop_reason)
+        let result = should_auto_continue(false, true, true, false, false, false, 0, None, 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "Interactive mode should continue once after tool execution");
+            "Interactive mode should continue when tools executed this iter");
 
-        // No stop_reason (None) → natural end, don't continue
-        let result = should_auto_continue(false, true, false, false, false, false, 0, None, 0);
-        assert!(result.is_none(),
-            "No stop_reason means natural end, should not continue");
-
-        // Second text-only response → stop
-        let result = should_auto_continue(false, true, false, false, false, false, 1, Some("tool_use"), 0);
-        assert!(result.is_none(),
-            "Interactive mode should stop after second consecutive text-only response");
-    }
-
-    /// CHARACTERIZATION: end_turn stops session - LLM intentionally finished
-    #[test]
-    fn end_turn_stops_session() {
-        // NEW BEHAVIOR: Autonomous mode with end_turn + tools_executed_this_iter → CONTINUES
         let result = should_auto_continue(true, true, true, false, false, false, 0, Some("end_turn"), 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "Autonomous mode with tools executed this iter ignores stop_reason and continues");
+            "tools_executed_this_iter=true ignores stop_reason");
 
-        // Interactive mode with end_turn → stop
-        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("end_turn"), 0);
+        // tools_executed_this_iter=false → no ToolsExecuted
+        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0);
         assert!(result.is_none(),
-            "end_turn should stop session in interactive mode");
+            "No tools this iter means no auto-continue for ToolsExecuted");
+
+        let result = should_auto_continue(false, true, false, false, false, false, 0, None, 0);
+        assert!(result.is_none(),
+            "No tools this iter means no auto-continue");
+
+        let result = should_auto_continue(false, true, false, false, false, false, 1, Some("tool_use"), 0);
+        assert!(result.is_none(),
+            "No tools this iter means no auto-continue regardless of counter");
     }
 
     /// CHARACTERIZATION: end_turn does NOT override error-recovery reasons
@@ -269,23 +262,23 @@ mod auto_continue_characterization {
         );
     }
 
-    /// CHARACTERIZATION: Autonomous mode continues after tool execution (no stop_reason)
+    /// CHARACTERIZATION: tools_executed_this_iter drives continue regardless of mode/stop_reason
     #[test]
     fn autonomous_continues_after_tools() {
-        // stop_reason = "tool_use" + tools_executed_this_iter → continue
+        // tools_executed_this_iter=true → continue (any stop_reason)
         let result = should_auto_continue(true, true, true, false, false, false, 0, Some("tool_use"), 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "Should continue after tool execution when stop_reason is tool_use");
+            "Should continue after tool execution");
 
-        // No stop_reason (None) + no tools this iter → natural end, don't continue
+        // tools_executed_this_iter=false → no ToolsExecuted
         let result = should_auto_continue(true, true, false, false, false, false, 0, None, 0);
         assert!(result.is_none(),
-            "No stop_reason means natural end, should not continue");
+            "No tools this iter means no auto-continue");
 
-        // Autonomous ignores the counter when tools_executed_this_iter and stop_reason is tool_use
+        // Counter is irrelevant when tools_executed_this_iter=true
         let result = should_auto_continue(true, true, true, false, false, false, 10, Some("tool_use"), 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
-            "Autonomous should continue regardless of counter when stop_reason is tool_use");
+            "Should continue regardless of counter when tools executed this iter");
     }
 
     /// CHARACTERIZATION: Incomplete tool call triggers continue
