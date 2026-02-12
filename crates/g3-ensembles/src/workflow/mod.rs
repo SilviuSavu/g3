@@ -8,6 +8,7 @@
 //! - Parallel execution of independent nodes
 
 pub mod builder;
+pub mod approval;
 pub mod checkpoint;
 pub mod condition;
 pub mod executor;
@@ -17,6 +18,10 @@ pub mod state;
 pub use builder::WorkflowBuilder;
 pub use condition::{Condition, Condition as EdgeCondition};
 pub use checkpoint::{Checkpoint, CheckpointManager, CheckpointMeta, CheckpointError};
+pub use approval::{
+    ApprovalGate, ApprovalGateConfig, ApprovalDecision, ApprovalRequest, ApprovalResponse,
+    TimeoutAction, ApprovalHandler, CliApprovalInterface,
+};
 pub use executor::{WorkflowExecutor, WorkflowOutcome};
 pub use node::{Node, NodeConfig};
 pub use state::WorkflowState;

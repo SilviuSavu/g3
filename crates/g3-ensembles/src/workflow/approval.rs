@@ -165,7 +165,7 @@ impl ApprovalDecision {
 }
 
 /// Internal representation of a pending approval.
-struct PendingApproval {
+pub struct PendingApproval {
     request: ApprovalRequest,
     responder: oneshot::Sender<ApprovalResponse>,
 }
@@ -308,13 +308,10 @@ impl ApprovalGate {
     fn build_state_summary(state: &WorkflowState) -> ApprovalStateSummary {
         let node_history: Vec<NodeHistoryEntry> = state
             .history
-            .iter()
-            .map(|entry| {
-                NodeHistoryEntry {
-                    node_id: entry.node_id.clone(),
-                    success: entry.success,
-                    summary: entry.summary.chars().take(200).collect(),
-                }
+            .iter().map(|entry| NodeHistoryEntry {
+                node_id: entry.node_id.clone(),
+                success: entry.success,
+                summary: entry.summary.chars().take(200).collect(),
             })
             .collect();
         

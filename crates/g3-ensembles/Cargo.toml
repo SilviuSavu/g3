@@ -20,6 +20,7 @@ regex = "1.10"
 async-trait = "0.1"
 sha2 = "0.10"
 thiserror = "1.0"
+textwrap = "0.16"
 
 [dev-dependencies]
 tempfile = "3.8"
