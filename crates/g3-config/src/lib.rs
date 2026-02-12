@@ -24,6 +24,8 @@ pub struct Config {
     pub lsp: LspConfig,
     #[serde(default)]
     pub ensembles: EnsemblesConfig,
+    #[serde(default)]
+    pub gates: GatesConfig,
 }
 
 /// Provider configuration with named configs per provider type
@@ -509,6 +511,69 @@ impl LspConfig {
     }
 }
 
+// ============================================================================
+// Verification Gates Configuration (Autonomous Mode)
+// ============================================================================
+
+/// Gate severity mode for each verification stage.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GateMode {
+    Hard,
+    Soft,
+    Off,
+}
+
+/// Configuration for the verification gauntlet in autonomous mode.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GatesConfig {
+    /// Master switch for the gauntlet.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// cargo clippy --all-targets -- -D warnings
+    #[serde(default = "default_gate_hard")]
+    pub cargo_clippy: GateMode,
+    /// cargo test --quiet
+    #[serde(default = "default_gate_hard")]
+    pub cargo_test: GateMode,
+    /// cargo mutants
+    #[serde(default = "default_gate_soft")]
+    pub cargo_mutants: GateMode,
+    /// PROPTEST_CASES=N cargo test proptest_
+    #[serde(default = "default_gate_soft")]
+    pub cargo_proptest: GateMode,
+    /// Number of proptest iterations.
+    #[serde(default = "default_proptest_cases")]
+    pub proptest_cases: u32,
+    /// Line limit passed to cargo-mutants.
+    #[serde(default = "default_mutants_line_limit")]
+    pub mutants_line_limit: u32,
+    /// Per-stage timeout in seconds (mutants gets 2x).
+    #[serde(default = "default_gate_timeout")]
+    pub gate_timeout: u64,
+}
+
+fn default_gate_hard() -> GateMode { GateMode::Hard }
+fn default_gate_soft() -> GateMode { GateMode::Soft }
+fn default_proptest_cases() -> u32 { 1000 }
+fn default_mutants_line_limit() -> u32 { 100 }
+fn default_gate_timeout() -> u64 { 300 }
+
+impl Default for GatesConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cargo_clippy: GateMode::Hard,
+            cargo_test: GateMode::Hard,
+            cargo_mutants: GateMode::Soft,
+            cargo_proptest: GateMode::Soft,
+            proptest_cases: default_proptest_cases(),
+            mutants_line_limit: default_mutants_line_limit(),
+            gate_timeout: default_gate_timeout(),
+        }
+    }
+}
+
 /// Ensembles configuration (multi-agent modes)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EnsemblesConfig {
@@ -703,6 +768,7 @@ impl Default for Config {
             index: IndexConfig::default(),
             lsp: LspConfig::default(),
             ensembles: EnsemblesConfig::default(),
+            gates: GatesConfig::default(),
         }
     }
 }

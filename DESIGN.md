@@ -395,24 +395,31 @@ This design document reflects the current state of g3 as a mature, production-re
 
 ### Fully Implemented
 - ✅ **Core Agent Engine**: Complete with streaming, tool execution, and context management
-- ✅ **Provider System**: Anthropic, Databricks, and Embedded providers with OAuth support
+- ✅ **Provider System**: Anthropic, Databricks, Gemini, OpenAI, Z.ai, and Embedded providers with OAuth support
+- ✅ **Indexing System**: Qdrant vector DB, BM25 text search, knowledge graph for code intelligence
 - ✅ **Tool System**: 13 tools including file ops, shell, TODO management, and computer control
+- ✅ **Tool System**: 40+ tools including file ops, shell, planning, indexing, LSP, WebDriver, Beads, team tools
 - ✅ **CLI Interface**: Interactive mode, single-shot mode, retro TUI
+- ✅ **Execution Modes**: Interactive, Autonomous, Accumulative, Agent, Studio, Planning
 - ✅ **Autonomous Mode**: Coach-player feedback loop with requirements.md processing
 - ✅ **Configuration**: TOML-based config with environment overrides
 - ✅ **Error Handling**: Comprehensive retry logic and error classification
 - ✅ **Session Logging**: Automatic session tracking and JSON logs
 - ✅ **Context Management**: Context thinning (50-80%) and auto-compaction at 80% capacity
 - ✅ **Computer Control**: Cross-platform automation with OCR support
+- ✅ **LSP Integration**: Language Server Protocol for code intelligence
+- ✅ **Beads Issue Tracker**: Integrated issue tracking with workflow formulas
 - ✅ **TODO Management**: In-memory TODO list with read/write tools
 
 ### Architecture Highlights
-- **Workspace**: 6 crates with clear separation of concerns
+- **Workspace**: 12 crates with clear separation of concerns
 - **Dependencies**: Modern Rust ecosystem (Tokio, Clap, Serde, etc.)
 - **Streaming**: Real-time response processing with tool call detection
 - **Cross-Platform**: Works on macOS, Linux, and Windows
 - **GPU Support**: Metal acceleration for local models on macOS, CUDA on Linux
 - **OCR Support**: Tesseract integration for text extraction from images
+- **Code Intelligence**: Semantic search, knowledge graph, LSP integration
+- **Multi-Agent**: Studio mode for parallel agent sessions with git worktrees
 
 ### Key Files
 - `src/main.rs`: main entry point delegating to g3-cli

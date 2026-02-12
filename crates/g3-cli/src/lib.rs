@@ -11,6 +11,7 @@ pub mod tui;
 mod accumulative;
 mod agent_mode;
 mod autonomous;
+mod verification_gates;
 mod cli_args;
 mod dytopo;
 mod coach_feedback;

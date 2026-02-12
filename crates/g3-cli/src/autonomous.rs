@@ -175,11 +175,61 @@ pub async fn run_autonomous(
         // Give some time for file operations to complete
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
+        // Run verification gauntlet before coach review
+        let config = agent.get_config();
+        let gates_config = config.gates.clone();
+        let gauntlet = crate::verification_gates::run_gauntlet(
+            project.workspace(),
+            &gates_config,
+        )
+        .await;
+
+        if gates_config.enabled && !gauntlet.stages.is_empty() {
+            output.print("\n--- VERIFICATION GAUNTLET ---");
+            for s in &gauntlet.stages {
+                let icon = match s.status {
+                    crate::verification_gates::GateStatus::Passed => "PASS",
+                    crate::verification_gates::GateStatus::Failed => "FAIL",
+                    crate::verification_gates::GateStatus::Skipped => "SKIP",
+                };
+                output.print(&format!(
+                    "  [{}] {} ({:.1}s)",
+                    icon,
+                    s.name,
+                    s.duration.as_secs_f64()
+                ));
+            }
+            output.print("-----------------------------");
+        }
+
+        // Hard failure → skip coach, feed output to player directly
+        if !gauntlet.passed {
+            output.print("Gauntlet hard failure — skipping coach, feeding results to player.");
+            coach_feedback_text = gauntlet.format_for_player();
+            record_turn_metrics(
+                &mut turn_metrics,
+                turn,
+                turn_start_time,
+                turn_start_tokens,
+                &agent,
+            );
+            turn += 1;
+            if turn > max_turns {
+                output.print("\n=== SESSION COMPLETED - MAX TURNS REACHED ===");
+                output.print(&format!("Maximum turns ({}) reached", max_turns));
+                break;
+            }
+            continue;
+        }
+
+        let gate_summary = gauntlet.format_for_coach();
+
         // Execute coach turn
         let coach_result = execute_coach_turn(
             &agent,
             &project,
             &requirements,
+            &gate_summary,
             show_prompt,
             show_code,
             quiet,
@@ -279,26 +329,56 @@ enum CoachTurnResult {
     Panic(anyhow::Error),
 }
 
+const PLAYER_GAUNTLET_WARNING: &str = "\n\nVERIFICATION ENVIRONMENT:\n\
+Your code will be verified by an automated Gauntlet before the Coach reviews it:\n\
+1. cargo clippy (strict, -D warnings) — no sloppy patterns\n\
+2. cargo test — all tests must pass\n\
+3. cargo mutants — code will be rejected if tests pass despite logical mutations\n\
+4. Property-based fuzzing with high iteration count\n\n\
+Do not write tautological tests. The Mutation Auditor will invert your logic,\n\
+delete your code, and replace returns with defaults. If your tests still pass,\n\
+the Coach will reject the work and you will lose token budget.\n\n\
+Write defensive, meaningful logic with assertions that actually verify behavior.";
+
+const COACH_GAUNTLET_INSTRUCTIONS: &str = "\n\nVERIFICATION TOOLS:\n\
+You have access to an automated Gauntlet that runs before your review.\n\
+The results below are objective and LLM-independent. Use them to:\n\
+- Veto commits with hollow tests (survived mutants = tests don't verify logic)\n\
+- Give specific, actionable feedback referencing exact mutation failures\n\
+- Tell the Player exactly which assertions are missing\n\n\
+If the Gauntlet shows survived mutants, do NOT approve. Tell the Player:\n\
+\"I'm vetoing this. The Mutation Auditor found [specific mutation] survived.\n\
+Fix the assertion to actually check [specific behavior].\"";
+
 fn build_player_prompt(requirements: &str, requirements_sha: &str, coach_feedback: &str) -> String {
     if coach_feedback.is_empty() {
         format!(
-            "You are G3 in implementation mode. Read and implement the following requirements:\n\n{}\n\nRequirements SHA256: {}\n\nImplement this step by step, creating all necessary files and code.",
-            requirements, requirements_sha
+            "You are G3 in implementation mode. Read and implement the following requirements:\n\n{}\n\nRequirements SHA256: {}\n\nImplement this step by step, creating all necessary files and code.{}",
+            requirements, requirements_sha, PLAYER_GAUNTLET_WARNING
         )
     } else {
         format!(
-            "You are G3 in implementation mode. Address the following specific feedback from the coach:\n\n{}\n\nContext: You are improving an implementation based on these requirements:\n{}\n\nFocus on fixing the issues mentioned in the coach feedback above.",
-            coach_feedback, requirements
+            "You are G3 in implementation mode. Address the following specific feedback from the coach:\n\n{}\n\nContext: You are improving an implementation based on these requirements:\n{}\n\nFocus on fixing the issues mentioned in the coach feedback above.{}",
+            coach_feedback, requirements, PLAYER_GAUNTLET_WARNING
         )
     }
 }
 
-fn build_coach_prompt(requirements: &str) -> String {
+fn build_coach_prompt(requirements: &str, gate_results: &str) -> String {
+    let gate_section = if gate_results.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\n{}\n\n{}",
+            COACH_GAUNTLET_INSTRUCTIONS, gate_results
+        )
+    };
+
     format!(
         "You are G3 in coach mode. Your role is to critique and review implementations against requirements and provide concise, actionable feedback.
 
 REQUIREMENTS:
-{}
+{}{}
 
 IMPLEMENTATION REVIEW:
 Review the current state of the project and provide a concise critique focusing on:
@@ -321,7 +401,7 @@ If improvements are needed:
 - Respond with a brief summary listing ONLY the specific issues to fix
 
 Remember: Be clear in your review and concise in your feedback. APPROVE iff the implementation works and thoroughly fits the requirements (implementation > 95% complete). Be rigorous, especially by testing that all UI features work.",
-        requirements
+        requirements, gate_section
     )
 }
 
@@ -473,6 +553,7 @@ async fn execute_coach_turn(
     player_agent: &Agent<ConsoleUiWriter>,
     project: &Project,
     requirements: &str,
+    gate_results: &str,
     show_prompt: bool,
     show_code: bool,
     quiet: bool,
@@ -519,7 +600,7 @@ async fn execute_coach_turn(
         turn, max_turns
     ));
 
-    let coach_prompt = build_coach_prompt(requirements);
+    let coach_prompt = build_coach_prompt(requirements, gate_results);
 
     output.print(&format!(
         "🎓 Starting coach review... (elapsed: {})",

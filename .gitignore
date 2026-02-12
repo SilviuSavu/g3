@@ -36,3 +36,7 @@ logs/
 
 # Studio worktrees
 .worktrees/
+
+# Debug files
+debug.log
+*.rlib
