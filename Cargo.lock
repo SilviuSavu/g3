@@ -1606,14 +1606,18 @@ name = "g3-ensembles"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "clap",
  "g3-config",
  "g3-core",
  "g3-index",
+ "regex",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "uuid",
