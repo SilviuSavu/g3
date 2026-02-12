@@ -49,6 +49,8 @@ impl<'a, W: UiWriter> ToolContext<'a, W> {
         if let Some(session_id) = self.session_id {
             let _ = ensure_session_dir(session_id);
             get_session_todo_path(session_id)
+        } else if let Some(dir) = self.working_dir {
+            std::path::PathBuf::from(dir).join("todo.g3.md")
         } else {
             get_todo_path()
         }

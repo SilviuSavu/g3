@@ -125,6 +125,7 @@ mod tests {
     /// Create a ToolContext wired to a temp directory for testing.
     struct TestHarness {
         _tmp: TempDir,
+        tmp_path_str: String,
         todo_content: Arc<RwLock<String>>,
         webdriver_session: Arc<RwLock<Option<Arc<tokio::sync::Mutex<crate::webdriver_session::WebDriverSession>>>>>,
         webdriver_process: Arc<RwLock<Option<tokio::process::Child>>>,
@@ -137,8 +138,10 @@ mod tests {
     impl TestHarness {
         fn new() -> Self {
             let tmp = TempDir::new().unwrap();
+            let tmp_path_str = tmp.path().to_string_lossy().to_string();
             Self {
                 _tmp: tmp,
+                tmp_path_str,
                 todo_content: Arc::new(RwLock::new(String::new())),
                 webdriver_session: Arc::new(RwLock::new(None)),
                 webdriver_process: Arc::new(RwLock::new(None)),
@@ -158,7 +161,7 @@ mod tests {
                 config: &self.config,
                 ui_writer: &TestUiWriter,
                 session_id: None,
-                working_dir: None,
+                working_dir: Some(&self.tmp_path_str),
                 computer_controller: None,
                 webdriver_session: &self.webdriver_session,
                 webdriver_process: &self.webdriver_process,
