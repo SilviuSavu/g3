@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use sha2::{Digest, Sha256};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::debug;
 
@@ -14,6 +14,7 @@ use crate::coach_feedback;
 use crate::metrics::{format_elapsed_time, generate_turn_histogram, TurnMetrics};
 use crate::simple_output::SimpleOutput;
 use crate::ui_writer_impl::ConsoleUiWriter;
+use crate::worktree;
 use g3_core::ui_writer::UiWriter;
 
 /// Run autonomous mode with coach-player feedback loop (console output).
@@ -76,6 +77,25 @@ pub async fn run_autonomous(
 
     let loop_start = Instant::now();
     output.print("🔄 Starting coach-player feedback loop...");
+
+    // Worktree isolation setup
+    let worktree_isolation = agent.get_config().gates.worktree_isolation;
+    let original_cwd = std::env::current_dir()?;
+    let mut worktree_branch: Option<String> = None;
+    let mut worktree_dir: Option<PathBuf> = None;
+
+    if worktree_isolation {
+        let repo_root = worktree::find_git_root(&original_cwd).await?;
+        let branch = worktree::autonomous_branch_name();
+        let wt_path = worktree::create_worktree(&repo_root, &branch).await?;
+        output.print(&format!(
+            "Worktree isolation active: {}",
+            wt_path.display()
+        ));
+        std::env::set_current_dir(&wt_path)?;
+        worktree_branch = Some(branch);
+        worktree_dir = Some(wt_path);
+    }
 
     // Load fast-discovery messages before the loop starts (if enabled)
     let (discovery_messages, discovery_working_dir) =
@@ -144,7 +164,12 @@ pub async fn run_autonomous(
         let player_failed = match player_result {
             PlayerTurnResult::Success => false,
             PlayerTurnResult::Failed => true,
-            PlayerTurnResult::Panic(e) => return Err(e),
+            PlayerTurnResult::Panic(e) => {
+                if worktree_dir.is_some() {
+                    let _ = std::env::set_current_dir(&original_cwd);
+                }
+                return Err(e);
+            }
         };
 
         // If player failed after max retries, increment turn and continue
@@ -178,8 +203,11 @@ pub async fn run_autonomous(
         // Run verification gauntlet before coach review
         let config = agent.get_config();
         let gates_config = config.gates.clone();
+        let gauntlet_dir = worktree_dir
+            .as_deref()
+            .unwrap_or_else(|| project.workspace());
         let gauntlet = crate::verification_gates::run_gauntlet(
-            project.workspace(),
+            gauntlet_dir,
             &gates_config,
         )
         .await;
@@ -242,6 +270,7 @@ pub async fn run_autonomous(
             &turn_metrics,
             start_time,
             loop_start,
+            worktree_dir.as_deref(),
         )
         .await;
 
@@ -263,7 +292,12 @@ pub async fn run_autonomous(
                 ));
                 coach_feedback_text = "The implementation needs review. Please ensure all requirements are met and the code compiles without errors.".to_string();
             }
-            CoachTurnResult::Panic(e) => return Err(e),
+            CoachTurnResult::Panic(e) => {
+                if worktree_dir.is_some() {
+                    let _ = std::env::set_current_dir(&original_cwd);
+                }
+                return Err(e);
+            }
         }
 
         // Check if we've reached max turns
@@ -283,6 +317,25 @@ pub async fn run_autonomous(
         turn += 1;
 
         output.print("🔄 Coach provided feedback for next iteration");
+    }
+
+    // Worktree merge or preserve
+    if let (Some(ref branch), Some(ref wt_path)) = (&worktree_branch, &worktree_dir) {
+        let repo_root = worktree::find_git_root(&original_cwd).await?;
+
+        if implementation_approved {
+            worktree::commit_all(wt_path, &format!("autonomous: {}", branch)).await?;
+            std::env::set_current_dir(&original_cwd)?;
+            worktree::merge_to_main(&repo_root, branch).await?;
+            worktree::remove_worktree(&repo_root, wt_path, branch).await?;
+            output.print("Worktree merged to main and cleaned up.");
+        } else {
+            std::env::set_current_dir(&original_cwd)?;
+            output.print(&format!(
+                "Worktree NOT merged (not approved). Inspect branch: {}",
+                branch
+            ));
+        }
     }
 
     // Generate final report
@@ -566,6 +619,7 @@ async fn execute_coach_turn(
     turn_metrics: &[TurnMetrics],
     start_time: Instant,
     loop_start: Instant,
+    worktree_path: Option<&Path>,
 ) -> CoachTurnResult {
     const MAX_COACH_RETRIES: u32 = 3;
 
@@ -593,6 +647,14 @@ async fn execute_coach_turn(
 
     if let Err(e) = project.enter_workspace() {
         return CoachTurnResult::Panic(e);
+    }
+
+    // If worktree isolation is active, override CWD back to the worktree
+    // (project.enter_workspace() resets it to the original workspace)
+    if let Some(wt) = worktree_path {
+        if let Err(e) = std::env::set_current_dir(wt) {
+            return CoachTurnResult::Panic(e.into());
+        }
     }
 
     output.print(&format!(

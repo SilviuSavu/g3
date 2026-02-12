@@ -530,6 +530,9 @@ pub struct GatesConfig {
     /// Master switch for the gauntlet.
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Run player in isolated git worktree (merge only on approval).
+    #[serde(default)]
+    pub worktree_isolation: bool,
     /// cargo clippy --all-targets -- -D warnings
     #[serde(default = "default_gate_hard")]
     pub cargo_clippy: GateMode,
@@ -563,6 +566,7 @@ impl Default for GatesConfig {
     fn default() -> Self {
         Self {
             enabled: true,
+            worktree_isolation: false,
             cargo_clippy: GateMode::Hard,
             cargo_test: GateMode::Hard,
             cargo_mutants: GateMode::Soft,
