@@ -12,6 +12,7 @@ pub mod approval;
 pub mod checkpoint;
 pub mod condition;
 pub mod executor;
+pub mod visualize;
 pub mod node;
 pub mod state;
 
@@ -23,6 +24,7 @@ pub use approval::{
     TimeoutAction, ApprovalHandler, CliApprovalInterface,
 };
 pub use executor::{WorkflowExecutor, WorkflowOutcome};
+pub use visualize::{to_mermaid, to_mermaid_with_state, to_ascii, state_summary};
 pub use node::{Node, NodeConfig};
 pub use state::WorkflowState;
 
