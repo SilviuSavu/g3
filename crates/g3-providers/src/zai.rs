@@ -52,6 +52,7 @@
 //!         stream: false,
 //!         tools: None,
 //!         disable_thinking: false,
+//!         stop_sequences: vec![],
 //!     };
 //!
 //!     let response = provider.complete(request).await?;
@@ -281,6 +282,7 @@ impl ZaiProvider {
         let mut current_tool_calls: Vec<ZaiStreamingToolCall> = Vec::new();
         let mut accumulated_reasoning = String::new();
         let mut last_finish_reason: Option<String> = None;
+        let mut tool_calls_started: bool = false;
 
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
@@ -307,12 +309,13 @@ impl ZaiProvider {
                             if data == "[DONE]" {
                                 debug!("Received stream completion marker");
 
-                                // Send final chunk with tool calls if any
+                                // Send final chunk with any remaining un-emitted tool calls
                                 let tool_calls = if current_tool_calls.is_empty() {
                                     vec![]
                                 } else {
                                     current_tool_calls
                                         .iter()
+                                        .filter(|tc| !tc.emitted)
                                         .filter_map(|tc| tc.to_tool_call())
                                         .collect()
                                 };
@@ -357,16 +360,26 @@ impl ZaiProvider {
                                         // Handle regular content
                                         if let Some(content) = &choice.delta.content {
                                             if !content.is_empty() {
-                                                let chunk = make_text_chunk(content.clone());
-                                                if tx.send(Ok(chunk)).await.is_err() {
-                                                    debug!("Receiver dropped, stopping stream");
-                                                    return accumulated_usage;
+                                                if tool_calls_started {
+                                                    // After tool calls begin, redirect content
+                                                    // to reasoning (GLM-5 interleaves CoT text
+                                                    // with tool call deltas)
+                                                    accumulated_reasoning.push_str(content);
+                                                } else {
+                                                    let chunk = make_text_chunk(content.clone());
+                                                    if tx.send(Ok(chunk)).await.is_err() {
+                                                        debug!("Receiver dropped, stopping stream");
+                                                        return accumulated_usage;
+                                                    }
                                                 }
                                             }
                                         }
 
                                         // Handle tool calls (OpenAI format)
                                         if let Some(delta_tool_calls) = &choice.delta.tool_calls {
+                                            if !delta_tool_calls.is_empty() {
+                                                tool_calls_started = true;
+                                            }
                                             for delta_tool_call in delta_tool_calls {
                                                 if let Some(index) = delta_tool_call.index {
                                                     // Ensure we have enough tool calls in our vector
@@ -391,6 +404,24 @@ impl ZaiProvider {
                                                             tool_call.arguments.push_str(arguments);
                                                         }
                                                     }
+
+                                                    // Emit tool call early if complete
+                                                    if !current_tool_calls[index].emitted
+                                                        && current_tool_calls[index].is_complete()
+                                                    {
+                                                        if let Some(completed) =
+                                                            current_tool_calls[index].to_tool_call()
+                                                        {
+                                                            let chunk =
+                                                                make_tool_chunk(vec![completed]);
+                                                            if tx.send(Ok(chunk)).await.is_err() {
+                                                                debug!("Receiver dropped, stopping stream");
+                                                                return accumulated_usage;
+                                                            }
+                                                            current_tool_calls[index].emitted =
+                                                                true;
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -400,12 +431,13 @@ impl ZaiProvider {
                                             last_finish_reason = Some(reason.clone());
                                         }
 
-                                        // Check for finish_reason to send tool calls
+                                        // Check for finish_reason to send remaining tool calls
                                         if choice.finish_reason.is_some()
                                             && !current_tool_calls.is_empty()
                                         {
                                             let tool_calls: Vec<ToolCall> = current_tool_calls
                                                 .iter()
+                                                .filter(|tc| !tc.emitted)
                                                 .filter_map(|tc| tc.to_tool_call())
                                                 .collect();
 
@@ -768,6 +800,7 @@ struct ZaiStreamingToolCall {
     id: Option<String>,
     name: Option<String>,
     arguments: String,
+    emitted: bool,
 }
 
 impl ZaiStreamingToolCall {
@@ -782,6 +815,15 @@ impl ZaiStreamingToolCall {
             tool: name.clone(),
             args,
         })
+    }
+
+    /// Returns true when id, name, and arguments are all present and arguments
+    /// parses as valid JSON.
+    fn is_complete(&self) -> bool {
+        self.id.is_some()
+            && self.name.is_some()
+            && !self.arguments.is_empty()
+            && serde_json::from_str::<serde_json::Value>(&self.arguments).is_ok()
     }
 }
 
@@ -1090,6 +1132,61 @@ mod tests {
         assert_eq!(converted.id, "call_123");
         assert_eq!(converted.tool, "get_weather");
         assert_eq!(converted.args["location"], "San Francisco");
+    }
+
+    #[test]
+    fn test_streaming_tool_call_is_complete() {
+        let mut tc = ZaiStreamingToolCall::default();
+        assert!(!tc.is_complete(), "empty tool call should not be complete");
+
+        tc.id = Some("call_1".to_string());
+        assert!(!tc.is_complete(), "missing name and args");
+
+        tc.name = Some("bash".to_string());
+        assert!(!tc.is_complete(), "missing args");
+
+        tc.arguments = r#"{"command": "ls"}"#.to_string();
+        assert!(tc.is_complete(), "all fields present with valid JSON");
+    }
+
+    #[test]
+    fn test_streaming_tool_call_emitted_flag() {
+        let mut tc = ZaiStreamingToolCall::default();
+        assert!(!tc.emitted, "emitted should default to false");
+
+        tc.id = Some("call_1".to_string());
+        tc.name = Some("bash".to_string());
+        tc.arguments = r#"{"command": "ls"}"#.to_string();
+        assert!(tc.is_complete());
+
+        // Simulate emission
+        tc.emitted = true;
+
+        // to_tool_call still works (emitted is just a flag, not a gate)
+        assert!(tc.to_tool_call().is_some());
+        assert!(tc.emitted);
+    }
+
+    #[test]
+    fn test_streaming_tool_call_partial_json_not_complete() {
+        let mut tc = ZaiStreamingToolCall {
+            id: Some("call_1".to_string()),
+            name: Some("bash".to_string()),
+            arguments: String::new(),
+            emitted: false,
+        };
+
+        // Partial JSON - not complete
+        tc.arguments = r#"{"command": "#.to_string();
+        assert!(!tc.is_complete(), "partial JSON should not be complete");
+
+        // Still partial
+        tc.arguments.push_str(r#""ls -la""#);
+        assert!(!tc.is_complete(), "missing closing brace");
+
+        // Now complete
+        tc.arguments.push('}');
+        assert!(tc.is_complete(), "valid JSON should be complete");
     }
 }
 

@@ -34,6 +34,7 @@
 //!         stream: false,
 //!         tools: None,
 //!         disable_thinking: false,
+//!         stop_sequences: vec![],
 //!     };
 //!
 //!     let response = provider.complete(request).await?;
