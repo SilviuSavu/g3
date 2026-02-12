@@ -202,7 +202,7 @@ mod streaming_parser_characterization {
 mod auto_continue_characterization {
     use g3_core::streaming::{should_auto_continue, AutoContinueReason};
 
-    /// CHARACTERIZATION: Auto-continue is driven by tools_executed_this_iter only
+    /// CHARACTERIZATION: Auto-continue driven by tools_executed_this_iter + first text-only grace
     #[test]
     fn tools_executed_this_iter_drives_continue() {
         // tools_executed_this_iter=true → always continue (regardless of mode or stop_reason)
@@ -213,19 +213,28 @@ mod auto_continue_characterization {
         let result = should_auto_continue(true, true, true, false, false, false, 0, Some("end_turn"), 0);
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "tools_executed_this_iter=true ignores stop_reason");
+    }
 
-        // tools_executed_this_iter=false → no ToolsExecuted
-        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0);
-        assert!(result.is_none(),
-            "No tools this iter means no auto-continue for ToolsExecuted");
-
+    /// CHARACTERIZATION: First text-only response after tools gets ONE grace continuation
+    #[test]
+    fn first_text_only_after_tools_continues_once() {
+        // any_tool_executed=true, first text-only (counter=0) → continue once
         let result = should_auto_continue(false, true, false, false, false, false, 0, None, 0);
-        assert!(result.is_none(),
-            "No tools this iter means no auto-continue");
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "First text-only after tools should continue once");
 
+        let result = should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0);
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "First text-only after tools continues regardless of stop_reason");
+
+        // Second text-only (counter=1) → stop
         let result = should_auto_continue(false, true, false, false, false, false, 1, Some("tool_use"), 0);
         assert!(result.is_none(),
-            "No tools this iter means no auto-continue regardless of counter");
+            "Second text-only after tools should stop");
+
+        let result = should_auto_continue(false, true, false, false, false, false, 1, None, 0);
+        assert!(result.is_none(),
+            "Second text-only after tools should stop");
     }
 
     /// CHARACTERIZATION: end_turn does NOT override error-recovery reasons
@@ -270,10 +279,15 @@ mod auto_continue_characterization {
         assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
             "Should continue after tool execution");
 
-        // tools_executed_this_iter=false → no ToolsExecuted
+        // tools_executed_this_iter=false, any_tool_executed=true, counter=0 → grace continue
         let result = should_auto_continue(true, true, false, false, false, false, 0, None, 0);
+        assert_eq!(result, Some(AutoContinueReason::ToolsExecuted),
+            "First text-only after tools should get grace continue");
+
+        // tools_executed_this_iter=false, any_tool_executed=true, counter=1 → stop
+        let result = should_auto_continue(true, true, false, false, false, false, 1, None, 0);
         assert!(result.is_none(),
-            "No tools this iter means no auto-continue");
+            "Second text-only after tools should stop");
 
         // Counter is irrelevant when tools_executed_this_iter=true
         let result = should_auto_continue(true, true, true, false, false, false, 10, Some("tool_use"), 0);

@@ -137,14 +137,31 @@ fn test_auto_continue_tools_executed_this_iter() {
         should_auto_continue(false, true, true, false, false, false, 0, Some("end_turn"), 0),
         Some(AutoContinueReason::ToolsExecuted),
     );
+}
 
-    // tools_executed_this_iter=false → no ToolsExecuted
+#[test]
+fn test_auto_continue_first_text_only_after_tools() {
+    // any_tool_executed=true, tools_this_iter=false, first text-only (counter=0) → continue once
     assert_eq!(
         should_auto_continue(true, true, false, false, false, false, 0, None, 0),
-        None,
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+    assert_eq!(
+        should_auto_continue(false, true, false, false, false, false, 0, None, 0),
+        Some(AutoContinueReason::ToolsExecuted),
     );
     assert_eq!(
         should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0),
+        Some(AutoContinueReason::ToolsExecuted),
+    );
+
+    // Second text-only response (counter >= 1) → stop
+    assert_eq!(
+        should_auto_continue(true, true, false, false, false, false, 1, None, 0),
+        None,
+    );
+    assert_eq!(
+        should_auto_continue(false, true, false, false, false, false, 1, None, 0),
         None,
     );
 }
@@ -167,18 +184,14 @@ fn test_auto_continue_end_turn_still_recovers_errors() {
 }
 
 #[test]
-fn test_auto_continue_no_tools_this_iter_stops() {
-    // No tools executed this iteration → no ToolsExecuted (regardless of mode, stop_reason, counter)
+fn test_auto_continue_no_tools_ever_stops() {
+    // No tools ever executed → no ToolsExecuted
     assert_eq!(
-        should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0),
+        should_auto_continue(false, false, false, false, false, false, 0, None, 0),
         None,
     );
     assert_eq!(
-        should_auto_continue(false, true, false, false, false, false, 0, None, 0),
-        None,
-    );
-    assert_eq!(
-        should_auto_continue(false, true, false, false, false, false, 1, None, 0),
+        should_auto_continue(true, false, false, false, false, false, 0, None, 0),
         None,
     );
 }

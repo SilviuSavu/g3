@@ -657,12 +657,12 @@ pub enum AutoContinueReason {
 /// actually finish intentionally.
 pub fn should_auto_continue(
     _is_autonomous: bool,
-    _any_tool_executed: bool,
+    any_tool_executed: bool,
     tools_executed_this_iter: bool,
     has_incomplete_tool_call: bool,
     has_unexecuted_tool_call: bool,
     was_truncated: bool,
-    _consecutive_text_only_responses: usize,
+    consecutive_text_only_responses: usize,
     _stop_reason: Option<&str>,
     consecutive_error_recoveries: usize,
 ) -> Option<AutoContinueReason> {
@@ -689,13 +689,19 @@ pub fn should_auto_continue(
         return Some(AutoContinueReason::MaxTokensTruncation);
     }
 
-    // Continue if tools were executed THIS iteration.
-    // We check tools_executed_this_iter (not any_tool_executed) to avoid
-    // infinite loops — once the LLM produces a text-only response with no
-    // tool calls, this will be false and the loop exits naturally.
+    // Continue if tools were executed in THIS iteration (tool-executed path
+    // auto-continues via the outer loop, but this covers edge cases).
+    if tools_executed_this_iter {
+        return Some(AutoContinueReason::ToolsExecuted);
+    }
+
+    // If tools were executed in ANY previous iteration and this is the FIRST
+    // text-only response, allow ONE auto-continue. This handles the case where
+    // the LLM emits a planning message ("Let me do X next") without tool calls
+    // before issuing the actual tool calls in the next iteration.
     // We don't gate on stop_reason because some providers (ZAI, Gemini, some
     // OpenAI-compatible) return "end_turn"/None even after tool use.
-    if tools_executed_this_iter {
+    if any_tool_executed && consecutive_text_only_responses == 0 {
         return Some(AutoContinueReason::ToolsExecuted);
     }
 
@@ -844,12 +850,22 @@ mod tests {
         assert_eq!(should_auto_continue(false, true, true, false, false, false, 0, None, 0), Some(ToolsExecuted));
         assert_eq!(should_auto_continue(false, true, true, false, false, false, 0, Some("end_turn"), 0), Some(ToolsExecuted));
         assert_eq!(should_auto_continue(false, true, true, false, false, false, 5, None, 0), Some(ToolsExecuted));
+    }
 
-        // tools_executed_this_iter=false → no ToolsExecuted (regardless of any_tool_executed)
-        assert_eq!(should_auto_continue(true, true, false, false, false, false, 0, None, 0), None);
-        assert_eq!(should_auto_continue(true, true, false, false, false, false, 0, Some("tool_use"), 0), None);
-        assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, None, 0), None);
-        assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0), None);
+    #[test]
+    fn test_should_auto_continue_first_text_only_after_tools() {
+        use AutoContinueReason::*;
+
+        // any_tool_executed=true, tools_this_iter=false, first text-only (counter=0) → continue once
+        assert_eq!(should_auto_continue(true, true, false, false, false, false, 0, None, 0), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, None, 0), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, Some("end_turn"), 0), Some(ToolsExecuted));
+        assert_eq!(should_auto_continue(false, true, false, false, false, false, 0, Some("tool_use"), 0), Some(ToolsExecuted));
+
+        // Second text-only response (counter=1) → stop
+        assert_eq!(should_auto_continue(true, true, false, false, false, false, 1, None, 0), None);
+        assert_eq!(should_auto_continue(false, true, false, false, false, false, 1, None, 0), None);
+        assert_eq!(should_auto_continue(false, true, false, false, false, false, 5, None, 0), None);
     }
 
     #[test]
@@ -873,7 +889,7 @@ mod tests {
 
     #[test]
     fn test_should_auto_continue_no_tools_no_errors() {
-        // Nothing special - no auto-continue
+        // No tools ever executed, no errors → no auto-continue
         assert_eq!(should_auto_continue(true, false, false, false, false, false, 0, None, 0), None);
         assert_eq!(should_auto_continue(false, false, false, false, false, false, 0, None, 0), None);
     }
