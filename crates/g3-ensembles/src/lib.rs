@@ -10,6 +10,7 @@
 
 pub mod dytopo;
 pub mod flock;
+pub mod communication;
 pub mod status;
 pub mod workflow;
 mod tests;
