@@ -242,6 +242,33 @@ fn find_last_tool_call_start(text: &str) -> Option<usize> {
     find_tool_call_start(text, true)
 }
 
+/// Find the first tool call pattern anywhere in text (no own-line requirement).
+/// Used at stream end where we have the full buffer and can validate JSON completely.
+fn find_first_tool_call_start_relaxed(text: &str) -> Option<usize> {
+    let mut best: Option<usize> = None;
+    for pattern in TOOL_CALL_PATTERNS {
+        if let Some(pos) = text.find(pattern) {
+            if best.map_or(true, |b| pos < b) {
+                best = Some(pos);
+            }
+        }
+    }
+    best
+}
+
+/// Find the last tool call pattern anywhere in text (no own-line requirement).
+fn find_last_tool_call_start_relaxed(text: &str) -> Option<usize> {
+    let mut best: Option<usize> = None;
+    for pattern in TOOL_CALL_PATTERNS {
+        if let Some(pos) = text.rfind(pattern) {
+            if best.map_or(true, |b| pos > b) {
+                best = Some(pos);
+            }
+        }
+    }
+    best
+}
+
 /// Find a tool call pattern on its own line. If `find_last`, search backwards.
 fn find_tool_call_start(text: &str, find_last: bool) -> Option<usize> {
     let mut best_pos: Option<usize> = None;
@@ -436,7 +463,9 @@ impl StreamingToolParser {
         while search_start < self.text_buffer.len() {
             let search_text = &self.text_buffer[search_start..];
 
-            let Some(relative_pos) = find_first_tool_call_start(search_text) else {
+            // At stream end, use relaxed matching (no own-line requirement).
+            // False positives are prevented by JSON validation + prose fragment check.
+            let Some(relative_pos) = find_first_tool_call_start_relaxed(search_text) else {
                 break;
             };
 
@@ -476,6 +505,51 @@ impl StreamingToolParser {
         Some(tool_call)
     }
 
+    /// Get text content with all detected JSON tool calls stripped out.
+    /// Useful for building context messages where the tool call JSON would be duplicated.
+    pub fn get_text_without_tool_calls(&self) -> String {
+        let fence_ranges = find_code_fence_ranges(&self.text_buffer);
+        let mut ranges_to_remove: Vec<(usize, usize)> = Vec::new();
+        let mut search_start = 0;
+
+        while search_start < self.text_buffer.len() {
+            let search_text = &self.text_buffer[search_start..];
+            let Some(relative_pos) = find_first_tool_call_start_relaxed(search_text) else {
+                break;
+            };
+            let abs_start = search_start + relative_pos;
+
+            if is_position_in_fence_ranges(abs_start, &fence_ranges) {
+                search_start = abs_start + 1;
+                continue;
+            }
+
+            let json_text = &self.text_buffer[abs_start..];
+            let Some(end_pos) = find_json_object_end(json_text) else {
+                break;
+            };
+
+            let json_str = &json_text[..=end_pos];
+            if self.try_parse_tool_call_json(json_str).is_some() {
+                ranges_to_remove.push((abs_start, abs_start + end_pos + 1));
+            }
+            search_start = abs_start + end_pos + 1;
+        }
+
+        if ranges_to_remove.is_empty() {
+            return self.text_buffer.clone();
+        }
+
+        let mut result = String::with_capacity(self.text_buffer.len());
+        let mut pos = 0;
+        for (start, end) in &ranges_to_remove {
+            result.push_str(&self.text_buffer[pos..*start]);
+            pos = *end;
+        }
+        result.push_str(&self.text_buffer[pos..]);
+        result
+    }
+
     // --- Public Accessors ---
     pub fn get_text_content(&self) -> &str {
         &self.text_buffer
@@ -510,7 +584,8 @@ impl StreamingToolParser {
 
     pub fn has_unexecuted_tool_call(&self) -> bool {
         let unchecked_buffer = &self.text_buffer[self.last_consumed_position..];
-        let Some(start_pos) = find_last_tool_call_start(unchecked_buffer) else {
+        // Use relaxed matching so inline tool calls (e.g. "text:{"tool":...}") are detected
+        let Some(start_pos) = find_last_tool_call_start_relaxed(unchecked_buffer) else {
             return false;
         };
 
@@ -809,6 +884,79 @@ Some text after"#;
         // could be a valid nested object. We only invalidate when we see a NEW tool call pattern.
         // This is intentional - we don't want to break valid nested JSON.
         assert!(!invalidated2, "Bare {{ after newline is valid JSON continuation");
+    }
+
+    #[test]
+    fn test_inline_tool_call_detected_at_stream_end() {
+        // Models like glm-5 output tool calls inline with prose
+        let mut parser = StreamingToolParser::new();
+
+        let content = r#"Now the executor:{"tool": "shell", "args": {"command": "ls"}}"#;
+
+        let chunk = g3_providers::CompletionChunk {
+            content: content.to_string(),
+            finished: true,
+            tool_calls: None,
+            usage: None,
+            stop_reason: None,
+            tool_call_streaming: None,
+            reasoning_content: None,
+        };
+
+        let tools = parser.process_chunk(&chunk);
+        assert_eq!(tools.len(), 1, "Inline tool call should be detected at stream end");
+        assert_eq!(tools[0].args["command"], "ls");
+    }
+
+    #[test]
+    fn test_inline_tool_call_inside_code_fence_skipped() {
+        let mut parser = StreamingToolParser::new();
+
+        let content = "Example:\n```json\ntext:{\"tool\": \"shell\", \"args\": {\"command\": \"ls\"}}\n```\nDone.";
+
+        let chunk = g3_providers::CompletionChunk {
+            content: content.to_string(),
+            finished: true,
+            tool_calls: None,
+            usage: None,
+            stop_reason: None,
+            tool_call_streaming: None,
+            reasoning_content: None,
+        };
+
+        let tools = parser.process_chunk(&chunk);
+        assert!(tools.is_empty(), "Inline tool call inside code fence should be skipped");
+    }
+
+    #[test]
+    fn test_has_unexecuted_tool_call_inline() {
+        let mut parser = StreamingToolParser::new();
+        parser.text_buffer = r#"prefix:{"tool": "shell", "args": {"command": "ls"}}"#.to_string();
+        assert!(parser.has_unexecuted_tool_call(), "Should detect inline unexecuted tool call");
+    }
+
+    #[test]
+    fn test_get_text_without_tool_calls_inline() {
+        let mut parser = StreamingToolParser::new();
+        parser.text_buffer = r#"All tests pass. Let me run:{"tool": "shell", "args": {"command": "ls"}} done"#.to_string();
+        let cleaned = parser.get_text_without_tool_calls();
+        assert_eq!(cleaned, "All tests pass. Let me run: done");
+        assert!(!cleaned.contains("tool"));
+    }
+
+    #[test]
+    fn test_get_text_without_tool_calls_own_line() {
+        let mut parser = StreamingToolParser::new();
+        parser.text_buffer = "Some text\n{\"tool\": \"shell\", \"args\": {\"command\": \"ls\"}}\nMore text".to_string();
+        let cleaned = parser.get_text_without_tool_calls();
+        assert_eq!(cleaned, "Some text\n\nMore text");
+    }
+
+    #[test]
+    fn test_relaxed_finder() {
+        let text = r#"some text:{"tool": "shell"} more"#;
+        assert!(find_first_tool_call_start_relaxed(text).is_some());
+        assert!(find_first_tool_call_start(text).is_none(), "Strict should reject inline");
     }
 
     #[test]

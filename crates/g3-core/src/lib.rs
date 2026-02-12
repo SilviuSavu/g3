@@ -2661,7 +2661,7 @@ Skip if nothing new. Be brief."#;
                             let already_displayed_chars = iter.current_response.chars().count();
                             let text_content = iter.parser.get_text_content();
                             let clean_content = streaming::clean_llm_tokens(&text_content);
-                            let raw_content_for_log = clean_content.clone();
+                            let _raw_content_for_log = clean_content.clone();
                             let filtered_content =
                                 self.ui_writer.filter_json_tool_calls(&clean_content);
                             let final_display_content = filtered_content.trim();
@@ -2795,13 +2795,19 @@ Skip if nothing new. Be brief."#;
                             // Only include the text prefix for the FIRST tool call in a multi-tool response.
                             // For subsequent tools, iter.tool_executed is already true, so we skip the text
                             // to avoid duplicating the same text in the context window for every tool call.
-                            let include_text = !raw_content_for_log.trim().is_empty() && !iter.tool_executed;
+                            // Strip inline tool call JSON from text for context storage.
+                            // The raw text may contain inline tool call JSON (e.g. "text:{"tool":...}")
+                            // which would duplicate the formatted tool call we append below.
+                            let text_for_context = iter.parser.get_text_without_tool_calls();
+                            let text_for_context = streaming::clean_llm_tokens(&text_for_context);
+                            let text_for_context = text_for_context.trim();
+                            let include_text = !text_for_context.is_empty() && !iter.tool_executed;
                             let tool_message = if include_text {
                                 Message::new(
                                     MessageRole::Assistant,
                                     format!(
                                         "{}\n\n{{\"tool\": \"{}\", \"args\": {}}}",
-                                        raw_content_for_log.trim(),
+                                        text_for_context,
                                         tool_call.tool,
                                         tool_call.args
                                     ),
@@ -3249,19 +3255,18 @@ Skip if nothing new. Be brief."#;
                         }
                     ));
 
-                    // Save the current response to context before continuing
+                    // Save the current response to context before continuing.
+                    // Strip inline tool call JSON to prevent the model from seeing its own
+                    // raw JSON output and getting confused on subsequent turns.
                     if !iter.current_response.trim().is_empty() && !state.assistant_message_added {
-                        let raw_text = iter.parser.get_text_content();
-                        let raw_clean = streaming::clean_llm_tokens(&raw_text);
-                        let content_to_save = if !raw_clean.trim().is_empty() {
-                            raw_clean
-                        } else {
-                            iter.current_response.clone()
-                        };
-                        let assistant_message =
-                            Message::new(MessageRole::Assistant, content_to_save);
-                        self.context_window.add_message(assistant_message);
-                        state.assistant_message_added = true;
+                        let clean_text = iter.parser.get_text_without_tool_calls();
+                        let clean_text = streaming::clean_llm_tokens(&clean_text);
+                        if !clean_text.trim().is_empty() {
+                            let assistant_message =
+                                Message::new(MessageRole::Assistant, clean_text);
+                            self.context_window.add_message(assistant_message);
+                            state.assistant_message_added = true;
+                        }
                     }
 
                     // Add a continuation prompt so the LLM knows to keep going
