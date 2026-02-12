@@ -9,6 +9,7 @@
 
 pub mod builder;
 pub mod approval;
+pub mod dag;
 pub mod checkpoint;
 pub mod condition;
 pub mod executor;
@@ -24,6 +25,7 @@ pub use approval::{
     TimeoutAction, ApprovalHandler, CliApprovalInterface,
 };
 pub use executor::{WorkflowExecutor, WorkflowOutcome};
+pub use dag::{Dag, DagExecutor, DagNode, ParallelConfig};
 pub use visualize::{to_mermaid, to_mermaid_with_state, to_ascii, state_summary};
 pub use node::{Node, NodeConfig};
 pub use state::WorkflowState;
