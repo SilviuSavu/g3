@@ -159,6 +159,8 @@ pub struct Agent<W: UiWriter> {
     agent_name: Option<String>,
     /// Whether auto-memory reminders are enabled (--auto-memory flag)
     auto_memory: bool,
+    /// Turns since last auto-memory reminder (rate limiting)
+    auto_memory_turns_since_reminder: u32,
     /// Whether aggressive context dehydration is enabled (--acd flag)
     acd_enabled: bool,
     /// Manager for async research tasks
@@ -239,6 +241,7 @@ impl<W: UiWriter> Agent<W> {
             is_agent_mode: false,
             agent_name: None,
             auto_memory: false,
+            auto_memory_turns_since_reminder: 0,
             acd_enabled: false,
             pending_research_manager: pending_research::PendingResearchManager::new(),
             zai_tools_client,
@@ -2103,8 +2106,21 @@ impl<W: UiWriter> Agent<W> {
                 "\n📝 Auto-memory: 'remember' already called, skipping reminder.\n",
             );
             self.tool_calls_this_turn.clear();
+            self.auto_memory_turns_since_reminder = 0;
             return Ok(false);
         }
+
+        // Rate limit: only send reminder every 5 turns to avoid bloating memory
+        self.auto_memory_turns_since_reminder += 1;
+        if self.auto_memory_turns_since_reminder < 5 {
+            debug!(
+                "Auto-memory: Rate limited ({}/5 turns since last reminder)",
+                self.auto_memory_turns_since_reminder
+            );
+            self.tool_calls_this_turn.clear();
+            return Ok(false);
+        }
+        self.auto_memory_turns_since_reminder = 0;
 
         // Take the tools list and reset for next turn
         let tools_called = std::mem::take(&mut self.tool_calls_this_turn);
@@ -2124,37 +2140,15 @@ impl<W: UiWriter> Agent<W> {
         // Reset JSON filter state so it starts fresh for this response
         self.ui_writer.reset_json_filter();
 
-        let reminder = r#"MEMORY CHECKPOINT: If you discovered code locations worth remembering, call `remember` now.
+        let reminder = r#"MEMORY CHECKPOINT: If you discovered important code locations or patterns, call `remember` now.
 
-Use this rich format:
+Format: Use `### Section Name` headers. Keep entries brief - function names and purpose only, no line numbers or byte ranges.
 
-### Feature Name
-Brief description of what this feature/subsystem does.
+Example:
+### Error Handling
+- `crates/g3-core/src/error.rs` - `AgentError` enum, `handle_tool_error()` retries with backoff
 
-- `path/to/file.rs`
-  - `FunctionName()` [1200..1450] - what it does, key params/return
-  - `StructName` [500..650] - purpose, key fields
-  - `related_function()` - how it connects
-
-### Pattern Name
-When to use this pattern and why.
-
-1. First step
-2. Second step
-3. Key gotcha or tip
-
-Example of a good entry:
-
-### Session Continuation
-Save/restore session state across g3 invocations using symlink-based approach.
-
-- `crates/g3-core/src/session_continuation.rs`
-  - `SessionContinuation` [850..2100] - artifact struct with session state, TODO snapshot, context %
-  - `save_continuation()` [5765..7200] - saves to `.g3/sessions/<id>/latest.json`, updates symlink
-  - `load_continuation()` [7250..8900] - follows `.g3/session` symlink to restore
-  - `find_incomplete_agent_session()` [10500..13200] - finds sessions with incomplete TODOs for agent resume
-
-Skip if nothing new. Be brief."#;
+Skip if nothing new was discovered. Do NOT repeat information already in memory."#;
 
         // Add the reminder as a user message and get a response
         self.context_window
